@@ -3,30 +3,78 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
+// Enum for plan names (managed in code due to SQLite limitations)
+// enum Plan {
+//   FREE
+//   BASIC     // 499kr, 100 credits
+//   PRO       // 999kr, 250 credits
+//   PREMIUM   // 1499kr, 400 credits
+// }
+
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  name          String?
-  image         String?
-  credits       Int      @default(30)
-  plan          Plan     @default(FREE)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  creations     Creation[]
-  // OAuth fields
-  accounts      Account[]
-  sessions      Session[]
+  id                  String    @id @default(cuid())
+  email               String    @unique
+  name                String?
+  image               String?
+  credits             Int       @default(30)       // Initial credits for FREE plan
+  plan                String    @default("FREE")   // e.g., "FREE", "BASIC", "PRO", "PREMIUM"
+  stripeCustomerId    String?   @unique
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  accounts            Account[]
+  sessions            Session[]
+  ads                 Ad[]
+  subscriptions       Subscription[]
+  creations           Creation[]
 }
 
-enum Plan {
-  FREE
-  BASIC
-  PRO
-  PREMIUM
+model Subscription {
+  id                      String    @id @default(cuid())
+  userId                  String
+  user                    User      @relation(fields: [userId], references: [id])
+  stripeSubscriptionId    String    @unique
+  stripePriceId           String    // From Stripe Dashboard
+  status                  String    // e.g., "active", "canceled", "incomplete", "past_due"
+  currentPeriodStart      DateTime
+  currentPeriodEnd        DateTime
+  cancelAtPeriodEnd       Boolean?  @default(false)
+  canceledAt              DateTime?
+  trialStart              DateTime?
+  trialEnd                DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+}
+
+model Ad {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  productUrl      String?
+  summary         String?
+  brandName       String?
+  logoUrl         String?
+  description     String?
+  selectedImages  String?
+  selectedVideos  String?
+  showPromo       Boolean?  @default(false)
+  originalPrice   String?
+  promoPrice      String?
+  promoDetails    String?
+  format          String?
+  duration        Int?
+  language        String?
+  audience        String?
+  script          String?
+  avatarId        Int?
+  templateId      Int?
+  finalVideoUrl   String?
+  isWatermarked   Boolean   @default(true)
 }
 
 model Creation {
@@ -36,7 +84,7 @@ model Creation {
   title       String
   description String
   videoUrl    String?
-  assets      Json
+  assets      String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   watermarked Boolean  @default(true)
