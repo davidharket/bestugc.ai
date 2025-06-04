@@ -7,7 +7,7 @@ const openai = new OpenAI({
 
 const systemPrompts: Record<string, string> = {
   cta: 'Write a short, engaging video ad script with a strong call to action. Focus on the product benefits and end with a clear CTA.',
-  lifestyle: 'Write a video ad script that tells a product lifestyle story. Show how the product fits into the customer's life.',
+  lifestyle: 'Write a video ad script that tells a product lifestyle story. Show how the product fits into the customer\'s life.',
   brand: 'Write a video ad script that highlights the brand story and values, connecting emotionally with the audience.',
   trending: 'Write a video ad script that uses a trending topic or meme style to promote the product in a fun, viral way.',
 }

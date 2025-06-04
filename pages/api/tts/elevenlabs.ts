@@ -1,6 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 // import { ElevenLabsClient } from "elevenlabs"; // Official SDK, if available and preferred
-import axios from 'axios'; // Or use the official SDK
+import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
 
 // const elevenlabs = new ElevenLabsClient({
 //   apiKey: process.env.ELEVENLABS_API_KEY,
@@ -42,40 +45,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
       {
         text: text,
-        model_id: modelId, // e.g., 'eleven_multilingual_v2' or 'eleven_turbo_v2'
+        model_id: modelId,
         voice_settings: {
           stability: 0.5,
           similarity_boost: 0.75,
         },
-        // language_code: language, // Some models might take language code directly
       },
       {
         headers: {
           'Content-Type': 'application/json',
           'xi-api-key': ELEVENLABS_API_KEY,
-          'Accept': 'audio/mpeg', // Requesting audio directly
+          'Accept': 'audio/mpeg',
         },
-        responseType: 'arraybuffer', // To receive audio data
+        responseType: 'arraybuffer',
       }
     );
 
-    // Option 1: Stream audio back (complex for this example, requires changing responseType and handling)
-    // Option 2: Save to a file on your server and return the URL (requires fs access and public folder setup)
-    // For this example, let's imagine we saved it and got a URL.
-    // This part needs actual implementation for saving the file and generating a publicly accessible URL.
-    // E.g., save to `public/generated_audio/some_id.mp3` then return `/generated_audio/some_id.mp3`
-    
-    // const audioBuffer = Buffer.from(response.data);
-    // const fileName = `tts_${Date.now()}.mp3`;
-    // const filePath = path.join(process.cwd(), 'public', 'generated_audio', fileName);
-    // await fs.promises.writeFile(filePath, audioBuffer);
-    // const audioUrl = `/generated_audio/${fileName}`;
+    const audioBuffer = Buffer.from(response.data);
+    const fileName = `tts_${crypto.randomBytes(8).toString('hex')}.mp3`;
+    const outputDir = path.join(process.cwd(), 'public', 'generated_audio');
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+    const filePath = path.join(outputDir, fileName);
+    await fs.promises.writeFile(filePath, audioBuffer);
+    const audioUrl = `/generated_audio/${fileName}`;
 
-    // For now, as a placeholder since saving file and managing public URLs is involved:
-    // In a real scenario, you would upload this to a bucket or serve it from your file system.
-    // The ElevenLabs API might also have options for returning a temporary URL or streaming.
-    console.log("ElevenLabs API call successful (simulated actual audio data handling)");
-    res.status(200).json({ audioUrl: '/audio/placeholder_tts.mp3' }); // Placeholder URL
+    res.status(200).json({ audioUrl });
 
   } catch (error: any) {
     console.error('ElevenLabs API error:', error.response?.data || error.message);
