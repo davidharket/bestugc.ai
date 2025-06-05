@@ -70,17 +70,16 @@ export default function GeneralSettingsPage() {
   };
 
   const handleDeleteAccount = async () => {
-    // This is a placeholder. Actual deletion is a sensitive operation.
-    if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-      setMessage({ type: 'error', text: 'Account deletion is not yet implemented.' });
-      // try {
-      //   setIsLoading(true);
-      //   await axios.post('/api/user/delete-account');
-      //   signOut({ callbackUrl: '/' }); // Sign out after deletion
-      // } catch (err: any) {
-      //   setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to delete account.' });
-      //   setIsLoading(false);
-      // }
+    if (!confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+      return;
+    }
+    try {
+      setIsLoading(true);
+      await axios.post('/api/user/delete-account');
+      signOut({ callbackUrl: '/' });
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.response?.data?.error || 'Failed to delete account.' });
+      setIsLoading(false);
     }
   };
 
