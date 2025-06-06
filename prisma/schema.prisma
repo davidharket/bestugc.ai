@@ -74,6 +74,7 @@ model Ad {
   script          String?
   avatarId        Int?
   templateId      Int?
+  status          String   @default("PENDING")
   finalVideoUrl   String?
   isWatermarked   Boolean   @default(true)
 }
