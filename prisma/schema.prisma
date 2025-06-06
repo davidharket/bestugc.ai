@@ -18,6 +18,7 @@ datasource db {
 model User {
   id                  String    @id @default(cuid())
   email               String    @unique
+  emailVerified       DateTime?
   name                String?
   image               String?
   credits             Int       @default(30)       // Initial credits for FREE plan
@@ -113,4 +114,12 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
 } 

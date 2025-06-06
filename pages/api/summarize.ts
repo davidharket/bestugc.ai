@@ -1,13 +1,36 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import OpenAI from 'openai'
+import { AzureOpenAI } from 'openai'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+const {
+  AZURE_OPENAI_ENDPOINT,        // e.g., https://ai-david0274ai059635514133.openai.azure.com/
+  AZURE_OPENAI_API_KEY,         // Your Azure OpenAI API key
+  AZURE_OPENAI_DEPLOYMENT_NAME, // The name of your deployment, e.g., "gpt-4o"
+  AZURE_OPENAI_API_VERSION = '2025-01-01-preview', // The API version from your endpoint details
+} = process.env;
+
+// We need to check for these variables to ensure the API call can be made.
+if (!AZURE_OPENAI_ENDPOINT || !AZURE_OPENAI_API_KEY || !AZURE_OPENAI_DEPLOYMENT_NAME) {
+  // This error will be thrown when the server starts if the variables are not set,
+  // preventing the API route from being called with an uninitialized client.
+  throw new Error("Azure OpenAI environment variables are not properly configured. Please check your .env.local file for AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, and AZURE_OPENAI_DEPLOYMENT_NAME.");
+}
+
+const client = new AzureOpenAI({
+  endpoint: AZURE_OPENAI_ENDPOINT,
+  apiKey: AZURE_OPENAI_API_KEY,
+  apiVersion: AZURE_OPENAI_API_VERSION,
+  deployment: AZURE_OPENAI_DEPLOYMENT_NAME, // The deployment name is passed here
+});
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
+  }
+
+  // Type guard to ensure the environment variable is available and satisfies the model type.
+  if (!AZURE_OPENAI_DEPLOYMENT_NAME) {
+    console.error('Azure OpenAI Deployment Name is not configured.');
+    return res.status(500).json({ error: 'Server configuration error.' });
   }
 
   const { text } = req.body
@@ -16,18 +39,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
+    const completion = await client.chat.completions.create({
+      // The `model` property is required by the SDK's type definitions.
+      // Its value should be the deployment name, which is now guaranteed to be a string.
+      model: AZURE_OPENAI_DEPLOYMENT_NAME,
       messages: [
-        { role: 'system', content: 'Summarize the following product information for an ad. Focus on key features, benefits, and what makes it appealing to customers.' },
+        { role: 'system', content: 'Provide an accurate and factual summary of the following product information. Focus on describing the product and its features clearly and objectively. Do not use sales language, persuasion, or emojis. End with a complete sentence.' },
         { role: 'user', content: text },
       ],
-      max_tokens: 200,
+      max_tokens: 500,
       temperature: 0.7,
     })
     const summary = completion.choices[0]?.message?.content || ''
     res.status(200).json({ summary })
   } catch (error: any) {
-    res.status(500).json({ error: 'Failed to summarize', details: error.message })
+    console.error('Azure OpenAI Error:', error);
+    res.status(500).json({ error: 'Failed to summarize with Azure OpenAI', details: error.message })
   }
 } 

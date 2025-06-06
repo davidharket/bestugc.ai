@@ -1,8 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import OpenAI from 'openai';
+import { AzureOpenAI } from 'openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+const openai = new AzureOpenAI({
+  endpoint: process.env.AZURE_OPENAI_ENDPOINT!,
+  apiKey: process.env.AZURE_OPENAI_API_KEY!,
+  apiVersion: process.env.AZURE_OPENAI_API_VERSION!,
+  deployment: process.env.AZURE_OPENAI_DEPLOYMENT_NAME!,
 });
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -23,56 +26,56 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: process.env.AZURE_OPENAI_DEPLOYMENT_NAME!,
       messages: [
         {
           role: 'system',
-          content: 'You are an expert marketing assistant. Based on the following product information, generate 5 distinct target audience suggestions for an ad campaign. Each suggestion should be concise (3-7 words). Return the suggestions as a JSON array of strings. For example: ["Tech-savvy millennials", "Budget-conscious students", "Luxury car owners"]',
+          content: 'You are an expert marketing assistant. Based on the following product information, generate 5 distinct target audience suggestions for an ad campaign. Each suggestion should be concise (3-7 words). Use the function call to return the suggestions as a JSON array of strings.'
         },
         { role: 'user', content: userContent },
       ],
-      max_tokens: 150,
+      max_tokens: 300,
       temperature: 0.7,
-      // response_format: { type: "json_object" }, // Enable if model and library version support reliable JSON mode
+      functions: [
+        {
+          name: 'suggest_audiences',
+          description: 'Suggest 5 concise target audiences for an ad campaign as an array of strings.',
+          parameters: {
+            type: 'object',
+            properties: {
+              audiences: {
+                type: 'array',
+                items: {
+                  type: 'string',
+                  description: 'A concise audience description (3-7 words)'
+                },
+                minItems: 5,
+                maxItems: 5,
+                description: 'An array of 5 concise audience suggestions.'
+              }
+            },
+            required: ['audiences']
+          }
+        }
+      ],
+      function_call: { name: 'suggest_audiences' },
     });
 
     let suggestions: string[] = [];
-    const rawResponse = completion.choices[0]?.message?.content;
-
-    if (rawResponse) {
+    const functionCall = completion.choices[0]?.message?.function_call;
+    if (functionCall && functionCall.arguments) {
       try {
-        // Attempt to parse the response as JSON array of strings
-        const parsed = JSON.parse(rawResponse);
-        if (Array.isArray(parsed) && parsed.every(s => typeof s === 'string')) {
-          suggestions = parsed;
+        const args = JSON.parse(functionCall.arguments);
+        if (Array.isArray(args.audiences) && args.audiences.every((s: string) => typeof s === 'string')) {
+          suggestions = args.audiences;
         } else {
-          // If parsing succeeds but it's not an array of strings, fall back to text processing.
-          console.warn('AI response was JSON but not an array of strings, attempting text fallback:', rawResponse);
-          // Fallback will be handled below if suggestions is still empty
+          return res.status(500).json({ error: 'AI did not return a valid array of audience strings.' });
         }
       } catch (e) {
-        // If JSON.parse fails, it means the response is likely plain text.
-        // console.warn('Failed to parse AI response as JSON, will attempt text fallback:', rawResponse);
-        // Fallback will be handled below
+        return res.status(500).json({ error: 'Failed to parse AI function call arguments.' });
       }
-
-      // If JSON parsing failed or resulted in an incorrect type, try text-based list parsing
-      if (suggestions.length === 0) {
-        console.log('Attempting text-based list parsing for AI response.');
-        suggestions = rawResponse
-          .split('\n')
-          .map(s => s.replace(/^- |^\* |^\d+\.\s*/, '').trim()) // Remove common list markers (-, *, 1.)
-          .filter(s => s.length > 2 && s.length < 70); // Basic filtering for relevance and length
-      }
-      
-      // Ensure we only return up to 5 suggestions if fallback generated more
-      suggestions = suggestions.slice(0, 5);
-    }
-    
-    // Final check: if still no suggestions but there was a raw response, split it as a last resort.
-    if (suggestions.length === 0 && rawResponse) {
-        console.warn('All parsing failed, using raw lines from AI response as a final attempt.');
-        suggestions = rawResponse.split('\n').map(s => s.trim()).filter(s => s.length > 0 && s.length < 70).slice(0,5);
+    } else {
+      return res.status(500).json({ error: 'No function call response from AI.' });
     }
 
     res.status(200).json({ suggestions });

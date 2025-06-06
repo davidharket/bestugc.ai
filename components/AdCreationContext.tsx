@@ -17,6 +17,7 @@ export interface AdCreationData {
   language?: string
   audience?: string
   script?: string
+  scripts?: { [key: string]: string }
   avatarId?: number
   templateId?: number
 }

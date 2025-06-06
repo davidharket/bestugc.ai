@@ -2,7 +2,10 @@ import NextAuth, { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import GitHubProvider from 'next-auth/providers/github'
 import AppleProvider from 'next-auth/providers/apple'
+import EmailProvider from 'next-auth/providers/email'
 import { PrismaClient } from "@prisma/client"
+import { PrismaAdapter } from "@next-auth/prisma-adapter"
+import nodemailer from 'nodemailer'
 // Import PrismaAdapter and prisma instance if you plan to use it
 // import { PrismaAdapter } from "@next-auth/prisma-adapter"
 // const prisma = new PrismaClient()
@@ -10,8 +13,30 @@ import { PrismaClient } from "@prisma/client"
 const prisma = new PrismaClient()
 
 export const authOptions: NextAuthOptions = {
-  // adapter: PrismaAdapter(prisma), // Uncomment if using Prisma for session/user management
+  adapter: PrismaAdapter(prisma),
   providers: [
+    EmailProvider({
+      async sendVerificationRequest({ identifier: email, url, provider }) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`\n📧 Magic Link for ${email}:\n${url}\n`);
+          // In development, we log the link to the console.
+          // NextAuth will handle the redirect to verifyRequest page automatically if this promise resolves.
+          return;
+        } else {
+          // Production: Send email using a real SMTP server
+          // This part requires EMAIL_SERVER_... and EMAIL_FROM to be set up.
+          const { host, port, auth } = provider.server;
+          const transport = nodemailer.createTransport({ host, port, auth });
+          await transport.sendMail({
+            to: email,
+            from: provider.from,
+            subject: `Sign in to YourApp`, // Customize your subject
+            text: `Sign in to YourApp by clicking this link:\n${url}\n`,
+            html: `<p>Sign in to YourApp by clicking this link: <a href="${url}">Sign In</a></p>`,
+          });
+        }
+      },
+    }),
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID || '',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
@@ -27,60 +52,33 @@ export const authOptions: NextAuthOptions = {
   ],
   pages: {
     signIn: '/auth/signin', // Path to your custom sign-in page
+    verifyRequest: '/auth/verify-request', // Recommended for EmailProvider
     // signOut: '/auth/signout', // (Optional) Path to a custom sign-out page
     // error: '/auth/error', // (Optional) Path to a custom error page
-    // verifyRequest: '/auth/verify-request', // (Optional) E.g. for email magic links
     // newUser: '/auth/new-user' // (Optional) New users will be directed here on first sign-in
   },
   session: {
     strategy: 'jwt',
   },
   callbacks: {
-    async jwt({ token, user, account }) {
-      // Initial sign-in
-      if (account && user) {
-        // Persist the user in your database or link account
-        // This is a simplified example; you might need more robust logic here
-        // especially for creating a user if they don't exist.
-        let dbUser = await prisma.user.findUnique({
-          where: { email: user.email! },
-        });
-
-        if (!dbUser && user.email) { // If user doesn't exist, create them (basic example)
-            // Ensure you have a way to create users if they sign in via OAuth for the first time
-            // This might involve collecting more details or having default values.
-            // For now, we are assuming the user is found or this part is handled elsewhere.
-            console.warn(`User with email ${user.email} not found, JWT token might be incomplete regarding DB data.`)
-        }
-
-        if (dbUser) {
-          token.id = dbUser.id;
-          token.plan = dbUser.plan;
-          token.credits = dbUser.credits;
-        } else if (user.id) { // Fallback to provider ID if no DB user found/created
-            token.id = user.id;
-            // plan and credits will be undefined here, session callback will set defaults
-        }
-        return token;
-      }
-
-      // Subsequent calls, token exists, ensure data is fresh or present
-      if (token.id && (typeof token.plan === 'undefined' || typeof token.credits === 'undefined')) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.id as string },
-        });
-        if (dbUser) {
-          token.plan = dbUser.plan;
-          token.credits = dbUser.credits;
-        }
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+        token.email = user.email;
+        // @ts-ignore // User from adapter might not have plan/credits directly typed yet
+        token.plan = user.plan;
+        // @ts-ignore
+        token.credits = user.credits;
       }
       return token;
     },
     async session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.id as string;
+        session.user.email = token.email as string;
         session.user.plan = token.plan || 'FREE'; // Default to FREE if not set
         session.user.credits = typeof token.credits === 'number' ? token.credits : 30; // Default credits
+        // session.user.name and session.user.image should be populated by the adapter.
       }
       return session;
     },

@@ -38,7 +38,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: html } = await axios.get(pageUrl, { timeout: 10000 })
     const $ = cheerio.load(html)
 
-    const text = $('body').text().replace(/\s+/g, ' ').trim()
+    // Remove script and style elements first to avoid their content in .text()
+    $('script, style, noscript, iframe, header, footer, nav, aside').remove();
+
+    // Attempt to get text from common main content areas
+    let mainContentText = '';
+    const mainSelectors = ['article', 'main', '.product-description', '.product-info', '.content'];
+    for (const selector of mainSelectors) {
+      if ($(selector).length) {
+        mainContentText = $(selector).text();
+        break; // Found a main content area, use it
+      }
+    }
+
+    // If no specific main content area found, fall back to body, but be more selective
+    if (!mainContentText.trim()) {
+        // Try to get all text nodes from the body and join them
+        // This is more robust than just body.text() as it can avoid some layout-related text
+        let bodyText = '';
+        $('body').find('*:not(script):not(style):not(noscript):not(iframe):not(header):not(footer):not(nav):not(aside)').each(function() {
+            $(this).contents().each(function() {
+                if (this.type === 'text') {
+                    bodyText += $(this).text().trim() + ' ';
+                }
+            });
+        });
+        mainContentText = bodyText;
+    }
+    
+    // Clean up the extracted text
+    const cleanedText = mainContentText.replace(/\s+/g, ' ').trim();
 
     const scrapeId = crypto.randomBytes(8).toString('hex')
     const baseUploadPath = path.join(process.cwd(), 'public', 'uploads', 'scraped', scrapeId)
@@ -47,7 +76,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const downloadedImages: string[] = []
     const imagePromises = $('img').map(async (_, el) => {
       const src = $(el).attr('src')
-      if (src) {
+      if (src && (src.startsWith('http://') || src.startsWith('https://'))) {
         try {
           const absoluteSrc = new URL(src, pageUrl).toString()
           const imageResponse = await axios.get(absoluteSrc, { responseType: 'arraybuffer', timeout: 5000 })
@@ -68,7 +97,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const downloadedVideos: string[] = []
     const videoPromises = $('video source[src], video[src]').map(async (_, el) => {
       let src = $(el).attr('src')
-      if (src) {
+      if (src && (src.startsWith('http://') || src.startsWith('https://'))) {
         try {
           const absoluteSrc = new URL(src, pageUrl).toString()
           // For videos, a more robust check for content type and size limit might be needed here.
@@ -88,7 +117,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await Promise.all(videoPromises)
 
     res.status(200).json({ 
-      text, 
+      text: cleanedText,
       images: downloadedImages, 
       videos: downloadedVideos, 
       scrapeId

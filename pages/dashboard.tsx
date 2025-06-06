@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import { useState, useEffect } from 'react'
 import { useAdCreation, AdCreationData } from '../components/AdCreationContext'
 import axios from 'axios'
+import toast from 'react-hot-toast'
 
 interface Ad extends AdCreationData {
   id: string
@@ -22,7 +23,6 @@ export default function Dashboard() {
   const [loadingLibrary, setLoadingLibrary] = useState(true)
   const [libraryError, setLibraryError] = useState<string | null>(null)
   const [isBillingLoading, setIsBillingLoading] = useState(false)
-  const [stripeMessage, setStripeMessage] = useState<{type: 'success' | 'error', text: string} | null>(null)
 
   useEffect(() => {
     const fetchAds = async () => {
@@ -43,31 +43,36 @@ export default function Dashboard() {
     fetchAds()
   }, [status])
 
-  // Effect to handle Stripe redirect query parameters
   useEffect(() => {
     if (router.isReady) {
-      const { payment_success, payment_canceled, session_id } = router.query;
+      const { payment_success, payment_canceled, session_id, error_message } = router.query;
       let shouldClearQuery = false;
 
       if (payment_success === 'true' && session_id) {
-        setStripeMessage({ type: 'success', text: 'Payment successful! Your account has been updated.' });
+        toast.success('Payment successful! Your account has been updated.');
         updateSession(); // Refetch session to get updated credits/plan
         shouldClearQuery = true;
       } else if (payment_canceled === 'true') {
-        setStripeMessage({ type: 'error', text: 'Payment canceled or failed. Please try again or contact support if the issue persists.' });
+        const message = Array.isArray(error_message) ? error_message[0] : error_message;
+        toast.error(message || 'Payment canceled or failed. Please try again.');
+        shouldClearQuery = true;
+      } else if (error_message) {
+        const message = Array.isArray(error_message) ? error_message[0] : error_message;
+        toast.error(message);
         shouldClearQuery = true;
       }
 
       if (shouldClearQuery) {
-        // Clean the query parameters from URL without reloading the page
         const { pathname, query } = router;
         delete query.payment_success;
         delete query.payment_canceled;
         delete query.session_id;
+        delete query.error_message;
         router.replace({ pathname, query }, undefined, { shallow: true });
       }
     }
-  }, [router.isReady, router.query, updateSession, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query]);
 
   if (status === 'loading') return <div className="p-8">Loading session...</div>
   if (status === 'unauthenticated' || !session?.user) {
@@ -187,12 +192,7 @@ export default function Dashboard() {
 
         <div className="mb-10 p-6 bg-white rounded-lg shadow">
             <h2 className="text-xl font-semibold mb-4">Manage Account & Billing</h2>
-            {libraryError && !stripeMessage && <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-[10px]">{libraryError}</div>}
-            {stripeMessage && (
-              <div className={`mb-4 p-3 rounded-[10px] text-sm ${stripeMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                {stripeMessage.text}
-              </div>
-            )}
+            {libraryError && <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-[10px]">{libraryError}</div>}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <div className="border p-4 rounded-md bg-gray-50">
                     <h3 className="font-semibold text-lg mb-2">Basic Plan</h3>

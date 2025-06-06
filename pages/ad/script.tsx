@@ -8,13 +8,15 @@ const scriptTypes = [
   { key: 'lifestyle', label: 'Product Lifestyle' },
   { key: 'brand', label: 'Brand Story' },
   { key: 'trending', label: 'Trending Topics' },
+  { key: 'custom', label: 'Custom' },
 ]
 
 export default function ScriptAd() {
   const router = useRouter()
   const { adData, setAdData } = useAdCreation()
   const [activeType, setActiveType] = useState('cta')
-  const [script, setScript] = useState(adData.script || '')
+  const [scripts, setScripts] = useState<{ [key: string]: string }>({})
+  const [script, setScript] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [customScript, setCustomScript] = useState('')
@@ -26,41 +28,42 @@ export default function ScriptAd() {
   const promoDetails = adData.promoDetails || ''
   const language = adData.language || 'en'
 
-  const handleGenerate = async (type: string) => {
+  const fetchAllScripts = async () => {
     setLoading(true)
     setError(null)
     setIsCustom(false)
     setCustomScript('')
     try {
       const res = await axios.post('/api/generate-script', {
-        promptType: type,
         summary,
         productName,
         brandName,
         promoDetails,
         language,
       })
-      setScript(res.data.script)
-      setAdData({ script: res.data.script })
+      setScripts(res.data.scripts || {})
+      setScript(res.data.scripts?.[activeType] || '')
+      setAdData({ scripts: res.data.scripts })
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to generate script')
+      setError(err.response?.data?.error || 'Failed to generate scripts')
+      setScripts({})
       setScript('')
     } finally {
       setLoading(false)
     }
   }
 
-  // Generate script when tab changes
-  const handleTab = (type: string) => {
-    setActiveType(type)
-    handleGenerate(type)
-  }
-
-  // On mount, generate the first script if not present
   useEffect(() => {
-    if (!adData.script) handleGenerate(activeType)
+    fetchAllScripts()
     // eslint-disable-next-line
   }, [])
+
+  const handleTab = (type: string) => {
+    setActiveType(type)
+    setIsCustom(false)
+    setCustomScript('')
+    setScript(scripts[type] || '')
+  }
 
   const handleCustom = () => {
     setIsCustom(true)
@@ -97,6 +100,13 @@ export default function ScriptAd() {
           type="button"
         >
           Custom
+        </button>
+        <button
+          className="ml-4 px-4 py-2 border rounded bg-yellow-500 text-white"
+          onClick={fetchAllScripts}
+          type="button"
+        >
+          Regenerate All
         </button>
       </div>
       {loading && <div className="mb-4 text-blue-600">Generating script...</div>}

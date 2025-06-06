@@ -1,7 +1,7 @@
 import { useRouter } from 'next/router'
 import { useEffect, useRef, useState } from 'react'
 import axios from 'axios'
-import { useAdCreation } from '../../components/AdCreationContext'
+import { useAdCreation, AdCreationData } from '../../components/AdCreationContext'
 
 interface ScrapeResult {
   text: string
@@ -41,12 +41,17 @@ export default function CreateAd() {
 
   useEffect(() => {
     if (router.isReady) {
-      const url = (router.query.productUrl as string | undefined) || adData.productUrl || undefined
-      setProductUrl(url || null)
-      setAdData({ productUrl: url })
+      const urlFromQuery = router.query.productUrl as string | undefined
+      const initialUrl = urlFromQuery || adData.productUrl || null
+      setProductUrl(initialUrl)
+      if (urlFromQuery) {
+        setAdData({ productUrl: urlFromQuery })
+      } else if (adData.productUrl && !initialUrl) {
+        setAdData({ productUrl: undefined })
+      }
     }
-    // eslint-disable-next-line
-  }, [router.isReady, router.query])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.productUrl])
 
   useEffect(() => {
     const fetchScrape = async () => {
@@ -56,9 +61,15 @@ export default function CreateAd() {
         setScrapeResult(null)
         setSummary('')
         setSummaryError(null)
+        setSelectedImages([])
+        setSelectedVideos([])
+        setUploadedImages([])
+        setUploadedVideos([])
         try {
           const res = await axios.post('/api/scrape', { url: productUrl })
           setScrapeResult(res.data)
+          if (res.data.images) setSelectedImages(prev => Array.from(new Set([...prev, ...res.data.images])))
+          if (res.data.videos) setSelectedVideos(prev => Array.from(new Set([...prev, ...res.data.videos])))
         } catch (err: any) {
           setError(err.response?.data?.error || 'Failed to scrape product page')
         } finally {
@@ -66,53 +77,59 @@ export default function CreateAd() {
         }
       }
     }
-    if (productUrl && !adData.summary) fetchScrape()
-    // eslint-disable-next-line
-  }, [productUrl])
+
+    if (productUrl && (productUrl !== adData.productUrl || !adData.summary)) {
+      fetchScrape()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productUrl, adData.productUrl, adData.summary])
 
   useEffect(() => {
     const fetchSummary = async () => {
-      if (scrapeResult && scrapeResult.text) {
+      if (scrapeResult && scrapeResult.text && !error) {
         setSummaryLoading(true)
         setSummaryError(null)
-        setSummary('')
         try {
           const res = await axios.post('/api/summarize', { text: scrapeResult.text })
           setSummary(res.data.summary)
-          setAdData({ summary: res.data.summary })
+          setAdData({ summary: res.data.summary, productUrl: productUrl || undefined })
         } catch (err: any) {
           setSummaryError(err.response?.data?.error || 'Failed to summarize product')
+          setSummary('')
         } finally {
           setSummaryLoading(false)
         }
       }
     }
-    if (scrapeResult && !adData.summary) fetchSummary()
-    // eslint-disable-next-line
-  }, [scrapeResult])
+    if (scrapeResult && !error) {
+      fetchSummary()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrapeResult, error, productUrl])
 
-  // Asset selection logic
   useEffect(() => {
     if (scrapeResult) {
-      setSelectedImages(scrapeResult.images)
-      setSelectedVideos(scrapeResult.videos)
+      if (scrapeResult.images) setSelectedImages(Array.from(new Set(scrapeResult.images)))
+      if (scrapeResult.videos) setSelectedVideos(Array.from(new Set(scrapeResult.videos)))
     }
   }, [scrapeResult])
 
   useEffect(() => {
-    setAdData({
+    const dataToSet: Partial<AdCreationData> = {
+      productUrl: productUrl || undefined,
+      summary: summary || undefined,
       selectedImages,
       selectedVideos,
-      brandName,
-      logoUrl,
-      summary,
-      showPromo,
-      originalPrice,
-      promoPrice,
-      promoDetails,
-    })
-    // eslint-disable-next-line
-  }, [selectedImages, selectedVideos, brandName, logoUrl, summary, showPromo, originalPrice, promoPrice, promoDetails])
+      brandName: brandName || undefined,
+      logoUrl: logoUrl || undefined,
+      showPromo: Boolean(showPromo),
+      originalPrice: originalPrice || undefined,
+      promoPrice: promoPrice || undefined,
+      promoDetails: promoDetails || undefined,
+    }
+    setAdData(dataToSet)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productUrl, summary, selectedImages, selectedVideos, brandName, logoUrl, showPromo, originalPrice, promoPrice, promoDetails])
 
   const handleImageSelect = (src: string) => {
     setSelectedImages(prev => prev.includes(src) ? prev.filter(i => i !== src) : [...prev, src])
@@ -121,37 +138,35 @@ export default function CreateAd() {
     setSelectedVideos(prev => prev.includes(src) ? prev.filter(i => i !== src) : [...prev, src])
   }
   const handleSelectAllImages = () => {
-    setSelectedImages([...(scrapeResult?.images || []), ...uploadedImages])
+    setSelectedImages(Array.from(new Set([...(scrapeResult?.images || []), ...uploadedImages])))
   }
   const handleDeselectAllImages = () => {
     setSelectedImages([])
   }
   const handleSelectAllVideos = () => {
-    setSelectedVideos([...(scrapeResult?.videos || []), ...uploadedVideos])
+    setSelectedVideos(Array.from(new Set([...(scrapeResult?.videos || []), ...uploadedVideos])))
   }
   const handleDeselectAllVideos = () => {
     setSelectedVideos([])
   }
 
-  // Upload handlers (simulate upload by creating object URLs)
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (files) {
       const urls = Array.from(files).map(file => URL.createObjectURL(file))
-      setUploadedImages(prev => [...prev, ...urls])
-      setSelectedImages(prev => [...prev, ...urls])
+      setUploadedImages(prev => Array.from(new Set([...prev, ...urls])))
+      setSelectedImages(prev => Array.from(new Set([...prev, ...urls])))
     }
   }
   const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (files) {
       const urls = Array.from(files).map(file => URL.createObjectURL(file))
-      setUploadedVideos(prev => [...prev, ...urls])
-      setSelectedVideos(prev => [...prev, ...urls])
+      setUploadedVideos(prev => Array.from(new Set([...prev, ...urls])))
+      setSelectedVideos(prev => Array.from(new Set([...prev, ...urls])))
     }
   }
 
-  // Promo suggestions logic
   useEffect(() => {
     if (showPromo) {
       const suggestions = [
@@ -171,30 +186,40 @@ export default function CreateAd() {
   }, [showPromo, originalPrice, promoPrice])
 
   return (
-    <div className="min-h-screen bg-white p-8">
-      <h1 className="text-2xl font-bold mb-4">Create Ad - Step 1</h1>
+    <div className="min-h-screen bg-white p-8 font-sans">
+      <h1 className="text-2xl font-bold mb-6 text-gray-800">Create Ad - Step 1</h1>
       {productUrl ? (
-        <div className="mb-4 text-green-700">Product URL detected: <span className="font-mono">{productUrl}</span><br/>The page will be scraped and summarized.</div>
+        <div className="mb-4 text-sm text-gray-700">
+          Product URL: <span className="font-mono text-indigo-600">{productUrl}</span>
+          {loading && <span className="ml-2 text-blue-600">Scraping page...</span>}
+          {!loading && !error && scrapeResult && !summaryLoading && summary && 
+            <span className="ml-2 text-green-600">✓ Content processed.</span>}
+        </div>
       ) : (
-        <div className="mb-4 text-gray-500">No product URL provided. Start from scratch.</div>
+        <div className="mb-4 text-sm text-gray-500">No product URL provided. You can start by describing your product below.</div>
       )}
-      {loading && <div className="mb-4 text-blue-600">Scraping product page...</div>}
-      {error && <div className="mb-4 text-red-600">{error}</div>}
-      {scrapeResult && (
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold mb-2">Scraped Product Description</h2>
-          <textarea className="w-full border rounded p-2 mb-4" rows={5} value={scrapeResult.text} readOnly />
+      
+      {error && <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md">Error scraping: {error}</div>}
+
+      {(productUrl && !error || !productUrl) && (
+        <div className="mb-6 p-4 border rounded-lg bg-gray-50 shadow">
+          <label htmlFor="aiSummaryTextarea" className="block text-lg font-semibold text-gray-700 mb-2">AI Product Summary</label>
+          {summaryLoading && <div className="mb-2 text-sm text-blue-600">Generating summary...</div>}
+          {summaryError && <div className="mb-2 p-2 bg-red-100 text-red-600 rounded-md text-sm">Failed to generate summary: {summaryError}</div>}
+          <textarea 
+            id="aiSummaryTextarea"
+            className="w-full border-gray-300 rounded-md p-2 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
+            rows={summary ? Math.max(4, summary.split('\n').length) : 4} 
+            value={summary} 
+            onChange={e => {setSummary(e.target.value); setAdData({ summary: e.target.value });}} 
+            maxLength={1000} 
+            placeholder={productUrl ? (loading ? "Processing URL..." : (scrapeResult ? "Summary will appear here..." : "Enter product URL above to generate summary, or describe your product here.")) : "Describe your product or service here..."}
+            disabled={summaryLoading || (productUrl && loading)}
+          />
+          <p className="text-xs text-gray-500 mt-1">Max 1000 characters. This will be used to generate ad scripts.</p>
         </div>
       )}
-      {scrapeResult && (
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold mb-2">AI Product Summary</h2>
-          {summaryLoading && <div className="mb-2 text-blue-600">Generating summary...</div>}
-          {summaryError && <div className="mb-2 text-red-600">{summaryError}</div>}
-          <textarea className="w-full border rounded p-2" rows={4} value={summary} onChange={e => setSummary(e.target.value)} maxLength={1000} placeholder="Summary will appear here..." />
-        </div>
-      )}
-      {/* Brand/Product Name & Logo */}
+
       <div className="mb-6">
         <h2 className="text-lg font-semibold mb-2">Add media and product details</h2>
         <div className="mb-2">
@@ -208,11 +233,20 @@ export default function CreateAd() {
         </div>
         <div className="mb-2">
           <label className="block font-medium mb-1">Product description</label>
-          <textarea className="w-full border rounded p-2" rows={4} value={summary} onChange={e => setSummary(e.target.value)} maxLength={1000} placeholder="Describe your product" />
+          <textarea 
+            className="w-full border rounded p-2" 
+            rows={4} 
+            value={summary} 
+            onChange={e => {
+              setSummary(e.target.value);
+              setAdData({ summary: e.target.value });
+            }} 
+            maxLength={1000} 
+            placeholder="Describe your product"
+          />
           <div className="text-right text-xs text-gray-500">{summary.length}/1000</div>
         </div>
       </div>
-      {/* Asset selection */}
       <div className="mb-6">
         <h2 className="text-lg font-semibold mb-2">Assets</h2>
         <div className="mb-2 text-sm text-gray-500">Confirm the assets you want to use. Higher-quality clips and images result in better results.</div>
@@ -226,7 +260,7 @@ export default function CreateAd() {
           {[...(scrapeResult?.images || []), ...uploadedImages].map((src, i) => (
             <div key={i} className={`border rounded p-1 ${selectedImages.includes(src) ? 'ring-2 ring-blue-500' : ''}`}
               onClick={() => handleImageSelect(src)}>
-              <img src={src} alt="Asset" className="w-20 h-20 object-cover cursor-pointer" />
+              <img src={src} alt={`Asset ${i+1}`} className="w-20 h-20 object-cover cursor-pointer" />
             </div>
           ))}
           <button className="border rounded p-1 w-20 h-20 flex items-center justify-center bg-gray-100 cursor-pointer" onClick={() => imageInputRef.current?.click()}>
@@ -247,7 +281,6 @@ export default function CreateAd() {
           </button>
         </div>
       </div>
-      {/* Promo info */}
       <div className="mb-6">
         <label className="flex items-center gap-2 mb-2">
           <input type="checkbox" checked={showPromo} onChange={e => setShowPromo(e.target.checked)} />
