@@ -10,6 +10,7 @@ interface Ad extends AdCreationData {
   userId: string
   createdAt: string
   updatedAt: string
+  status: string
   finalVideoUrl?: string
   isWatermarked?: boolean
 }
@@ -27,20 +28,21 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchAds = async () => {
       if (status === 'authenticated') {
-        setLoadingLibrary(true)
-        setLibraryError(null)
         try {
           const res = await axios.get<Ad[]>('/api/ads')
           setLibrary(res.data)
         } catch (e: any) {
-          console.error("Error fetching ads:", e)
+          console.error('Error fetching ads:', e)
           setLibraryError(e.response?.data?.error || 'Failed to load your creations.')
         } finally {
           setLoadingLibrary(false)
         }
       }
     }
+
     fetchAds()
+    const interval = setInterval(fetchAds, 15000)
+    return () => clearInterval(interval)
   }, [status])
 
   useEffect(() => {
@@ -245,9 +247,14 @@ export default function Dashboard() {
                     <h3 className="font-semibold mb-1">{ad.brandName || ad.productUrl || 'Untitled Ad'}</h3>
                     <p className="text-xs text-gray-500 mb-2">Created: {new Date(ad.createdAt).toLocaleDateString()}</p>
                     <div className="w-full h-32 bg-gray-200 rounded mb-2 flex items-center justify-center text-gray-400">
-                      {ad.finalVideoUrl ? <video src={ad.finalVideoUrl} className="w-full h-full object-cover" controls /> : '(Video Preview Placeholder)'}
+                      {ad.status === 'COMPLETED' && ad.finalVideoUrl && (
+                        <video src={ad.finalVideoUrl} className="w-full h-full object-cover" controls />
+                      )}
+                      {ad.status === 'PENDING' && 'Processing...'}
+                      {ad.status === 'RENDERING' && 'Rendering...'}
+                      {ad.status === 'FAILED' && 'Failed to render'}
                     </div>
-                    <p className="text-xs text-gray-400 mb-2">Format: {ad.format || 'N/A'}, Duration: {ad.duration || 'N/A'}s</p>
+                    <p className="text-xs text-gray-400 mb-2">Status: {ad.status}</p>
                   </div>
                 ))}
               </div>
