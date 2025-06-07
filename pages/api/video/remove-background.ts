@@ -1,63 +1,70 @@
-// pages/api/video/remove-background.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
 import axios from 'axios';
+import { promises as fs } from 'fs';
+import fsSync from 'fs';
+import path from 'path';
+import os from 'os';
+import { spawn } from 'child_process';
+import sharp from 'sharp';
+import { Rembg } from 'rembg';
 
-// NOTE: You would use a real background removal service API key
-const UNSCREEN_API_KEY = process.env.UNSCREEN_API_KEY; // Add this to your .env
+async function runFFmpeg(args: string[]): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const proc = spawn('ffmpeg', args, { stdio: 'ignore' });
+    proc.on('error', reject);
+    proc.on('exit', code => {
+      if (code === 0) resolve();
+      else reject(new Error(`ffmpeg exited with ${code}`));
+    });
+  });
+}
 
-// This is a simplified example. Real-world usage would involve
-// uploading a file or providing a URL and then polling for the result.
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-    if (req.method !== 'POST') {
-        return res.status(405).end();
-    }
+  if (req.method !== 'POST') {
+    return res.status(405).end();
+  }
 
-    const { videoUrl } = req.body;
-    if (!videoUrl) {
-        return res.status(400).json({ error: 'Missing videoUrl' });
-    }
+  const { videoUrl } = req.body as { videoUrl?: string };
+  if (!videoUrl) {
+    return res.status(400).json({ error: 'Missing videoUrl' });
+  }
 
-    if (!UNSCREEN_API_KEY) {
-        console.warn('UNSCREEN_API_KEY not set. Returning placeholder cutout video.');
-        // For development, you can create a placeholder video with a transparent background
-        // and place it in your /public folder.
-        return res.status(200).json({ cutoutVideoUrl: '/videos/placeholder-cutout.webm' });
-    }
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'bgremove-'));
+  const inputPath = path.join(tmpDir, 'input.mp4');
+  const framesDir = path.join(tmpDir, 'frames');
+  const outDir = path.join(tmpDir, 'out');
+  const outputPath = path.join(tmpDir, 'output.webm');
+  await fs.mkdir(framesDir);
+  await fs.mkdir(outDir);
 
-    try {
-        // Example using Unscreen's URL-based processing
-        const response = await axios.post(
-            'https://api.unscreen.com/v1.0/jobs',
-            {
-                input: videoUrl,
-                export: {
-                    format: 'webm', // WebM supports transparency
-                },
-            },
-            { headers: { 'X-Api-Key': UNSCREEN_API_KEY } }
-        );
+  const response = await axios.get(videoUrl, { responseType: 'stream' });
+  await new Promise<void>((resolve, reject) => {
+    const w = fsSync.createWriteStream(inputPath);
+    response.data.pipe(w);
+    w.on('finish', resolve);
+    w.on('error', reject);
+  });
 
-        // Polling for completion would be required here.
-        // For this example, we'll assume a simplified polling logic.
-        const pollUrl = response.data.links.self;
-        let jobResult;
-        for (let i = 0; i < 60; i++) { // Poll for 5 minutes
-            await new Promise(resolve => setTimeout(resolve, 5000));
-            const pollResponse = await axios.get(pollUrl, { headers: { 'X-Api-Key': UNSCREEN_API_KEY } });
-            if (pollResponse.data.status === 'done') {
-                jobResult = pollResponse.data;
-                break;
-            }
-        }
+  await runFFmpeg(['-i', inputPath, path.join(framesDir, 'frame_%05d.png')]);
 
-        if (!jobResult || !jobResult.result.url) {
-            throw new Error('Background removal job failed or timed out.');
-        }
+  const rembg = new Rembg();
+  const files = (await fs.readdir(framesDir)).filter(f => f.endsWith('.png')).sort();
+  for (const file of files) {
+    const img = sharp(path.join(framesDir, file));
+    const out = await rembg.remove(img);
+    await out.png().toFile(path.join(outDir, file));
+  }
 
-        res.status(200).json({ cutoutVideoUrl: jobResult.result.url });
+  await runFFmpeg(['-framerate', '30', '-i', path.join(outDir, 'frame_%05d.png'), '-c:v', 'libvpx-vp9', '-pix_fmt', 'yuva420p', outputPath]);
 
-    } catch (error: any) {
-        console.error('Background removal failed:', error.response?.data || error.message);
-        res.status(500).json({ error: 'Failed to remove video background' });
-    }
+  const publicDir = path.join(process.cwd(), 'public', 'videos');
+  if (!fsSync.existsSync(publicDir)) {
+    await fs.mkdir(publicDir, { recursive: true });
+  }
+  const finalName = `cutout-${Date.now()}.webm`;
+  await fs.rename(outputPath, path.join(publicDir, finalName));
+
+  res.status(200).json({ cutoutVideoUrl: `/videos/${finalName}` });
+
+  fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
 }
