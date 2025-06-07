@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { bundle } from '@remotion/bundler';
 import { getCompositions, renderMedia } from '@remotion/renderer';
 import path from 'path';
+import fs from 'fs';
 
 export default async function handler(
   req: NextApiRequest,
@@ -36,7 +37,11 @@ export default async function handler(
     }
 
     // 4. Render the video
-    const outputLocation = `public/renders/${adId}.mp4`;
+    const outputDir = path.join(process.cwd(), 'public', 'renders');
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+    const outputLocation = path.join(outputDir, `${adId}.mp4`);
     await renderMedia({
       composition,
       serveUrl: bundleLocation,
