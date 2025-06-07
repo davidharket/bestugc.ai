@@ -2,7 +2,7 @@ import { useRouter } from 'next/router'
 import { useState, useEffect } from 'react'
 import { useAdCreation } from '../../components/AdCreationContext'
 
-const avatars = [
+export const avatars = [
   { id: 1, src: '/avatars/female-blonde-adult-inside.mp4', gender: 'female', hair: 'blonde', number: 1, age: 'adult', location: 'inside', label: 'Female Blonde 1 (Adult, Inside)' },
   { id: 2, src: '/avatars/female-blonde2-adult-inside.mp4', gender: 'female', hair: 'blonde', number: 2, age: 'adult', location: 'inside', label: 'Female Blonde 2 (Adult, Inside)' },
   { id: 3, src: '/avatars/female-blonde3-adult-inside.mp4', gender: 'female', hair: 'blonde', number: 3, age: 'adult', location: 'inside', label: 'Female Blonde 3 (Adult, Inside)' },
@@ -11,7 +11,10 @@ const avatars = [
   { id: 6, src: '/avatars/female-brunette2-adult-inside.mp4', gender: 'female', hair: 'brunette', number: 2, age: 'adult', location: 'inside', label: 'Female Brunette 2 (Adult, Inside)' },
   { id: 7, src: '/avatars/female-brunette3-adult-inside.mp4', gender: 'female', hair: 'brunette', number: 3, age: 'adult', location: 'inside', label: 'Female Brunette 3 (Adult, Inside)' },
   { id: 8, src: '/avatars/female-blonde-senior-inside.mp4', gender: 'female', hair: 'blonde', number: 1, age: 'senior', location: 'inside', label: 'Female Blonde (Senior, Inside)' },
-  { id: 9, src: '/avatars/male-brunette-adult-inside.mp4', gender: 'male', hair: 'brunette', number: 1, age: 'adult', location: 'inside', label: 'Male Brunette (Adult, Inside)' },
+  { id: 9, src: '/avatars/male-brunette-adult-inside.mp4', gender: 'male', hair: 'brunette', number: 1, age: 'adult', location: 'inside', label: 'Male Brunette 1 (Adult, Inside)' },
+  { id: 10, src: '/avatars/male-brunette2-adult-inside.mp4', gender: 'male', hair: 'brunette', number: 2, age: 'adult', location: 'inside', label: 'Male Brunette 2 (Adult, Inside)' },
+  { id: 11, src: '/avatars/male-brunette3-adult-inside.mp4', gender: 'male', hair: 'brunette', number: 3, age: 'adult', location: 'inside', label: 'Male Brunette 3 (Adult, Inside)' },
+  { id: 12, src: '/avatars/male-blonde-adult-inside.mp4', gender: 'male', hair: 'blonde', number: 1, age: 'adult', location: 'inside', label: 'Male Blonde 1 (Adult, Inside)' },
 ]
 
 const genderOptions = ['male', 'female']
@@ -103,7 +106,6 @@ export default function AvatarAd() {
             <div className="w-full flex justify-center items-center" style={{ aspectRatio: '9/16', maxWidth: '100%' }}>
               <video 
                 src={a.src}
-                autoPlay
                 loop
                 muted
                 playsInline
@@ -111,6 +113,8 @@ export default function AvatarAd() {
                 disablePictureInPicture
                 controlsList="nodownload nofullscreen noremoteplayback"
                 style={{ width: '100%', height: 'auto', borderRadius: 8, objectFit: 'cover' }}
+                onMouseEnter={e => e.currentTarget.play()}
+                onMouseLeave={e => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
               />
             </div>
           </div>

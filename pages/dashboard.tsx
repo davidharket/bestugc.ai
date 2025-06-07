@@ -15,6 +15,56 @@ interface Ad extends AdCreationData {
   isWatermarked?: boolean
 }
 
+function AdCard({ ad }: { ad: Ad }) {
+  const renderStatus = () => {
+    switch (ad.status) {
+      case 'PENDING':
+      case 'RENDERING':
+        return (
+          <div className="flex flex-col items-center justify-center h-full bg-gray-100 rounded-lg p-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <p className="mt-2 text-sm text-gray-600">Processing...</p>
+            <p className="text-xs text-gray-400">Status: {ad.status}</p>
+          </div>
+        );
+      case 'COMPLETED':
+        return (
+          <video
+            src={ad.finalVideoUrl}
+            controls
+            className="w-full h-auto rounded-lg"
+            playsInline
+          />
+        );
+      case 'FAILED':
+        return (
+          <div className="flex flex-col items-center justify-center h-full bg-red-50 rounded-lg p-4">
+            <p className="font-semibold text-red-600">Failed</p>
+            <p className="text-sm text-gray-600">Something went wrong.</p>
+          </div>
+        );
+      default:
+        return (
+          <div className="flex flex-col items-center justify-center h-full bg-gray-100 rounded-lg p-4">
+            <p className="text-sm text-gray-600">Status: {ad.status || 'Unknown'}</p>
+          </div>
+        )
+    }
+  }
+
+  return (
+    <div className="border p-4 rounded-lg shadow-sm bg-white">
+      <div className="aspect-video mb-3">{renderStatus()}</div>
+      <h3 className="font-semibold truncate" title={ad.brandName || 'Ad'}>
+        {ad.brandName || `Ad #${ad.id.slice(0, 6)}`}
+      </h3>
+      <p className="text-xs text-gray-500">
+        Created on {new Date(ad.createdAt).toLocaleDateString()}
+      </p>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const { data: session, status, update: updateSession } = useSession()
   const router = useRouter()
@@ -193,6 +243,17 @@ export default function Dashboard() {
         </div>
 
         <div className="mb-10 p-6 bg-white rounded-lg shadow">
+          <h2 className="text-xl font-semibold mb-4">My Creations</h2>
+          {loadingLibrary && <p>Loading library...</p>}
+          {!loadingLibrary && library.length === 0 && <p>You haven&apos;t created any ads yet.</p>}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {library.map(ad => (
+              <AdCard key={ad.id} ad={ad} />
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-10 p-6 bg-white rounded-lg shadow">
             <h2 className="text-xl font-semibold mb-4">Manage Account & Billing</h2>
             {libraryError && <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-[10px]">{libraryError}</div>}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -232,33 +293,6 @@ export default function Dashboard() {
                     <button onClick={() => redirectToCheckout('credits', 'TOPUP_200')} disabled={isBillingLoading} className="w-full mt-2 bg-indigo-500 text-white py-2 px-3 rounded hover:bg-indigo-600 disabled:bg-gray-300">Buy 200 Credits</button>
                 </div>
             </div>
-        </div>
-
-        <div className="p-6 bg-white rounded-lg shadow">
-            <h2 className="text-xl font-semibold mb-4">Your Previous Creations</h2>
-            {loadingLibrary && <div className="text-center text-gray-500 py-4">Loading your creations...</div>}
-            {!loadingLibrary && !libraryError && library.length === 0 && (
-              <div className="border rounded p-4 text-gray-400">(No previous creations found. Create one above!)</div>
-            )}
-            {!loadingLibrary && !libraryError && library.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {library.map(ad => (
-                  <div key={ad.id} className="border rounded p-4 bg-white shadow">
-                    <h3 className="font-semibold mb-1">{ad.brandName || ad.productUrl || 'Untitled Ad'}</h3>
-                    <p className="text-xs text-gray-500 mb-2">Created: {new Date(ad.createdAt).toLocaleDateString()}</p>
-                    <div className="w-full h-32 bg-gray-200 rounded mb-2 flex items-center justify-center text-gray-400">
-                      {ad.status === 'COMPLETED' && ad.finalVideoUrl && (
-                        <video src={ad.finalVideoUrl} className="w-full h-full object-cover" controls />
-                      )}
-                      {ad.status === 'PENDING' && 'Processing...'}
-                      {ad.status === 'RENDERING' && 'Rendering...'}
-                      {ad.status === 'FAILED' && 'Failed to render'}
-                    </div>
-                    <p className="text-xs text-gray-400 mb-2">Status: {ad.status}</p>
-                  </div>
-                ))}
-              </div>
-            )}
         </div>
       </div>
     </div>

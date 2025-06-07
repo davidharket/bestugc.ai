@@ -1,9 +1,9 @@
 import { serve } from 'inngest/next';
-import { Inngest } from 'inngest';
-import functions from '../inngest/render-video';
+import { inngest } from '../../inngest/client';
+import functions from '../../inngest/render-video';
 
-export const inngest = new Inngest({
-  name: 'AI Video Ad Generator',
+// The `serve` function is the main handler for all Inngest functions.
+export default serve({
+  client: inngest,
+  functions,
 });
-
-export default serve(inngest, functions);

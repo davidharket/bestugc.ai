@@ -1,15 +1,22 @@
+// lib/templates.ts
+export type LayoutType = 
+  | 'avatar-with-corner-image'
+  | 'fullscreen-asset'
+  | 'cutout-center-over-asset'
+  | 'cutout-right-over-asset'
+  | 'cutout-left-over-asset'
+  | 'sequential-layering';
+
 export interface Scene {
-  duration: number; // seconds
-  layout: string;
+  duration: number; // in frames (at 30fps)
+  layout: LayoutType;
   assetIndices?: number[];
   text?: {
-    content: string;
-    position?: string;
-    animation?: string;
+    contentKey: 'brandName' | 'promoDetails'; // Key from AdCreationData
   };
   avatar?: {
     show: boolean;
-    scriptSegment: string;
+    scriptSegment: 'fullScript'; // Use one script for the whole video
   };
 }
 
@@ -18,22 +25,3 @@ export interface VideoTemplate {
   name: string;
   timeline: Scene[];
 }
-
-export const videoTemplates: VideoTemplate[] = [
-  {
-    id: 1,
-    name: 'Simple Collage',
-    timeline: [
-      { duration: 3, layout: 'collage-4', assetIndices: [0,1,2,3], text: { content: 'Intro' } },
-      { duration: 4, layout: 'avatar-right', avatar: { show: true, scriptSegment: 'intro-hook' } },
-    ],
-  },
-  {
-    id: 2,
-    name: 'Avatar Focus',
-    timeline: [
-      { duration: 5, layout: 'avatar-right', avatar: { show: true, scriptSegment: 'intro-hook' } },
-      { duration: 3, layout: 'full-image', assetIndices: [0], text: { content: 'Outro' } },
-    ],
-  },
-];

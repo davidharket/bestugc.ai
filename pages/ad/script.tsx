@@ -76,7 +76,7 @@ export default function ScriptAd() {
   }, [customScript, isCustom])
 
   const handleNext = () => {
-    // Save script to context/global state here
+    setAdData({ script: isCustom ? customScript : script });
     router.push('/ad/avatar')
   }
 
