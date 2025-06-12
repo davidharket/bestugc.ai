@@ -16,7 +16,24 @@ export default async function handler(
     return res.status(405).end('Method Not Allowed')
   }
 
-  const session = await getServerSession(req, res, authOptions)
+  let session = await getServerSession(req, res, authOptions)
+
+  // --- Test Script Authentication ---
+  if (
+    process.env.NODE_ENV === 'development' &&
+    req.headers['x-test-secret'] === process.env.TEST_SECRET_KEY
+  ) {
+    const testUser = await prisma.user.findFirst();
+    if (!testUser) {
+      return res.status(500).json({ message: 'No test user found in database.' });
+    }
+    session = {
+      user: { id: testUser.id, email: testUser.email },
+      expires: '2999-01-01T00:00:00.000Z',
+    };
+  }
+  // --- End Test Script Authentication ---
+
   if (!session?.user?.id) {
     return res.status(401).json({ message: 'Unauthorized' })
   }
@@ -55,13 +72,21 @@ export default async function handler(
     })
 
     // Send an event to Inngest to trigger the video rendering job
-    await inngest.send({
+    const { ids } = await inngest.send({
       name: 'ad/render.requested',
       data: {
         adId: newAd.id,
         adData: adData,
       },
-    })
+    });
+
+    // Store the run ID
+    if (ids && ids.length > 0) {
+      await prisma.ad.update({
+        where: { id: newAd.id },
+        data: { inngestRunId: ids[0] },
+      });
+    }
 
     // Respond to the client that the job has been accepted
     return res.status(202).json({

@@ -15,10 +15,13 @@
     "@remotion/bundler": "^4.0.314",
     "@remotion/cli": "^4.0.314",
     "@remotion/renderer": "^4.0.314",
+    "@types/image-size": "^0.8.0",
     "@types/node": "^20.0.0",
     "@types/react": "^18.0.0",
     "axios": "^1.6.0",
     "cheerio": "^1.0.0-rc.12",
+    "dotenv": "^16.5.0",
+    "image-size": "^2.0.2",
     "inngest": "^3.39.0",
     "micro": "^10.0.1",
     "next": "^14.0.0",
@@ -29,10 +32,11 @@
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
     "react-hot-toast": "^2.5.2",
+    "rembg": "^1.0.6",
+    "sharp": "^0.30.7",
     "stripe": "^12.18.0",
     "tailwindcss": "^3.4.0",
-    "zod": "^3.22.0",
-    "rembg": "^1.0.6"
+    "zod": "^3.22.0"
   },
   "devDependencies": {
     "@types/cheerio": "^0.22.32",

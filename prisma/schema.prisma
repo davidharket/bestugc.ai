@@ -53,7 +53,7 @@ model Subscription {
 model Ad {
   id              String    @id @default(cuid())
   userId          String
-  user            User      @relation(fields: [userId], references: [id])
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   productUrl      String?
@@ -72,11 +72,12 @@ model Ad {
   language        String?
   audience        String?
   script          String?
-  avatarId        Int?
-  templateId      Int?
+  avatarId        String?
+  templateId      String?
   status          String   @default("PENDING")
   finalVideoUrl   String?
   isWatermarked   Boolean   @default(true)
+  inngestRunId    String?   @unique
 }
 
 model Creation {

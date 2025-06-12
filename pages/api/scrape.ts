@@ -5,6 +5,7 @@ import fs from 'fs'
 import path from 'path'
 import { URL } from 'url'
 import crypto from 'crypto'
+import { imageSize } from 'image-size'
 
 // Helper function to ensure directory exists
 const ensureDirExists = (dirPath: string) => {
@@ -80,13 +81,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         try {
           const absoluteSrc = new URL(src, pageUrl).toString()
           const imageResponse = await axios.get(absoluteSrc, { responseType: 'arraybuffer', timeout: 5000 })
-          const extension = getFileExtension(absoluteSrc)
-          const filename = `${crypto.randomBytes(6).toString('hex')}${extension}`
-          const imagePath = path.join(baseUploadPath, filename)
-          fs.writeFileSync(imagePath, imageResponse.data)
-          downloadedImages.push(`/uploads/scraped/${scrapeId}/${filename}`)
+          
+          // Check image dimensions
+          const dimensions = imageSize(imageResponse.data)
+          if (dimensions.width && dimensions.width >= 100) {
+            const extension = getFileExtension(absoluteSrc)
+            const filename = `${crypto.randomBytes(6).toString('hex')}${extension}`
+            const imagePath = path.join(baseUploadPath, filename)
+            fs.writeFileSync(imagePath, imageResponse.data)
+            downloadedImages.push(`/uploads/scraped/${scrapeId}/${filename}`)
+          }
         } catch (imgError: any) {
-          console.warn(`Failed to download image ${src}: ${imgError.message}`)
+          console.warn(`Failed to process image ${src}: ${imgError.message}`)
         }
       }
     }).get()

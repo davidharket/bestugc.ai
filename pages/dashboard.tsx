@@ -15,7 +15,7 @@ interface Ad extends AdCreationData {
   isWatermarked?: boolean
 }
 
-function AdCard({ ad }: { ad: Ad }) {
+function AdCard({ ad, onDelete, onCancel }: { ad: Ad; onDelete: (adId: string) => void; onCancel: (adId: string) => void; }) {
   const renderStatus = () => {
     switch (ad.status) {
       case 'PENDING':
@@ -52,6 +52,8 @@ function AdCard({ ad }: { ad: Ad }) {
     }
   }
 
+  const canCancel = ad.status === 'PENDING' || ad.status === 'RENDERING';
+
   return (
     <div className="border p-4 rounded-lg shadow-sm bg-white">
       <div className="aspect-video mb-3">{renderStatus()}</div>
@@ -61,6 +63,31 @@ function AdCard({ ad }: { ad: Ad }) {
       <p className="text-xs text-gray-500">
         Created on {new Date(ad.createdAt).toLocaleDateString()}
       </p>
+      <div className="mt-4 flex gap-2">
+        {ad.status === 'COMPLETED' && ad.finalVideoUrl && (
+          <a
+            href={ad.finalVideoUrl}
+            download
+            className="flex-1 bg-blue-600 text-white text-center px-4 py-2 rounded hover:bg-blue-700 transition duration-150 text-sm"
+          >
+            Download
+          </a>
+        )}
+        {canCancel && (
+          <button
+            onClick={() => onCancel(ad.id)}
+            className="flex-1 bg-yellow-500 text-white text-center px-4 py-2 rounded hover:bg-yellow-600 transition duration-150 text-sm"
+          >
+            Cancel
+          </button>
+        )}
+        <button
+          onClick={() => onDelete(ad.id)}
+          className="flex-1 bg-red-600 text-white text-center px-4 py-2 rounded hover:bg-red-700 transition duration-150 text-sm"
+        >
+          Delete
+        </button>
+      </div>
     </div>
   )
 }
@@ -75,21 +102,21 @@ export default function Dashboard() {
   const [libraryError, setLibraryError] = useState<string | null>(null)
   const [isBillingLoading, setIsBillingLoading] = useState(false)
 
-  useEffect(() => {
-    const fetchAds = async () => {
-      if (status === 'authenticated') {
-        try {
-          const res = await axios.get<Ad[]>('/api/ads')
-          setLibrary(res.data)
-        } catch (e: any) {
-          console.error('Error fetching ads:', e)
-          setLibraryError(e.response?.data?.error || 'Failed to load your creations.')
-        } finally {
-          setLoadingLibrary(false)
-        }
+  const fetchAds = async () => {
+    if (status === 'authenticated') {
+      try {
+        const res = await axios.get<Ad[]>('/api/ads')
+        setLibrary(res.data)
+      } catch (e: any) {
+        console.error('Error fetching ads:', e)
+        setLibraryError(e.response?.data?.error || 'Failed to load your creations.')
+      } finally {
+        setLoadingLibrary(false)
       }
     }
+  }
 
+  useEffect(() => {
     fetchAds()
     const interval = setInterval(fetchAds, 15000)
     return () => clearInterval(interval)
@@ -195,6 +222,34 @@ export default function Dashboard() {
     }
   };
 
+  const handleCancelAd = async (adId: string) => {
+    if (!confirm('Are you sure you want to cancel this ad creation?')) {
+      return;
+    }
+    try {
+      await axios.post(`/api/ads/${adId}`);
+      toast.success('Ad cancellation requested.');
+      // The status will update on the next poll
+    } catch (error) {
+      console.error('Failed to cancel ad:', error);
+      toast.error('Failed to cancel ad. Please try again.');
+    }
+  };
+
+  const handleDeleteAd = async (adId: string) => {
+    if (!confirm('Are you sure you want to delete this ad? This action cannot be undone.')) {
+      return;
+    }
+    try {
+      await axios.delete(`/api/ads/${adId}`);
+      toast.success('Ad deleted successfully.');
+      setLibrary(library.filter((ad) => ad.id !== adId));
+    } catch (error) {
+      console.error('Failed to delete ad:', error);
+      toast.error('Failed to delete ad. Please try again.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-6xl mx-auto">
@@ -248,7 +303,7 @@ export default function Dashboard() {
           {!loadingLibrary && library.length === 0 && <p>You haven&apos;t created any ads yet.</p>}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {library.map(ad => (
-              <AdCard key={ad.id} ad={ad} />
+              <AdCard key={ad.id} ad={ad} onDelete={handleDeleteAd} onCancel={handleCancelAd} />
             ))}
           </div>
         </div>

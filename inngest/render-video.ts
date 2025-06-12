@@ -42,12 +42,43 @@ export const renderVideoJob = inngest.createFunction(
       if (!avatarInfo) throw new Error(`Avatar with id ${adData.avatarId} not found.`);
       const originalAvatarVideoUrl = `${APP_URL}${avatarInfo.src}`;
       
-      const lipSyncResponse = await axios.post(`${APP_URL}/api/lipsync/synclabs`, {
+      // Start the lip-sync job
+      const startLipSyncResponse = await axios.post(`${APP_URL}/api/lipsync/synclabs`, {
         audioUrl: ttsAudioUrl,
         videoUrl: originalAvatarVideoUrl,
       });
       
-      return lipSyncResponse.data.lipSyncedVideoUrl;
+      const jobId = startLipSyncResponse.data.jobId;
+      if (!jobId) {
+        throw new Error('Failed to start SyncLabs job.');
+      }
+
+      // Poll for the result
+      let status = 'PENDING';
+      let resultUrl;
+      const maxPolls = 100; // ~5 minutes
+      for (let i = 0; i < maxPolls; i++) {
+        await step.sleep('wait-for-lipsync', '5s');
+        
+        const statusResponse = await axios.get(`${APP_URL}/api/lipsync/synclabs`, {
+          params: { jobId }
+        });
+
+        status = statusResponse.data.status;
+        if (status === 'COMPLETED') {
+          resultUrl = statusResponse.data.lipSyncedVideoUrl;
+          break;
+        } else if (status === 'FAILED') {
+          throw new Error(`SyncLabs job failed: ${statusResponse.data.error}`);
+        }
+        // else status is PENDING or PROCESSING, so we continue polling
+      }
+
+      if (!resultUrl) {
+        throw new Error('Lip-sync job timed out.');
+      }
+
+      return resultUrl;
     });
 
     // --- 2. Remove Background from Lip-Synced Video ---
