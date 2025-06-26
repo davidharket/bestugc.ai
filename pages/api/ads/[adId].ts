@@ -1,13 +1,13 @@
+// pages/api/ads/[adId].ts
+
 import { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "../../../lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]";
-import { Inngest } from "inngest";
+import { inngest } from "../../../inngest/client"; // Ensure client is imported
 import { Ad } from "@prisma/client";
 import path from "path";
 import fs from "fs/promises";
-
-const inngest: Inngest<any> = new Inngest({ id: "ageco" });
 
 export default async function handler(
   req: NextApiRequest,
@@ -15,7 +15,7 @@ export default async function handler(
 ) {
   let session = await getServerSession(req, res, authOptions);
 
-  // --- Test Script Authentication ---
+  // Test Script Authentication
   if (
     process.env.NODE_ENV === 'development' &&
     req.headers['x-test-secret'] === process.env.TEST_SECRET_KEY
@@ -29,7 +29,6 @@ export default async function handler(
       expires: '2999-01-01T00:00:00.000Z',
     };
   }
-  // --- End Test Script Authentication ---
 
   if (!session?.user) {
     return res.status(401).json({ error: "Unauthorized" });
@@ -41,23 +40,27 @@ export default async function handler(
     return res.status(400).json({ error: "Invalid adId" });
   }
 
-  const ad = (await prisma.ad.findFirst({
+  const ad = await prisma.ad.findFirst({
     where: { id: adId, userId: session.user.id },
-  })) as Ad;
+  });
 
   if (!ad) {
     return res.status(404).json({ error: "Ad not found" });
   }
 
   if (req.method === "POST") {
-    // Cancel
+    // This is the /api/ads/[adId] POST endpoint, which we use for cancellation.
     if (!ad.inngestRunId) {
       return res.status(400).json({ error: "Ad has no running job to cancel" });
     }
 
     try {
-      await inngest.cancel({
-        runId: ad.inngestRunId,
+      // ✅ CORRECT FIX: Use inngest.send to dispatch a cancellation event.
+      await inngest.send({
+        name: "inngest/run.cancel",
+        data: {
+          run_id: ad.inngestRunId,
+        },
       });
 
       const updatedAd = await prisma.ad.update({
@@ -67,20 +70,19 @@ export default async function handler(
 
       return res.status(200).json(updatedAd);
     } catch (error) {
-      console.error("Failed to cancel Inngest job", error);
+      console.error("Failed to send Inngest cancellation event", error);
       return res
         .status(500)
-        .json({ error: "Failed to cancel ad generation" });
+        .json({ error: "Failed to request ad cancellation" });
     }
   } else if (req.method === "DELETE") {
-    // Delete
-    if (ad.videoUrl) {
+    // Delete the ad and its associated video file.
+    if (ad.finalVideoUrl) {
       try {
-        const videoPath = path.join(process.cwd(), "public", ad.videoUrl);
+        const videoPath = path.join(process.cwd(), "public", ad.finalVideoUrl);
         await fs.unlink(videoPath);
       } catch (error) {
-        console.error("Failed to delete video file", error);
-        // an error here should not stop us from deleting the ad from the database
+        console.error("Failed to delete video file, but continuing to delete DB record:", error);
       }
     }
 
@@ -91,4 +93,4 @@ export default async function handler(
 
   res.setHeader("Allow", ["POST", "DELETE"]);
   res.status(405).end(`Method ${req.method} Not Allowed`);
-} 
+}

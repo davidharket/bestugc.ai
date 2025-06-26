@@ -7,6 +7,8 @@ interface ScrapeResult {
   text: string
   images: string[]
   videos: string[]
+  productName?: string
+  rawProductName?: string
 }
 
 export default function CreateAd() {
@@ -30,7 +32,6 @@ export default function CreateAd() {
 
   // Product/brand info
   const [brandName, setBrandName] = useState(adData.brandName || '')
-  const [logoUrl, setLogoUrl] = useState(adData.logoUrl || '')
 
   // Promo info
   const [showPromo, setShowPromo] = useState(adData.showPromo || false)
@@ -65,9 +66,17 @@ export default function CreateAd() {
         setSelectedVideos([])
         setUploadedImages([])
         setUploadedVideos([])
+        // Reset brand name when starting a new scrape
+        setBrandName('')
         try {
           const res = await axios.post('/api/scrape', { url: productUrl })
           setScrapeResult(res.data)
+          
+          // Auto-fill brand name with AI-generated product name
+          if (res.data.productName && res.data.productName.trim()) {
+            setBrandName(res.data.productName.trim())
+          }
+          
           if (res.data.images) setSelectedImages(prev => Array.from(new Set([...prev, ...res.data.images])))
           if (res.data.videos) setSelectedVideos(prev => Array.from(new Set([...prev, ...res.data.videos])))
         } catch (err: any) {
@@ -121,7 +130,6 @@ export default function CreateAd() {
       selectedImages,
       selectedVideos,
       brandName: brandName || undefined,
-      logoUrl: logoUrl || undefined,
       showPromo: Boolean(showPromo),
       originalPrice: originalPrice || undefined,
       promoPrice: promoPrice || undefined,
@@ -129,7 +137,7 @@ export default function CreateAd() {
     }
     setAdData(dataToSet)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productUrl, summary, selectedImages, selectedVideos, brandName, logoUrl, showPromo, originalPrice, promoPrice, promoDetails])
+  }, [productUrl, summary, selectedImages, selectedVideos, brandName, showPromo, originalPrice, promoPrice, promoDetails])
 
   const handleImageSelect = (src: string) => {
     setSelectedImages(prev => prev.includes(src) ? prev.filter(i => i !== src) : [...prev, src])
@@ -186,129 +194,317 @@ export default function CreateAd() {
   }, [showPromo, originalPrice, promoPrice])
 
   return (
-    <div className="min-h-screen bg-white p-8 font-sans">
-      <h1 className="text-2xl font-bold mb-6 text-gray-800">Create Ad - Step 1</h1>
-      {productUrl ? (
-        <div className="mb-4 text-sm text-gray-700">
-          Product URL: <span className="font-mono text-indigo-600">{productUrl}</span>
-          {loading && <span className="ml-2 text-blue-600">Scraping page...</span>}
-          {!loading && !error && scrapeResult && !summaryLoading && summary && 
-            <span className="ml-2 text-green-600">✓ Content processed.</span>}
+    <div className="min-h-screen bg-black text-white">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white mb-2">Create Ad - Step 1</h1>
+          <p className="text-gray-400">Set up your product information and assets</p>
         </div>
-      ) : (
-        <div className="mb-4 text-sm text-gray-500">No product URL provided. You can start by describing your product below.</div>
-      )}
-      
-      {error && <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md">Error scraping: {error}</div>}
 
-      {(productUrl && !error || !productUrl) && (
-        <div className="mb-6 p-4 border rounded-lg bg-gray-50 shadow">
-          <label htmlFor="aiSummaryTextarea" className="block text-lg font-semibold text-gray-700 mb-2">AI Product Summary</label>
-          {summaryLoading && <div className="mb-2 text-sm text-blue-600">Generating summary...</div>}
-          {summaryError && <div className="mb-2 p-2 bg-red-100 text-red-600 rounded-md text-sm">Failed to generate summary: {summaryError}</div>}
-          <textarea 
-            id="aiSummaryTextarea"
-            className="w-full border-gray-300 rounded-md p-2 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm"
-            rows={summary ? Math.max(4, summary.split('\n').length) : 4} 
-            value={summary} 
-            onChange={e => {setSummary(e.target.value); setAdData({ summary: e.target.value });}} 
-            maxLength={1000} 
-            placeholder={productUrl ? (loading ? "Processing URL..." : (scrapeResult ? "Summary will appear here..." : "Enter product URL above to generate summary, or describe your product here.")) : "Describe your product or service here..."}
-            disabled={summaryLoading || (productUrl && loading)}
-          />
-          <p className="text-xs text-gray-500 mt-1">Max 1000 characters. This will be used to generate ad scripts.</p>
-        </div>
-      )}
-
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold mb-2">Add media and product details</h2>
-        <div className="mb-2">
-          <label className="block font-medium mb-1">Brand / Product name</label>
-          <input type="text" className="border rounded px-3 py-2 w-full" value={brandName} onChange={e => setBrandName(e.target.value)} placeholder="e.g. AeroFlow hårføner – Blå" />
-        </div>
-        <div className="mb-2">
-          <label className="block font-medium mb-1">Logo (URL)</label>
-          <input type="text" className="border rounded px-3 py-2 w-full" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} placeholder="Paste logo image URL here" />
-          {logoUrl && <img src={logoUrl} alt="Logo" className="mt-2 h-12" />}
-        </div>
-        <div className="mb-2">
-          <label className="block font-medium mb-1">Product description</label>
-          <textarea 
-            className="w-full border rounded p-2" 
-            rows={4} 
-            value={summary} 
-            onChange={e => {
-              setSummary(e.target.value);
-              setAdData({ summary: e.target.value });
-            }} 
-            maxLength={1000} 
-            placeholder="Describe your product"
-          />
-          <div className="text-right text-xs text-gray-500">{summary.length}/1000</div>
-        </div>
-      </div>
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold mb-2">Assets</h2>
-        <div className="mb-2 text-sm text-gray-500">Confirm the assets you want to use. Higher-quality clips and images result in better results.</div>
-        <div className="flex gap-4 mb-2">
-          <button className="px-2 py-1 border rounded text-xs" onClick={handleSelectAllImages}>Select all images</button>
-          <button className="px-2 py-1 border rounded text-xs" onClick={handleDeselectAllImages}>Deselect all images</button>
-          <button className="px-2 py-1 border rounded text-xs" onClick={handleSelectAllVideos}>Select all videos</button>
-          <button className="px-2 py-1 border rounded text-xs" onClick={handleDeselectAllVideos}>Deselect all videos</button>
-        </div>
-        <div className="flex flex-wrap gap-2 mb-2">
-          {[...(scrapeResult?.images || []), ...uploadedImages].map((src, i) => (
-            <div key={i} className={`border rounded p-1 ${selectedImages.includes(src) ? 'ring-2 ring-blue-500' : ''}`}
-              onClick={() => handleImageSelect(src)}>
-              <img src={src} alt={`Asset ${i+1}`} className="w-20 h-20 object-cover cursor-pointer" />
+        {/* Product URL Status */}
+        {productUrl ? (
+          <div className="mb-6 p-4 bg-gray-900 rounded-xl border border-gray-800">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-gray-400">Product URL:</span>
+              <span className="font-mono text-orange-400 break-all">{productUrl}</span>
             </div>
-          ))}
-          <button className="border rounded p-1 w-20 h-20 flex items-center justify-center bg-gray-100 cursor-pointer" onClick={() => imageInputRef.current?.click()}>
-            Upload
-            <input type="file" accept="image/*" multiple hidden ref={imageInputRef} onChange={handleImageUpload} />
-          </button>
-        </div>
-        <div className="flex flex-wrap gap-2 mb-2">
-          {[...(scrapeResult?.videos || []), ...uploadedVideos].map((src, i) => (
-            <div key={i} className={`border rounded p-1 ${selectedVideos.includes(src) ? 'ring-2 ring-blue-500' : ''}`}
-              onClick={() => handleVideoSelect(src)}>
-              <video src={src} controls className="w-32 h-20 object-cover cursor-pointer" />
-            </div>
-          ))}
-          <button className="border rounded p-1 w-32 h-20 flex items-center justify-center bg-gray-100 cursor-pointer" onClick={() => videoInputRef.current?.click()}>
-            Upload
-            <input type="file" accept="video/*" multiple hidden ref={videoInputRef} onChange={handleVideoUpload} />
-          </button>
-        </div>
-      </div>
-      <div className="mb-6">
-        <label className="flex items-center gap-2 mb-2">
-          <input type="checkbox" checked={showPromo} onChange={e => setShowPromo(e.target.checked)} />
-          <span className="font-medium">Promotional info</span>
-        </label>
-        {showPromo && (
-          <div className="space-y-2">
-            <div>
-              <label className="block text-sm font-medium mb-1">Original price</label>
-              <input type="text" className="border rounded px-3 py-2 w-full" value={originalPrice} onChange={e => setOriginalPrice(e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Promo price</label>
-              <input type="text" className="border rounded px-3 py-2 w-full" value={promoPrice} onChange={e => setPromoPrice(e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Promotion details</label>
-              <input type="text" className="border rounded px-3 py-2 w-full" value={promoDetails} onChange={e => setPromoDetails(e.target.value)} />
-            </div>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {promoSuggestions.map((s, i) => (
-                <button key={i} className="px-2 py-1 border rounded text-xs bg-gray-100 hover:bg-blue-100" type="button" onClick={() => setPromoDetails(s)}>{s}</button>
-              ))}
+            {loading && (
+              <div className="flex items-center gap-2 mt-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-orange-500"></div>
+                <span className="text-orange-400 text-sm">Scraping page...</span>
+              </div>
+            )}
+            {!loading && !error && scrapeResult && !summaryLoading && summary && (
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-green-400 text-sm">✓ Content processed successfully</span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="mb-6 p-4 bg-gray-900 rounded-xl border border-gray-800">
+            <span className="text-gray-400 text-sm">No product URL provided. You can start by describing your product below.</span>
+          </div>
+        )}
+        
+        {/* Error Display */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-900/20 border border-red-500/50 rounded-xl">
+            <div className="text-red-400">
+              <strong>Error scraping:</strong> {error}
             </div>
           </div>
         )}
+
+        {/* AI Product Summary */}
+        {(productUrl && !error || !productUrl) && (
+          <div className="card mb-8">
+            <label htmlFor="aiSummaryTextarea" className="block text-xl font-semibold text-white mb-4">
+              AI Product Summary
+            </label>
+            
+            {summaryLoading && (
+              <div className="flex items-center gap-2 mb-4">
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-orange-500"></div>
+                <span className="text-orange-400 text-sm">Generating summary...</span>
+              </div>
+            )}
+            
+            {summaryError && (
+              <div className="mb-4 p-3 bg-red-900/20 border border-red-500/50 rounded-lg">
+                <span className="text-red-400 text-sm">Failed to generate summary: {summaryError}</span>
+              </div>
+            )}
+            
+            <textarea 
+              id="aiSummaryTextarea"
+              className="input w-full"
+              rows={summary ? Math.max(4, summary.split('\n').length) : 4} 
+              value={summary} 
+              onChange={e => {setSummary(e.target.value); setAdData({ summary: e.target.value });}} 
+              maxLength={1000} 
+              placeholder={productUrl ? (loading ? "Processing URL..." : (scrapeResult ? "Summary will appear here..." : "Enter product URL above to generate summary, or describe your product here.")) : "Describe your product or service here..."}
+              disabled={summaryLoading || !!(productUrl && loading)}
+            />
+            <p className="text-gray-500 text-sm mt-2">Max 1000 characters. This will be used to generate ad scripts.</p>
+          </div>
+        )}
+
+        {/* Product Details */}
+        <div className="card mb-8">
+          <h2 className="text-xl font-semibold text-white mb-6">Product Details</h2>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-gray-300 font-medium mb-2">Brand / Product name</label>
+              <input 
+                type="text" 
+                className="input w-full" 
+                value={brandName} 
+                onChange={e => setBrandName(e.target.value)} 
+                placeholder="e.g. AeroFlow hårføner – Blå" 
+              />
+            </div>
+            
+
+            
+            <div>
+              <label className="block text-gray-300 font-medium mb-2">Product description</label>
+              <textarea 
+                className="input w-full" 
+                rows={4} 
+                value={summary} 
+                onChange={e => {
+                  setSummary(e.target.value);
+                  setAdData({ summary: e.target.value });
+                }} 
+                maxLength={1000} 
+                placeholder="Describe your product"
+              />
+              <div className="flex justify-between items-center mt-2">
+                <span className="text-gray-500 text-sm">This description will be used to generate your ad script</span>
+                <span className="text-gray-500 text-sm">{summary.length}/1000</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Assets */}
+        <div className="card mb-8">
+          <h2 className="text-xl font-semibold text-white mb-4">Media Assets</h2>
+          <p className="text-gray-400 text-sm mb-6">
+            Select the assets you want to use. Higher-quality clips and images result in better results.
+          </p>
+          
+          {/* Asset Control Buttons */}
+          <div className="flex flex-wrap gap-3 mb-6">
+            <button 
+              className="btn-secondary text-sm" 
+              onClick={handleSelectAllImages}
+            >
+              Select all images
+            </button>
+            <button 
+              className="btn-secondary text-sm" 
+              onClick={handleDeselectAllImages}
+            >
+              Deselect all images
+            </button>
+            <button 
+              className="btn-secondary text-sm" 
+              onClick={handleSelectAllVideos}
+            >
+              Select all videos
+            </button>
+            <button 
+              className="btn-secondary text-sm" 
+              onClick={handleDeselectAllVideos}
+            >
+              Deselect all videos
+            </button>
+          </div>
+          
+          {/* Images */}
+          <div className="mb-6">
+            <h3 className="text-lg font-medium text-white mb-3">Images</h3>
+            <div className="flex flex-wrap gap-3">
+              {[...(scrapeResult?.images || []), ...uploadedImages].map((src, i) => (
+                <div 
+                  key={i} 
+                  className={`relative rounded-lg overflow-hidden cursor-pointer transition-all duration-200 ${
+                    selectedImages.includes(src) 
+                      ? 'ring-2 ring-orange-500 shadow-lg shadow-orange-500/25' 
+                      : 'border border-gray-700 hover:border-orange-500/50'
+                  }`}
+                  onClick={() => handleImageSelect(src)}
+                >
+                  <img src={src} alt={`Asset ${i+1}`} className="w-24 h-24 object-cover" />
+                  {selectedImages.includes(src) && (
+                    <div className="absolute inset-0 bg-orange-500/20 flex items-center justify-center">
+                      <svg className="w-6 h-6 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              ))}
+              <button 
+                className="w-24 h-24 border-2 border-dashed border-gray-600 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:border-orange-500 hover:text-orange-400 transition-colors" 
+                onClick={() => imageInputRef.current?.click()}
+              >
+                <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                <span className="text-xs">Upload</span>
+                <input type="file" accept="image/*" multiple hidden ref={imageInputRef} onChange={handleImageUpload} />
+              </button>
+            </div>
+          </div>
+          
+          {/* Videos */}
+          <div>
+            <h3 className="text-lg font-medium text-white mb-3">Videos</h3>
+            <div className="flex flex-wrap gap-3">
+              {[...(scrapeResult?.videos || []), ...uploadedVideos].map((src, i) => (
+                <div 
+                  key={i} 
+                  className={`relative rounded-lg overflow-hidden cursor-pointer transition-all duration-200 ${
+                    selectedVideos.includes(src) 
+                      ? 'ring-2 ring-orange-500 shadow-lg shadow-orange-500/25' 
+                      : 'border border-gray-700 hover:border-orange-500/50'
+                  }`}
+                  onClick={() => handleVideoSelect(src)}
+                >
+                  <video src={src} className="w-32 h-20 object-cover" />
+                  {selectedVideos.includes(src) && (
+                    <div className="absolute inset-0 bg-orange-500/20 flex items-center justify-center">
+                      <svg className="w-6 h-6 text-orange-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              ))}
+              <button 
+                className="w-32 h-20 border-2 border-dashed border-gray-600 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:border-orange-500 hover:text-orange-400 transition-colors" 
+                onClick={() => videoInputRef.current?.click()}
+              >
+                <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                <span className="text-xs">Upload</span>
+                <input type="file" accept="video/*" multiple hidden ref={videoInputRef} onChange={handleVideoUpload} />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Promotional Information */}
+        <div className="card mb-8">
+          <div className="flex items-center gap-3 mb-6">
+            <input 
+              type="checkbox" 
+              id="showPromo"
+              checked={showPromo} 
+              onChange={e => setShowPromo(e.target.checked)}
+              className="w-4 h-4 text-orange-500 bg-gray-800 border-gray-600 rounded focus:ring-orange-500 focus:ring-2"
+            />
+            <label htmlFor="showPromo" className="text-lg font-medium text-white cursor-pointer">
+              Add promotional information
+            </label>
+          </div>
+          
+          {showPromo && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-gray-300 font-medium mb-2">Original price</label>
+                  <input 
+                    type="text" 
+                    className="input w-full" 
+                    value={originalPrice} 
+                    onChange={e => setOriginalPrice(e.target.value)}
+                    placeholder="e.g. $99.99"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 font-medium mb-2">Promo price</label>
+                  <input 
+                    type="text" 
+                    className="input w-full" 
+                    value={promoPrice} 
+                    onChange={e => setPromoPrice(e.target.value)}
+                    placeholder="e.g. $79.99"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-gray-300 font-medium mb-2">Promotion details</label>
+                <input 
+                  type="text" 
+                  className="input w-full" 
+                  value={promoDetails} 
+                  onChange={e => setPromoDetails(e.target.value)}
+                  placeholder="e.g. Limited time offer - 20% off"
+                />
+              </div>
+              
+              {/* Promo Suggestions */}
+              {promoSuggestions.length > 0 && (
+                <div>
+                  <label className="block text-gray-300 font-medium mb-2">Quick suggestions</label>
+                  <div className="flex flex-wrap gap-2">
+                    {promoSuggestions.map((suggestion, i) => (
+                      <button 
+                        key={i} 
+                        className="px-3 py-1 text-sm bg-gray-800 border border-gray-600 rounded-lg text-gray-300 hover:bg-gray-700 hover:border-orange-500/50 hover:text-orange-400 transition-all duration-200" 
+                        type="button" 
+                        onClick={() => setPromoDetails(suggestion)}
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Continue Button */}
+        <div className="flex justify-end">
+          <button 
+            className="btn-primary"
+            onClick={() => router.push('/ad/format')}
+          >
+            Continue to Format Selection
+            <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
       </div>
-      <button className="mt-8 px-4 py-2 bg-blue-600 text-white rounded" onClick={() => router.push('/ad/format')}>Continue</button>
     </div>
   )
 } 

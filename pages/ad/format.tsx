@@ -56,111 +56,160 @@ export default function FormatAd() {
   }, [fetchAudienceSuggestions])
 
   return (
-    <div className="min-h-screen bg-white p-8 font-sans">
-      <h1 className="text-2xl font-bold mb-6 text-gray-800">Format Video - Step 2</h1>
-      <div className="mb-6">
-        <label className="block font-medium text-gray-700 mb-2">Video format</label>
-        <div className="flex flex-wrap gap-3 mb-2">
-          {formatOptions.map(opt => (
-            <button
-              key={opt.value}
-              className={`px-4 py-2 border rounded-[10px] shadow-sm transition-colors ${format === opt.value ? 'bg-indigo-600 text-white ring-2 ring-indigo-400' : 'bg-white hover:bg-gray-50'}`}
-              onClick={() => setFormat(opt.value)}
-              type="button"
-            >
-              {opt.label}
-            </button>
-          ))}
+    <div className="min-h-screen bg-black text-white">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white mb-2">Format Video - Step 2</h1>
+          <p className="text-gray-400">Choose your video format, duration, and target audience</p>
         </div>
-      </div>
-      <div className="mb-6">
-        <label className="block font-medium text-gray-700 mb-2">Duration</label>
-        <div className="flex flex-wrap gap-3 mb-2">
-          {durationOptions.map(opt => (
-            <button
-              key={opt}
-              className={`px-4 py-2 border rounded-[10px] shadow-sm transition-colors ${duration === opt ? 'bg-indigo-600 text-white ring-2 ring-indigo-400' : 'bg-white hover:bg-gray-50'}`}
-              onClick={() => setDuration(opt)}
-              type="button"
-            >
-              {opt} sec
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="mb-6">
-        <label className="block font-medium text-gray-700 mb-2">Language</label>
-        <div className="flex flex-wrap gap-3 mb-2">
-          {languageOptions.map(opt => (
-            <button
-              key={opt.value}
-              className={`px-4 py-2 border rounded-[10px] shadow-sm transition-colors ${language === opt.value ? 'bg-indigo-600 text-white ring-2 ring-indigo-400' : 'bg-white hover:bg-gray-50'}`}
-              onClick={() => setLanguage(opt.value)}
-              type="button"
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="mb-8">
-        <label htmlFor="audienceInput" className="block font-medium text-gray-700 mb-2">Target audience</label>
-        <input
-          id="audienceInput"
-          type="text"
-          className="border border-gray-300 rounded-[10px] shadow-sm px-3 py-2 w-full mb-3 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-          value={audience}
-          onChange={e => setAudience(e.target.value)}
-          placeholder="Describe your target audience or select a suggestion"
-        />
-        {suggestionsLoading && (
-          <div className="flex items-center text-sm text-gray-500">
-            <Spinner size="w-4 h-4 mr-2" />
-            Loading AI suggestions...
-          </div>
-        )}
-        {suggestionsError && (
-          <div className="text-sm text-red-500 flex items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1.5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-            <span>Error: {suggestionsError}</span>
-            <button 
-              onClick={fetchAudienceSuggestions} 
-              className="ml-3 px-2 py-0.5 text-xs bg-red-100 text-red-700 border border-red-300 rounded hover:bg-red-200 transition-colors"
-            >
-              Retry
-            </button>
-          </div>
-        )}
-        {!suggestionsLoading && !suggestionsError && aiAudienceSuggestions.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {aiAudienceSuggestions.map((s, i) => (
+
+        {/* Video Format */}
+        <div className="card mb-8">
+          <label className="block text-xl font-semibold text-white mb-4">Video format</label>
+          <div className="flex flex-wrap gap-3">
+            {formatOptions.map(opt => (
               <button
-                key={i}
-                className="px-3 py-1.5 border rounded-[20px] text-xs bg-gray-100 hover:bg-indigo-100 text-gray-700 hover:text-indigo-700 transition-colors shadow-sm"
+                key={opt.value}
+                className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
+                  format === opt.value 
+                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25' 
+                    : 'bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 hover:border-orange-500/50'
+                }`}
+                onClick={() => setFormat(opt.value)}
                 type="button"
-                onClick={() => setAudience(s)}
               >
-                {s}
+                {opt.label}
               </button>
             ))}
           </div>
-        )}
-        {!suggestionsLoading && !suggestionsError && aiAudienceSuggestions.length === 0 && !adData.summary && (
-          <p className="text-sm text-gray-400">Provide a product summary in the previous step for AI audience suggestions.</p>
-        )}
-        {!suggestionsLoading && !suggestionsError && aiAudienceSuggestions.length === 0 && adData.summary && (
-          <p className="text-sm text-gray-400">No AI suggestions available at the moment. Try a different product description or retry.</p>
-        )}
+        </div>
+
+        {/* Duration */}
+        <div className="card mb-8">
+          <label className="block text-xl font-semibold text-white mb-4">Duration</label>
+          <div className="flex flex-wrap gap-3">
+            {durationOptions.map(opt => (
+              <button
+                key={opt}
+                className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
+                  duration === opt 
+                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25' 
+                    : 'bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 hover:border-orange-500/50'
+                }`}
+                onClick={() => setDuration(opt)}
+                type="button"
+              >
+                {opt} sec
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Language */}
+        <div className="card mb-8">
+          <label className="block text-xl font-semibold text-white mb-4">Language</label>
+          <div className="flex flex-wrap gap-3">
+            {languageOptions.map(opt => (
+              <button
+                key={opt.value}
+                className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
+                  language === opt.value 
+                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25' 
+                    : 'bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 hover:border-orange-500/50'
+                }`}
+                onClick={() => setLanguage(opt.value)}
+                type="button"
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Target Audience */}
+        <div className="card mb-8">
+          <label htmlFor="audienceInput" className="block text-xl font-semibold text-white mb-4">
+            Target audience
+          </label>
+          
+          <input
+            id="audienceInput"
+            type="text"
+            className="input w-full mb-4"
+            value={audience}
+            onChange={e => setAudience(e.target.value)}
+            placeholder="Describe your target audience or select a suggestion"
+          />
+          
+          {/* Loading State */}
+          {suggestionsLoading && (
+            <div className="flex items-center gap-2 mb-4">
+              <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-orange-500"></div>
+              <span className="text-orange-400 text-sm">Loading AI suggestions...</span>
+            </div>
+          )}
+          
+          {/* Error State */}
+          {suggestionsError && (
+            <div className="mb-4 p-4 bg-red-900/20 border border-red-500/50 rounded-xl">
+              <div className="flex items-center gap-2 text-red-400">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <span>Error: {suggestionsError}</span>
+                <button 
+                  onClick={fetchAudienceSuggestions} 
+                  className="ml-3 px-3 py-1 text-sm bg-red-800 text-red-200 border border-red-600 rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {/* AI Suggestions */}
+          {!suggestionsLoading && !suggestionsError && aiAudienceSuggestions.length > 0 && (
+            <div>
+              <label className="block text-gray-300 font-medium mb-3">AI suggestions</label>
+              <div className="flex flex-wrap gap-2">
+                {aiAudienceSuggestions.map((suggestion, i) => (
+                  <button
+                    key={i}
+                    className="px-3 py-2 text-sm bg-gray-800 border border-gray-600 rounded-lg text-gray-300 hover:bg-gray-700 hover:border-orange-500/50 hover:text-orange-400 transition-all duration-200"
+                    type="button"
+                    onClick={() => setAudience(suggestion)}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* No Suggestions States */}
+          {!suggestionsLoading && !suggestionsError && aiAudienceSuggestions.length === 0 && !adData.summary && (
+            <p className="text-gray-500 text-sm">Provide a product summary in the previous step for AI audience suggestions.</p>
+          )}
+          {!suggestionsLoading && !suggestionsError && aiAudienceSuggestions.length === 0 && adData.summary && (
+            <p className="text-gray-500 text-sm">No AI suggestions available at the moment. Try a different product description or retry.</p>
+          )}
+        </div>
+
+        {/* Continue Button */}
+        <div className="flex justify-end">
+          <button 
+            className={`btn-primary ${!audience.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
+            onClick={() => router.push('/ad/script')}
+            disabled={!audience.trim()}
+          >
+            Continue to Script Generation
+            <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
       </div>
-      <button 
-        className="w-full mt-8 px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-[20px] shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors disabled:opacity-60"
-        onClick={() => router.push('/ad/script')}
-        disabled={!audience.trim()}
-      >
-        Next
-      </button>
     </div>
   )
 } 

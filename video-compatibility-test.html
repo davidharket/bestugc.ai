@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Compatibility Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .video-test { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .status { font-weight: bold; margin: 10px 0; }
+        .success { color: green; }
+        .error { color: red; }
+        .loading { color: orange; }
+        video { max-width: 300px; height: auto; }
+        .info { font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <h1>Video Compatibility Test</h1>
+    <p>Testing all video files for browser compatibility and loading performance.</p>
+    
+    <div id="avatar-tests">
+        <h2>Avatar Videos</h2>
+    </div>
+    
+    <div id="cutout-tests">
+        <h2>Cutout Videos</h2>
+    </div>
+
+    <script>
+        const avatarVideos = [
+            'female-blonde-adult-inside.mp4',
+            'female-blonde-senior-inside.mp4',
+            'female-blonde2-adult-inside.mp4',
+            'female-blonde3-adult-inside.mp4',
+            'female-blonde4-adult-inside.mp4',
+            'female-brunette-adult-inside.mp4',
+            'female-brunette2-adult-inside.mp4',
+            'female-brunette3-adult-inside.mp4',
+            'male-blonde-adult-inside.mp4',
+            'male-brunette-adult-inside.mp4',
+            'male-brunette2-adult-inside.mp4'
+        ];
+
+        const cutoutVideos = [
+            'cutout-00c1ae05.mp4',
+            'cutout-ed3028a9.mp4',
+            'test-fixed.mp4'
+        ];
+
+        function testVideo(videoPath, container, category) {
+            const testDiv = document.createElement('div');
+            testDiv.className = 'video-test';
+            testDiv.innerHTML = `
+                <h3>${videoPath}</h3>
+                <div class="status loading" id="status-${videoPath.replace(/[^a-zA-Z0-9]/g, '_')}">Testing...</div>
+                <video id="video-${videoPath.replace(/[^a-zA-Z0-9]/g, '_')}" controls preload="metadata">
+                    <source src="public/${category}/${videoPath}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+                <div class="info" id="info-${videoPath.replace(/[^a-zA-Z0-9]/g, '_')}"></div>
+            `;
+            container.appendChild(testDiv);
+
+            const video = document.getElementById(`video-${videoPath.replace(/[^a-zA-Z0-9]/g, '_')}`);
+            const status = document.getElementById(`status-${videoPath.replace(/[^a-zA-Z0-9]/g, '_')}`);
+            const info = document.getElementById(`info-${videoPath.replace(/[^a-zA-Z0-9]/g, '_')}`);
+            
+            const startTime = Date.now();
+            let metadataLoaded = false;
+            let canPlay = false;
+
+            // Test metadata loading
+            video.addEventListener('loadedmetadata', () => {
+                metadataLoaded = true;
+                const loadTime = Date.now() - startTime;
+                info.innerHTML += `Metadata loaded in ${loadTime}ms. Duration: ${video.duration}s, Dimensions: ${video.videoWidth}x${video.videoHeight}<br>`;
+                
+                if (loadTime > 10000) {
+                    status.textContent = 'SLOW METADATA LOADING (>10s)';
+                    status.className = 'status error';
+                } else if (canPlay) {
+                    status.textContent = 'SUCCESS';
+                    status.className = 'status success';
+                }
+            });
+
+            // Test playback readiness
+            video.addEventListener('canplay', () => {
+                canPlay = true;
+                if (metadataLoaded) {
+                    const loadTime = Date.now() - startTime;
+                    status.textContent = `SUCCESS (${loadTime}ms)`;
+                    status.className = 'status success';
+                }
+            });
+
+            // Handle errors
+            video.addEventListener('error', (e) => {
+                const error = video.error;
+                status.textContent = `ERROR: ${getErrorMessage(error.code)}`;
+                status.className = 'status error';
+                info.innerHTML += `Error code: ${error.code}, Message: ${error.message || 'Unknown error'}<br>`;
+            });
+
+            // Timeout check
+            setTimeout(() => {
+                if (!metadataLoaded && !canPlay) {
+                    status.textContent = 'TIMEOUT (>30s)';
+                    status.className = 'status error';
+                    info.innerHTML += 'Video failed to load within 30 seconds<br>';
+                }
+            }, 30000);
+        }
+
+        function getErrorMessage(errorCode) {
+            switch (errorCode) {
+                case 1: return 'MEDIA_ERR_ABORTED - Loading aborted';
+                case 2: return 'MEDIA_ERR_NETWORK - Network error';
+                case 3: return 'MEDIA_ERR_DECODE - Decode error';
+                case 4: return 'MEDIA_ERR_SRC_NOT_SUPPORTED - Format not supported';
+                default: return 'Unknown error';
+            }
+        }
+
+        // Run tests
+        const avatarContainer = document.getElementById('avatar-tests');
+        const cutoutContainer = document.getElementById('cutout-tests');
+
+        avatarVideos.forEach(video => testVideo(video, avatarContainer, 'avatars'));
+        cutoutVideos.forEach(video => testVideo(video, cutoutContainer, 'cutouts'));
+    </script>
+</body>
+</html> 

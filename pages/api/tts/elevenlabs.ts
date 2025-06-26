@@ -13,12 +13,77 @@ const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 // A default voice ID from ElevenLabs, find yours in their Voice Lab
 const DEFAULT_VOICE_ID = '21m00Tcm4TlvDq8ikWAM'; // Example: Rachel
 
+// Strategy: Use v2.5 models by default for all languages
+// - eleven_flash_v2_5: Ultra-low latency (~75ms), supports 32 languages
+// - eleven_turbo_v2_5: Balanced speed/quality
+// - These models provide better multilingual support than older versions
+
+// Norwegian voice collections - all voices confirmed as Norwegian
+const NORWEGIAN_VOICES = {
+  female: [
+    'uNsWM1StCcpydKYOjKyu', // Norwegian female voice 1
+    'b3jcIbyC3BSnaRu8avEk'  // Norwegian female voice 2 (Emma - Bergen dialect)
+  ],
+  male: [
+    '9pRpxWU0T7UFt2oEMH6n', // Norwegian male voice 1
+    'dgrgQcxISbZtq517iweJ', // Norwegian male voice 2
+    '2dhHLsmg0MVma2t041qT', // Norwegian male voice 3
+    'xF681s0UeE04gsf0mVsJ'  // Norwegian male voice 4
+  ]
+};
+
+// Voice mapping based on language and gender
+function getVoiceId(language: string, gender: string): string {
+  // Norwegian voices - randomly select from the appropriate gender array
+  if (language === 'no' && gender === 'female') {
+    const femaleVoices = NORWEGIAN_VOICES.female;
+    return femaleVoices[Math.floor(Math.random() * femaleVoices.length)];
+  }
+  
+  if (language === 'no' && gender === 'male') {
+    const maleVoices = NORWEGIAN_VOICES.male;
+    return maleVoices[Math.floor(Math.random() * maleVoices.length)];
+  }
+  
+  // Default to female Norwegian if language is Norwegian but gender not specified
+  if (language === 'no') {
+    const femaleVoices = NORWEGIAN_VOICES.female;
+    return femaleVoices[Math.floor(Math.random() * femaleVoices.length)];
+  }
+  
+  // For non-Norwegian languages, use ElevenLabs default voices
+  // These work well with v2.5 models for multiple languages
+  if (gender === 'female') {
+    return '21m00Tcm4TlvDq8ikWAM'; // Rachel - good multilingual voice
+  }
+  
+  if (gender === 'male') {
+    return 'pNInz6obpgDQGcFmaJgB'; // Adam - good multilingual voice
+  }
+  
+  // Default voice for other combinations
+  return DEFAULT_VOICE_ID;
+}
+
+// Get the appropriate model - prefer v2.5 models for all languages
+function getModelId(language: string): string {
+  // Use v2.5 models by default for better quality and performance
+  // Flash v2.5 supports 32 languages including Norwegian, English, etc.
+  return 'eleven_flash_v2_5';
+  
+  // Alternative: Use turbo v2.5 for balanced speed/quality
+  // return 'eleven_turbo_v2_5';
+  
+  // Fallback to multilingual v2 only if v2.5 models don't work
+  // return 'eleven_multilingual_v2';
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { text, language, voiceId: providedVoiceId } = req.body;
+  const { text, language, gender, voiceId: providedVoiceId } = req.body;
 
   if (!text || typeof text !== 'string') {
     return res.status(400).json({ error: 'Missing or invalid text' });
@@ -35,8 +100,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // return res.status(500).json({ error: 'ElevenLabs API key not configured.' });
   }
 
-  const voiceId = providedVoiceId || DEFAULT_VOICE_ID;
-  const modelId = language === 'en' ? 'eleven_multilingual_v2' : 'eleven_multilingual_v2'; // Or specific mono-lingual models
+  // Use provided voice ID, or determine based on language and gender, or use default
+  const voiceId = providedVoiceId || getVoiceId(language || 'en', gender || 'female');
+  const modelId = getModelId(language || 'en');
+
+  console.log(`Using voice ID: ${voiceId} for language: ${language}, gender: ${gender}`);
+  console.log(`Using model: ${modelId} (v2.5 optimized for quality and performance)`);
 
   try {
     // This is a conceptual example using axios. The actual API structure might differ.
@@ -68,10 +137,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       fs.mkdirSync(outputDir, { recursive: true });
     }
     const filePath = path.join(outputDir, fileName);
-    await fs.promises.writeFile(filePath, audioBuffer);
-    const audioUrl = `/generated_audio/${fileName}`;
+    
+    try {
+      await fs.promises.writeFile(filePath, audioBuffer);
+      // Verify the file was written correctly
+      const stats = await fs.promises.stat(filePath);
+      if (stats.size === 0) {
+        throw new Error('Generated audio file is empty');
+      }
+      console.log(`Audio file saved successfully: ${filePath} (${stats.size} bytes)`);
+    } catch (error: any) {
+      console.error('Failed to save audio file:', error);
+      return res.status(500).json({ 
+        error: 'Failed to save generated audio file', 
+        details: error.message 
+      });
+    }
 
-    res.status(200).json({ audioUrl });
+    const audioUrl = `/generated_audio/${fileName}`;
+    res.status(200).json({ 
+      audioUrl,
+      voiceUsed: voiceId,
+      modelUsed: modelId,
+      language: language,
+      gender: gender
+    });
 
   } catch (error: any) {
     console.error('ElevenLabs API error:', error.response?.data || error.message);
@@ -80,4 +170,4 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       details: error.response?.data || error.message 
     });
   }
-} 
+}

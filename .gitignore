@@ -1,6 +1,7 @@
 # Node
 node_modules
 .next
+models
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -25,3 +26,4 @@ public/renders
 # Other
 .DS_Store
 output.txt
+/dist

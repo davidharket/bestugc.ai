@@ -1,76 +1,84 @@
+// pages/api/render/remotion.ts
+
 import { NextApiRequest, NextApiResponse } from 'next';
 import { bundle } from '@remotion/bundler';
-import { getCompositions, renderMedia } from '@remotion/renderer';
+import { renderMedia, selectComposition } from '@remotion/renderer';
 import path from 'path';
-import fs from 'fs';
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // --- Test Script Authentication ---
+  if (
+    process.env.NODE_ENV === 'development' &&
+    req.headers['x-test-secret'] !== process.env.TEST_SECRET_KEY
+  ) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid test secret' });
+  }
+  // --- End Authentication ---
+
   if (req.method !== 'POST') {
-    return res.status(405).end();
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { adId, adData, processedAvatarUrl, cutoutAvatarUrl, timeline } = req.body;
+    const { compositionId, inputProps } = req.body;
 
-    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-    const host = req.headers.host;
-    const baseUrl = `${protocol}://${host}`;
-
-    // 1. Bundle the Remotion project
+    console.log('📦 Bundling Remotion project...');
     const bundleLocation = await bundle({
       entryPoint: path.resolve('./remotion/index.ts'),
-      webpackOverride: (config) => config,
     });
+    console.log('✅ Bundle created.');
 
-    // 2. Prepare props for the composition
-    const inputProps = {
-      adData: {
-        ...adData,
-        selectedImages: adData.selectedImages.map((p: string) => (p.startsWith('http') ? p : `${baseUrl}${p}`)),
-      },
-      timeline,
-      processedAvatarUrl,
-      cutoutAvatarUrl: cutoutAvatarUrl.startsWith('http') ? cutoutAvatarUrl : `${baseUrl}${cutoutAvatarUrl}`,
-    };
+    console.log('🔍 Selecting composition...');
+    const composition = await selectComposition({
+      serveUrl: bundleLocation,
+      id: compositionId,
+      inputProps,
+      timeoutInMilliseconds: 120000,
+    });
+    console.log('✅ Composition selected.');
 
-    // 3. Get the composition to render
-    const comps = await getCompositions(bundleLocation, { inputProps });
-    const composition = comps.find((c) => c.id === 'Main');
-    if (!composition) {
-      throw new Error('Could not find Remotion composition "Main"');
+    // --- ✅ THE FAILSAFE FIX ---
+    // If a timeline is provided (like in the main pipeline), calculate the duration dynamically.
+    // Otherwise (like in our isolated test), use the composition's default duration.
+    if (inputProps.timeline && Array.isArray(inputProps.timeline)) {
+        const totalDurationInFrames = inputProps.timeline.reduce(
+            (acc: number, scene: { duration: number }) => acc + scene.duration,
+            0
+        );
+        composition.durationInFrames = totalDurationInFrames;
+        console.log(`⏱️  Dynamic duration calculated from timeline: ${totalDurationInFrames} frames`);
+    } else {
+        console.log(`⏱️  Using default composition duration: ${composition.durationInFrames} frames`);
     }
+    // --- END FIX ---
 
-    // 4. Render the video
-    const outputDir = path.join(process.cwd(), 'public', 'renders');
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
-    }
-    const outputLocation = path.join(outputDir, `${adId}.mp4`);
-
-    console.log('Starting Remotion render...');
+    const outputFilename = `${compositionId}-${Date.now()}.mp4`;
+    const outputPath = path.resolve(`./public/renders/${outputFilename}`);
+    
+    console.log(`🎞️  Starting render to: ${outputPath}`);
+    
     await renderMedia({
       composition,
       serveUrl: bundleLocation,
       codec: 'h264',
-      outputLocation,
+      outputLocation: outputPath,
       inputProps,
-      onProgress: (p) => {
-        console.log(`Rendering... ${Math.round(p.progress * 100)}%`);
-      },
+      timeoutInMilliseconds: 1800000,
     });
-    console.log('Remotion render finished.');
+
+    const relativePath = `/renders/${outputFilename}`;
+    console.log('✅ Render finished. Final video URL:', relativePath);
     
-    const finalVideoUrl = `/renders/${adId}.mp4`;
+    res.status(200).json({
+      success: true,
+      videoUrl: relativePath,
+    });
 
-    console.log('Final video URL:', finalVideoUrl);
-
-    res.status(200).json({ videoUrl: finalVideoUrl });
-
-  } catch (error: any) {
-    console.error('Remotion rendering failed:', error);
-    res.status(500).json({ error: 'Failed to render video', details: error.message });
+  } catch (error) {
+    console.error('❌ Remotion render API error:', error);
+    res.status(500).json({
+      error: 'Render failed',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    });
   }
-} 
+}

@@ -3,14 +3,9 @@ import GoogleProvider from 'next-auth/providers/google'
 import GitHubProvider from 'next-auth/providers/github'
 import AppleProvider from 'next-auth/providers/apple'
 import EmailProvider from 'next-auth/providers/email'
-import { PrismaClient } from "@prisma/client"
 import { PrismaAdapter } from "@next-auth/prisma-adapter"
+import { prisma } from '../../../lib/prisma'
 import nodemailer from 'nodemailer'
-// Import PrismaAdapter and prisma instance if you plan to use it
-// import { PrismaAdapter } from "@next-auth/prisma-adapter"
-// const prisma = new PrismaClient()
-
-const prisma = new PrismaClient()
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -25,8 +20,7 @@ export const authOptions: NextAuthOptions = {
         } else {
           // Production: Send email using a real SMTP server
           // This part requires EMAIL_SERVER_... and EMAIL_FROM to be set up.
-          const { host, port, auth } = provider.server;
-          const transport = nodemailer.createTransport({ host, port, auth });
+          const { host, port, auth } = provider.server as { host: string; port: number; auth: { user: string; pass: string; } };          const transport = nodemailer.createTransport({ host, port, auth });
           await transport.sendMail({
             to: email,
             from: provider.from,

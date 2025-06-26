@@ -50,6 +50,8 @@ model Subscription {
   updatedAt               DateTime  @updatedAt
 }
 
+// prisma/schema.prisma
+
 model Ad {
   id              String    @id @default(cuid())
   userId          String
@@ -72,12 +74,13 @@ model Ad {
   language        String?
   audience        String?
   script          String?
-  avatarId        String?
-  templateId      String?
-  status          String   @default("PENDING")
+  avatarId        String?   // Correct Type: String, Optional
+  templateId      String?   // Correct Type: String, Optional
+  status          String    @default("PENDING")
   finalVideoUrl   String?
   isWatermarked   Boolean   @default(true)
   inngestRunId    String?   @unique
+  syncLabsJobId   String?
 }
 
 model Creation {

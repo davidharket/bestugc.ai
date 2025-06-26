@@ -1,0 +1,13 @@
+// tsconfig.scripts.json
+{
+    "extends": "./tsconfig.json", // Inherit settings from the main config
+    "compilerOptions": {
+      "noEmit": false, // <-- THE FIX: Allow creating .js files
+      "outDir": "./dist", //  Output the compiled JS into a 'dist' folder
+      "module": "commonjs" //  Use a module system Node.js understands directly
+    },
+    "include": [
+      "lib/**/*.ts", // We only need to compile our library files for the script
+      "components/**/*.ts"
+    ]
+  }

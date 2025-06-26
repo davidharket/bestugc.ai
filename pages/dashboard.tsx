@@ -1,126 +1,24 @@
+// pages/dashboard.tsx
 import { useSession, signIn } from 'next-auth/react'
 import { useRouter } from 'next/router'
 import { useState, useEffect } from 'react'
-import { useAdCreation, AdCreationData } from '../components/AdCreationContext'
+import { useAdCreation } from '../components/AdCreationContext'
 import axios from 'axios'
 import toast from 'react-hot-toast'
-
-interface Ad extends AdCreationData {
-  id: string
-  userId: string
-  createdAt: string
-  updatedAt: string
-  status: string
-  finalVideoUrl?: string
-  isWatermarked?: boolean
-}
-
-function AdCard({ ad, onDelete, onCancel }: { ad: Ad; onDelete: (adId: string) => void; onCancel: (adId: string) => void; }) {
-  const renderStatus = () => {
-    switch (ad.status) {
-      case 'PENDING':
-      case 'RENDERING':
-        return (
-          <div className="flex flex-col items-center justify-center h-full bg-gray-100 rounded-lg p-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="mt-2 text-sm text-gray-600">Processing...</p>
-            <p className="text-xs text-gray-400">Status: {ad.status}</p>
-          </div>
-        );
-      case 'COMPLETED':
-        return (
-          <video
-            src={ad.finalVideoUrl}
-            controls
-            className="w-full h-auto rounded-lg"
-            playsInline
-          />
-        );
-      case 'FAILED':
-        return (
-          <div className="flex flex-col items-center justify-center h-full bg-red-50 rounded-lg p-4">
-            <p className="font-semibold text-red-600">Failed</p>
-            <p className="text-sm text-gray-600">Something went wrong.</p>
-          </div>
-        );
-      default:
-        return (
-          <div className="flex flex-col items-center justify-center h-full bg-gray-100 rounded-lg p-4">
-            <p className="text-sm text-gray-600">Status: {ad.status || 'Unknown'}</p>
-          </div>
-        )
-    }
-  }
-
-  const canCancel = ad.status === 'PENDING' || ad.status === 'RENDERING';
-
-  return (
-    <div className="border p-4 rounded-lg shadow-sm bg-white">
-      <div className="aspect-video mb-3">{renderStatus()}</div>
-      <h3 className="font-semibold truncate" title={ad.brandName || 'Ad'}>
-        {ad.brandName || `Ad #${ad.id.slice(0, 6)}`}
-      </h3>
-      <p className="text-xs text-gray-500">
-        Created on {new Date(ad.createdAt).toLocaleDateString()}
-      </p>
-      <div className="mt-4 flex gap-2">
-        {ad.status === 'COMPLETED' && ad.finalVideoUrl && (
-          <a
-            href={ad.finalVideoUrl}
-            download
-            className="flex-1 bg-blue-600 text-white text-center px-4 py-2 rounded hover:bg-blue-700 transition duration-150 text-sm"
-          >
-            Download
-          </a>
-        )}
-        {canCancel && (
-          <button
-            onClick={() => onCancel(ad.id)}
-            className="flex-1 bg-yellow-500 text-white text-center px-4 py-2 rounded hover:bg-yellow-600 transition duration-150 text-sm"
-          >
-            Cancel
-          </button>
-        )}
-        <button
-          onClick={() => onDelete(ad.id)}
-          className="flex-1 bg-red-600 text-white text-center px-4 py-2 rounded hover:bg-red-700 transition duration-150 text-sm"
-        >
-          Delete
-        </button>
-      </div>
-    </div>
-  )
-}
+import Link from 'next/link'
 
 export default function Dashboard() {
-  const { data: session, status, update: updateSession } = useSession()
+  const { data: session, status } = useSession()
   const router = useRouter()
   const { resetAdData } = useAdCreation()
   const [productUrl, setProductUrl] = useState('')
-  const [library, setLibrary] = useState<Ad[]>([])
-  const [loadingLibrary, setLoadingLibrary] = useState(true)
-  const [libraryError, setLibraryError] = useState<string | null>(null)
-  const [isBillingLoading, setIsBillingLoading] = useState(false)
-
-  const fetchAds = async () => {
-    if (status === 'authenticated') {
-      try {
-        const res = await axios.get<Ad[]>('/api/ads')
-        setLibrary(res.data)
-      } catch (e: any) {
-        console.error('Error fetching ads:', e)
-        setLibraryError(e.response?.data?.error || 'Failed to load your creations.')
-      } finally {
-        setLoadingLibrary(false)
-      }
-    }
-  }
-
-  useEffect(() => {
-    fetchAds()
-    const interval = setInterval(fetchAds, 15000)
-    return () => clearInterval(interval)
-  }, [status])
+  const [recentAds, setRecentAds] = useState<any[]>([])
+  const [loadingRecent, setLoadingRecent] = useState(true)
+  const [stats, setStats] = useState({
+    totalAds: 0,
+    completedAds: 0,
+    inProgress: 0
+  })
 
   useEffect(() => {
     if (router.isReady) {
@@ -129,7 +27,6 @@ export default function Dashboard() {
 
       if (payment_success === 'true' && session_id) {
         toast.success('Payment successful! Your account has been updated.');
-        updateSession(); // Refetch session to get updated credits/plan
         shouldClearQuery = true;
       } else if (payment_canceled === 'true') {
         const message = Array.isArray(error_message) ? error_message[0] : error_message;
@@ -150,10 +47,41 @@ export default function Dashboard() {
         router.replace({ pathname, query }, undefined, { shallow: true });
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady, router.query]);
 
-  if (status === 'loading') return <div className="p-8">Loading session...</div>
+  useEffect(() => {
+    const fetchRecentAds = async () => {
+      if (status === 'authenticated') {
+        try {
+          const res = await axios.get('/api/ads')
+          const ads = res.data.slice(0, 3) // Only show 3 most recent
+          setRecentAds(ads)
+          
+          // Calculate stats
+          setStats({
+            totalAds: res.data.length,
+            completedAds: res.data.filter((ad: any) => ad.status === 'COMPLETED').length,
+            inProgress: res.data.filter((ad: any) => ad.status === 'PENDING' || ad.status === 'RENDERING').length
+          })
+        } catch (e: any) {
+          console.error('Error fetching ads:', e)
+        } finally {
+          setLoadingRecent(false)
+        }
+      }
+    }
+
+    fetchRecentAds()
+    const interval = setInterval(fetchRecentAds, 30000) // Update every 30s
+    return () => clearInterval(interval)
+  }, [status])
+
+  if (status === 'loading') return (
+    <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-orange-500"></div>
+    </div>
+  )
+
   if (status === 'unauthenticated' || !session?.user) {
     signIn()
     return null
@@ -165,7 +93,7 @@ export default function Dashboard() {
   }
   const user = session.user as UserSession;
 
-  const AD_CREATION_COST = 10; // Define here for frontend use as well
+  const AD_CREATION_COST = 10;
   const canCreateAd = user.credits !== undefined && user.credits >= AD_CREATION_COST;
 
   const handleCreateAd = () => {
@@ -182,174 +110,274 @@ export default function Dashboard() {
     router.push('/ad/create')
   }
 
-  const redirectToCheckout = async (itemType: 'plan' | 'credits', itemId: string) => {
-    if (!session?.user) {
-      signIn()
-      return
-    }
-    setIsBillingLoading(true)
-    try {
-      const { data } = await axios.post('/api/stripe/checkout-sessions', {
-        itemType,
-        itemId,
-      })
-      if (data.url) {
-        router.push(data.url)
-      } else {
-        setLibraryError('Could not initiate payment. Please try again.')
-      }
-    } catch (error: any) {
-      console.error("Error redirecting to checkout:", error)
-      setLibraryError(error.response?.data?.error || 'Failed to start payment process.')
-    } finally {
-      setIsBillingLoading(false)
+  const renderStatus = (status: string) => {
+    switch (status) {
+      case 'PENDING':
+      case 'RENDERING':
+        return (
+          <div className="flex items-center gap-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-orange-500"></div>
+            <span className="text-orange-400 text-sm">Processing...</span>
+          </div>
+        );
+      case 'COMPLETED':
+        return <span className="text-green-400 text-sm">✅ Completed</span>;
+      case 'FAILED':
+        return <span className="text-red-400 text-sm">❌ Failed</span>;
+      default:
+        return <span className="text-gray-400 text-sm">{status}</span>;
     }
   }
 
-  const redirectToCustomerPortal = async () => {
-    if (!session?.user) return
-    setIsBillingLoading(true)
-    try {
-      const { data } = await axios.post('/api/stripe/customer-portal');
-      if (data.url) {
-        router.push(data.url);
-      }
-    } catch (error: any) {
-      console.error("Error redirecting to customer portal:", error);
-      setLibraryError(error.response?.data?.error || 'Could not open customer portal.');
-    } finally {
-      setIsBillingLoading(false);
-    }
-  };
-
-  const handleCancelAd = async (adId: string) => {
-    if (!confirm('Are you sure you want to cancel this ad creation?')) {
-      return;
-    }
-    try {
-      await axios.post(`/api/ads/${adId}`);
-      toast.success('Ad cancellation requested.');
-      // The status will update on the next poll
-    } catch (error) {
-      console.error('Failed to cancel ad:', error);
-      toast.error('Failed to cancel ad. Please try again.');
-    }
-  };
-
-  const handleDeleteAd = async (adId: string) => {
-    if (!confirm('Are you sure you want to delete this ad? This action cannot be undone.')) {
-      return;
-    }
-    try {
-      await axios.delete(`/api/ads/${adId}`);
-      toast.success('Ad deleted successfully.');
-      setLibrary(library.filter((ad) => ad.id !== adId));
-    } catch (error) {
-      console.error('Failed to delete ad:', error);
-      toast.error('Failed to delete ad. Please try again.');
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-            <h1 className="text-3xl font-bold">Dashboard</h1>
-            <div className="text-right">
-                <p className="text-sm text-gray-600">Plan: <span className="font-semibold text-blue-600">{user.plan || 'FREE'}</span></p>
-                <p className="text-sm text-gray-600">Credits: <span className="font-semibold text-blue-600">{user.credits ?? 0}</span></p>
-            </div>
+    <div className="min-h-screen bg-black text-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white mb-2">
+            Welcome back, {user.name?.split(' ')[0] || 'Creator'}!
+          </h1>
+          <p className="text-gray-400">Ready to create your next viral video ad?</p>
         </div>
 
-        <div className="mb-10 p-6 bg-white rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">Create New Ad</h2>
-          <label className="block mb-2 font-medium text-gray-700">Enter product URL (optional)</label>
-          <div className="flex flex-col sm:flex-row gap-2 mb-3">
-            <input
-              type="text"
-              value={productUrl}
-              onChange={e => setProductUrl(e.target.value)}
-              className="border rounded px-3 py-2 flex-grow focus:ring-2 focus:ring-blue-500 outline-none"
-              placeholder="https://example.com/product"
-            />
-            <button 
-                className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={handleCreateAd}
-                disabled={isBillingLoading || !canCreateAd}
-                title={!canCreateAd ? `You need at least ${AD_CREATION_COST} credits to create an ad.` : 'Start with product URL'}
-            >
-                Start with URL
-            </button>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
+                <span className="text-white text-xl">⭐</span>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm">Credits</p>
+                <p className="text-2xl font-bold text-white">{user.credits ?? 0}</p>
+              </div>
+            </div>
           </div>
-          <div className="text-center my-3 text-gray-500">or</div>
-          <button 
-            className="w-full px-4 py-2 border rounded hover:bg-gray-100 transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={handleCreateFromScratch}
-            disabled={isBillingLoading || !canCreateAd}
-            title={!canCreateAd ? `You need at least ${AD_CREATION_COST} credits to create an ad.` : 'Create an ad from scratch'}
-          >
-            Create Ad From Scratch
-          </button>
-          {!canCreateAd && (
-            <p className="text-center text-red-500 text-sm mt-3">
-              You need at least {AD_CREATION_COST} credits to create a new ad. Please top up your credits.
-            </p>
-          )}
-        </div>
 
-        <div className="mb-10 p-6 bg-white rounded-lg shadow">
-          <h2 className="text-xl font-semibold mb-4">My Creations</h2>
-          {loadingLibrary && <p>Loading library...</p>}
-          {!loadingLibrary && library.length === 0 && <p>You haven&apos;t created any ads yet.</p>}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {library.map(ad => (
-              <AdCard key={ad.id} ad={ad} onDelete={handleDeleteAd} onCancel={handleCancelAd} />
-            ))}
+          <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                <span className="text-white text-xl">📊</span>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm">Total Ads</p>
+                <p className="text-2xl font-bold text-white">{stats.totalAds}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-lg flex items-center justify-center">
+                <span className="text-white text-xl">✅</span>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm">Completed</p>
+                <p className="text-2xl font-bold text-white">{stats.completedAds}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <span className="text-white text-xl">⏳</span>
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm">In Progress</p>
+                <p className="text-2xl font-bold text-white">{stats.inProgress}</p>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="mb-10 p-6 bg-white rounded-lg shadow">
-            <h2 className="text-xl font-semibold mb-4">Manage Account & Billing</h2>
-            {libraryError && <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-[10px]">{libraryError}</div>}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className="border p-4 rounded-md bg-gray-50">
-                    <h3 className="font-semibold text-lg mb-2">Basic Plan</h3>
-                    <p className="text-sm text-gray-600 mb-1">499kr - 100 Credits</p>
-                    <button onClick={() => redirectToCheckout('plan', 'BASIC')} disabled={isBillingLoading || user.plan === 'BASIC'} className="w-full mt-2 bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 disabled:bg-gray-300">{user.plan === 'BASIC' ? 'Current Plan' : 'Choose Basic'}</button>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Creation Panel */}
+          <div className="lg:col-span-2">
+            <div className="bg-gray-900 rounded-xl p-8 border border-gray-800">
+              <h2 className="text-2xl font-bold text-white mb-6">Create New Video Ad</h2>
+              
+              <div className="space-y-6">
+                {/* URL Input */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-3">
+                    Start with a product URL (optional)
+                  </label>
+                  <div className="flex gap-3">
+                    <input
+                      type="text"
+                      value={productUrl}
+                      onChange={e => setProductUrl(e.target.value)}
+                      className="flex-1 bg-black border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-orange-500 focus:outline-none transition-colors"
+                      placeholder="https://example.com/product"
+                    />
+                    <button 
+                      className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={handleCreateAd}
+                      disabled={!canCreateAd}
+                      title={!canCreateAd ? `You need at least ${AD_CREATION_COST} credits to create an ad.` : 'Start with product URL'}
+                    >
+                      Start with URL
+                    </button>
+                  </div>
                 </div>
-                <div className="border p-4 rounded-md bg-gray-50">
-                    <h3 className="font-semibold text-lg mb-2">Pro Plan</h3>
-                    <p className="text-sm text-gray-600 mb-1">999kr - 250 Credits</p>
-                    <button onClick={() => redirectToCheckout('plan', 'PRO')} disabled={isBillingLoading || user.plan === 'PRO'} className="w-full mt-2 bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 disabled:bg-gray-300">{user.plan === 'PRO' ? 'Current Plan' : 'Choose Pro'}</button>
+
+                {/* Divider */}
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-700"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-3 bg-gray-900 text-gray-400">or</span>
+                  </div>
                 </div>
-                <div className="border p-4 rounded-md bg-gray-50">
-                    <h3 className="font-semibold text-lg mb-2">Premium Plan</h3>
-                    <p className="text-sm text-gray-600 mb-1">1499kr - 400 Credits</p>
-                    <button onClick={() => redirectToCheckout('plan', 'PREMIUM')} disabled={isBillingLoading || user.plan === 'PREMIUM'} className="w-full mt-2 bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 disabled:bg-gray-300">{user.plan === 'PREMIUM' ? 'Current Plan' : 'Choose Premium'}</button>
-                </div>
-                 <div className="border p-4 rounded-md bg-blue-50">
-                    <h3 className="font-semibold text-lg mb-2">Manage Subscription</h3>
-                    <p className="text-sm text-gray-600 mb-1">View invoices or cancel plan.</p>
-                    <button onClick={redirectToCustomerPortal} disabled={isBillingLoading || user.plan === 'FREE'} className="w-full mt-2 bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 disabled:bg-gray-300">Go to Portal</button>
-                </div>
+
+                {/* From Scratch */}
+                <button 
+                  className="w-full py-4 border-2 border-gray-700 text-gray-300 rounded-lg hover:border-orange-500 hover:text-orange-400 hover:bg-black/50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleCreateFromScratch}
+                  disabled={!canCreateAd}
+                  title={!canCreateAd ? `You need at least ${AD_CREATION_COST} credits to create an ad.` : 'Create an ad from scratch'}
+                >
+                  <div className="flex items-center justify-center gap-3">
+                    <span className="text-2xl">✨</span>
+                    <span className="font-medium">Create Ad From Scratch</span>
+                  </div>
+                </button>
+
+                {!canCreateAd && (
+                  <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
+                    <p className="text-red-400 text-sm text-center">
+                      You need at least {AD_CREATION_COST} credits to create a new ad. 
+                      <Link href="/subscription" className="text-orange-400 hover:text-orange-300 ml-1 underline">
+                        Top up your credits
+                      </Link>
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-            <h3 className="text-lg font-semibold mb-3">Top-up Credits</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="border p-4 rounded-md bg-gray-50">
-                    <h3 className="font-semibold text-md mb-1">50 Credits</h3>
-                    <button onClick={() => redirectToCheckout('credits', 'TOPUP_50')} disabled={isBillingLoading} className="w-full mt-2 bg-indigo-500 text-white py-2 px-3 rounded hover:bg-indigo-600 disabled:bg-gray-300">Buy 50 Credits</button>
+
+            {/* Quick Actions */}
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Link href="/creations" className="bg-gray-900 border border-gray-800 rounded-lg p-6 hover:border-orange-500/50 transition-all duration-200 group">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <span className="text-white">📹</span>
+                  </div>
+                  <div>
+                    <h3 className="text-white font-medium">My Creations</h3>
+                    <p className="text-gray-400 text-sm">View all your video ads</p>
+                  </div>
                 </div>
-                <div className="border p-4 rounded-md bg-gray-50">
-                    <h3 className="font-semibold text-md mb-1">100 Credits</h3>
-                    <button onClick={() => redirectToCheckout('credits', 'TOPUP_100')} disabled={isBillingLoading} className="w-full mt-2 bg-indigo-500 text-white py-2 px-3 rounded hover:bg-indigo-600 disabled:bg-gray-300">Buy 100 Credits</button>
+              </Link>
+
+              <Link href="/subscription" className="bg-gray-900 border border-gray-800 rounded-lg p-6 hover:border-orange-500/50 transition-all duration-200 group">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-green-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <span className="text-white">💎</span>
+                  </div>
+                  <div>
+                    <h3 className="text-white font-medium">Subscription</h3>
+                    <p className="text-gray-400 text-sm">Manage plan & billing</p>
+                  </div>
                 </div>
-                <div className="border p-4 rounded-md bg-gray-50">
-                    <h3 className="font-semibold text-md mb-1">200 Credits</h3>
-                    <button onClick={() => redirectToCheckout('credits', 'TOPUP_200')} disabled={isBillingLoading} className="w-full mt-2 bg-indigo-500 text-white py-2 px-3 rounded hover:bg-indigo-600 disabled:bg-gray-300">Buy 200 Credits</button>
-                </div>
+              </Link>
             </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Recent Activity */}
+            <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-white">Recent Activity</h3>
+                <Link href="/creations" className="text-orange-400 hover:text-orange-300 text-sm font-medium">
+                  View All
+                </Link>
+              </div>
+
+              {loadingRecent ? (
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="bg-black rounded-lg p-3 animate-pulse">
+                      <div className="h-4 bg-gray-800 rounded w-3/4 mb-2"></div>
+                      <div className="h-3 bg-gray-800 rounded w-1/2"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : recentAds.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <span className="text-4xl mb-3 block">🎬</span>
+                  <p className="text-sm">No ads created yet.</p>
+                  <p className="text-xs">Create your first video ad!</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {recentAds.map(ad => (
+                    <div key={ad.id} className="bg-black rounded-lg p-3 border border-gray-800 hover:border-gray-700 transition-colors">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-white text-sm font-medium truncate">
+                          {ad.brandName || `Ad #${ad.id.slice(0, 6)}`}
+                        </h4>
+                        {renderStatus(ad.status)}
+                      </div>
+                      <p className="text-gray-400 text-xs">
+                        {new Date(ad.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Account Info */}
+            <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+              <h3 className="text-lg font-semibold text-white mb-4">Account</h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400 text-sm">Plan</span>
+                  <span className="bg-gradient-to-r from-orange-500 to-orange-600 px-2 py-1 rounded text-white text-xs font-medium">
+                    {user.plan || 'FREE'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400 text-sm">Credits</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-white font-medium">{user.credits ?? 0}</span>
+                    <Link href="/subscription" className="text-orange-400 hover:text-orange-300 text-xs">
+                      +
+                    </Link>
+                  </div>
+                </div>
+              </div>
+
+              <Link 
+                href="/subscription"
+                className="mt-4 w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white text-center py-2 rounded-lg text-sm font-medium hover:shadow-lg transition-all duration-200 block"
+              >
+                Upgrade Plan
+              </Link>
+            </div>
+
+            {/* Help & Support */}
+            <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
+              <h3 className="text-lg font-semibold text-white mb-4">Need Help?</h3>
+              <div className="space-y-3">
+                <Link href="/help" className="block text-orange-400 hover:text-orange-300 text-sm">
+                  📚 Help Center
+                </Link>
+                <Link href="/about" className="block text-orange-400 hover:text-orange-300 text-sm">
+                  🎯 How It Works
+                </Link>
+                <a href="mailto:support@ageco.ai" className="block text-orange-400 hover:text-orange-300 text-sm">
+                  💬 Contact Support
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   )
-} 
+}

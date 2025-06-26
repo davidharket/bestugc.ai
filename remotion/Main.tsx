@@ -1,76 +1,214 @@
-// remotion/Main.tsx
-import { AbsoluteFill, Sequence } from 'remotion';
+import React from 'react';
+import {
+  AbsoluteFill,
+  Sequence,
+  Audio,
+  Composition,
+  staticFile,
+} from 'remotion';
+import { z } from 'zod';
 import { AdCreationData } from '../components/AdCreationContext';
-import { Scene as SceneType } from '../lib/templates';
-// Import all your new scene components
-import { AvatarWithCornerImage } from './scenes/AvatarWithCornerImage';
-import { FullScreenAsset } from './scenes/FullScreenAsset';
+import { ConcreteScene } from '../lib/timeline-generator';
+import { LayoutType } from '../lib/templates';
+
+// Import all scene components
+import { AvatarWithCornerAsset } from './scenes/AvatarWithCornerAsset';
 import { CutoutAvatarScene } from './scenes/CutoutAvatarScene';
-import { SequentialLayeringScene } from './scenes/SequentialLayeringScene';
+import { FullScreenAsset } from './scenes/FullScreenAsset';
+import { FullScreenAvatar } from './scenes/FullScreenAvatar';
+import { BuildupCollageScene } from './scenes/BuildupCollageScene';
+import { SplitScreenScene } from './scenes/SplitScreenScene';
 
-// Helper to get all assets in one array
-const getAssets = (adData: AdCreationData) => [...(adData.selectedImages || []), ...(adData.selectedVideos || [])];
+// --- Zod Schemas for Type Safety ---
+export const MainCompositionProps = z.object({
+  adData: z.any(),
+  timeline: z.array(z.any()),
+  audioUrl: z.string(),
+  processedAvatarUrl: z.string(),
+  greenscreenAvatarUrl: z.string(),
+});
 
-export const MainComposition: React.FC<{
-  adData: AdCreationData;
-  timeline: SceneType[];
-  processedAvatarUrl: string; // Original with BG
-  cutoutAvatarUrl: string;    // Transparent BG
-}> = ({ adData, timeline, processedAvatarUrl, cutoutAvatarUrl }) => {
+const TestCutoutSceneProps = z.object({
+  backgroundSrc: z.string(),
+  greenscreenSrc: z.string(),
+  position: z.enum(['center', 'left', 'right']),
+  avatarStartFrom: z.number().optional(),
+});
 
-  if (!timeline || timeline.length === 0) {
-    return (
-        <AbsoluteFill className="bg-red-500 justify-center items-center">
-            <h1 className="text-white text-4xl">Timeline not generated!</h1>
-        </AbsoluteFill>
-    );
+// --- Mock Data for Studio Showcase ---
+const MOCK_AD_DATA: AdCreationData = {
+  selectedImages: [
+    'uploads/scraped/2ebccc5c81598a87/c9b66cad787b.webp',
+    'uploads/scraped/2ebccc5c81598a87/fee4376401fe.webp',
+  ],
+  selectedVideos: [
+    'uploads/scraped/2ebccc5c81598a87/0e8851bafdd8.mp4',
+    'uploads/scraped/2ebccc5c81598a87/1be8fed6bca1.mp4',
+  ],
+};
+
+const ALL_SCENES_TIMELINE: ConcreteScene[] = [
+  { layout: 'fullscreen-avatar', duration: 90, assetIndices: [] },
+  { layout: 'fullscreen-asset', duration: 90, assetIndices: [0] },
+  { layout: 'cutout-left-over-asset', duration: 120, assetIndices: [1] },
+  { layout: 'cutout-right-over-asset', duration: 120, assetIndices: [2] },
+  { layout: 'cutout-center-over-asset', duration: 120, assetIndices: [3] },
+  { layout: 'avatar-with-corner-asset', duration: 120, assetIndices: [0] },
+  { layout: 'split-screen-top-asset', duration: 120, assetIndices: [1] },
+  { layout: 'buildup-collage', duration: 150, assetIndices: [0, 1, 3] },
+];
+
+// --- Main Remotion Root Component ---
+export const RemotionRoot: React.FC = () => {
+  const totalDuration = ALL_SCENES_TIMELINE.reduce(
+    (acc, scene) => acc + scene.duration,
+    0
+  );
+
+  return (
+    <>
+      <Composition
+        id="Main"
+        component={MainComposition}
+        durationInFrames={totalDuration}
+        fps={30}
+        width={1080}
+        height={1920}
+        schema={MainCompositionProps}
+        defaultProps={{
+          adData: MOCK_AD_DATA,
+          timeline: ALL_SCENES_TIMELINE,
+          audioUrl: 'generated_audio/audio-69d70954b6a1.mp3',
+          processedAvatarUrl: 'avatars-fixed/female-blonde-adult-inside.mp4', // This will be a local file for the mock
+          greenscreenAvatarUrl: 'cutouts/cutout-69d70954b6a1.webm', // Dev/test fallback - production uses dynamic URLs
+        }}
+      />
+      <Composition
+        id="TestCutoutScene"
+        component={CutoutAvatarScene}
+        durationInFrames={150}
+        fps={30}
+        width={1080}
+        height={1920}
+        schema={TestCutoutSceneProps}
+        defaultProps={{
+          backgroundSrc: 'uploads/scraped/2ebccc5c81598a87/c9b66cad787b.webp',
+          greenscreenSrc: 'cutouts/cutout-69d70954b6a1.webm', // Dev/test fallback - production uses dynamic URLs
+          position: 'center',
+          avatarStartFrom: 0,
+        }}
+      />
+    </>
+  );
+};
+
+// --- THIS IS THE CORRECTED, INTELLIGENT ASSET RESOLVER ---
+const resolveAsset = (assetPath: string): string => {
+  if (!assetPath) {
+    // Return an empty string for undefined paths to prevent errors
+    return '';
   }
+  // If it's a full web URL (from SyncLabs), return it directly.
+  if (assetPath.startsWith('http://') || assetPath.startsWith('https://')) {
+    return assetPath;
+  }
+  // Otherwise, treat it as a local static file relative to /public.
+  // The `staticFile` function handles this correctly.
+  return staticFile(assetPath);
+};
 
+// --- Main Rendering Composition ---
+export const MainComposition: React.FC<z.infer<typeof MainCompositionProps>> = ({
+  adData,
+  timeline,
+  audioUrl,
+  processedAvatarUrl,
+  greenscreenAvatarUrl,
+}) => {
+  const assets = [...(adData.selectedImages || []), ...(adData.selectedVideos || [])];
   let fromFrame = 0;
 
   return (
     <AbsoluteFill className="bg-white">
-      {timeline.map((scene, index) => {
+      <Audio src={resolveAsset(audioUrl)} />
+      {timeline.map((scene: ConcreteScene, index: number) => {
         const duration = scene.duration;
-        const sceneComponent = (
-          <Sequence key={index} from={fromFrame} durationInFrames={duration}>
-            {renderScene(scene, adData, processedAvatarUrl, cutoutAvatarUrl)}
+        const currentFromFrame = fromFrame;
+        fromFrame += duration; // Move this before the return
+        
+        return (
+          <Sequence key={`${scene.layout}-${index}`} from={currentFromFrame} durationInFrames={duration}>
+            {renderScene(
+              scene,
+              assets,
+              processedAvatarUrl,
+              greenscreenAvatarUrl,
+              currentFromFrame
+            )}
           </Sequence>
         );
-        fromFrame += duration;
-        return sceneComponent;
       })}
     </AbsoluteFill>
   );
 };
 
-// Main logic to switch between scene components
-function renderScene(scene: SceneType, adData: AdCreationData, videoUrl: string, cutoutUrl: string) {
-    const assets = getAssets(adData);
-    const getAsset = (index?: number) => (index !== undefined ? assets[index] : '');
+// --- Scene Rendering Logic (Using the intelligent resolver) ---
+function renderScene(
+  scene: ConcreteScene,
+  assets: string[],
+  videoUrl: string,
+  greenscreenUrl: string,
+  startFrame: number
+) {
+  const getAsset = (index?: number) =>
+    index !== undefined && assets[index] ? assets[index] : '';
 
-    switch (scene.layout) {
-        case 'avatar-with-corner-image':
-            return <AvatarWithCornerImage videoUrl={videoUrl} imageUrl={getAsset(scene.assetIndices?.[0])} />;
+  // Use our smart resolver on EVERY asset path.
+  const resolvedVideoUrl = resolveAsset(videoUrl);
+  const resolvedGreenscreenUrl = resolveAsset(greenscreenUrl);
 
-        case 'fullscreen-asset':
-            return <FullScreenAsset assetUrl={getAsset(scene.assetIndices?.[0])} />;
-        
-        case 'cutout-center-over-asset':
-            return <CutoutAvatarScene backgroundUrl={getAsset(scene.assetIndices?.[0])} cutoutUrl={cutoutUrl} position="center" />;
+  // Handle collage scenes separately as they have multiple assets
+  if (scene.layout === 'buildup-collage') {
+    const collageAssets = scene.assetIndices?.map(i => resolveAsset(getAsset(i))) || [];
+    return <BuildupCollageScene assetUrls={collageAssets} />;
+  }
 
-        case 'cutout-right-over-asset':
-            return <CutoutAvatarScene backgroundUrl={getAsset(scene.assetIndices?.[0])} cutoutUrl={cutoutUrl} position="right" />;
-            
-        case 'cutout-left-over-asset':
-            return <CutoutAvatarScene backgroundUrl={getAsset(scene.assetIndices?.[0])} cutoutUrl={cutoutUrl} position="left" />;
+  // Handle single-asset scenes
+  const resolvedAssetUrl = resolveAsset(getAsset(scene.assetIndices?.[0]));
 
-        case 'sequential-layering':
-            const backgroundAssetIndex = scene.assetIndices?.[0];
-            const layeringImages = (scene.assetIndices || []).slice(1).map(i => getAsset(i));
-            return <SequentialLayeringScene backgroundUrl={getAsset(backgroundAssetIndex)} images={layeringImages} />;
-
-        default:
-            return <AbsoluteFill className="bg-yellow-400 justify-center items-center"><p>Unknown scene layout: {scene.layout}</p></AbsoluteFill>;
-    }
+  switch (scene.layout as LayoutType) {
+    case 'fullscreen-avatar':
+      return <FullScreenAvatar src={resolvedVideoUrl} startFrom={startFrame} />;
+    case 'fullscreen-asset':
+      return <FullScreenAsset src={resolvedAssetUrl} />;
+    case 'cutout-left-over-asset':
+    case 'cutout-right-over-asset':
+    case 'cutout-center-over-asset':
+      return (
+        <CutoutAvatarScene
+          backgroundSrc={resolvedAssetUrl}
+          greenscreenSrc={resolvedGreenscreenUrl}
+          position={scene.layout.split('-')[1] as 'left' | 'right' | 'center'}
+          avatarStartFrom={startFrame}
+        />
+      );
+    case 'avatar-with-corner-asset':
+      return (
+        <AvatarWithCornerAsset
+          videoSrc={resolvedVideoUrl}
+          assetSrc={resolvedAssetUrl}
+          startFrom={startFrame}
+        />
+      );
+    case 'split-screen-top-asset':
+      return (
+        <SplitScreenScene
+          videoSrc={resolvedVideoUrl}
+          assetSrc={resolvedAssetUrl}
+          startFrom={startFrame}
+        />
+      );
+    default:
+      return <AbsoluteFill style={{ backgroundColor: 'darkslateblue' }} />;
+  }
 }

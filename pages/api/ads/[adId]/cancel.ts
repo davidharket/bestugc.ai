@@ -1,3 +1,5 @@
+// pages/api/ads/[adId]/cancel.ts
+
 import { NextApiRequest, NextApiResponse } from 'next';
 import { PrismaClient } from '@prisma/client';
 import { getServerSession } from 'next-auth/next';
@@ -28,12 +30,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(404).json({ error: 'Ad not found or cancellation not possible.' });
       }
 
-      await inngest.cancel({ runId: ad.inngestRunId });
+      // ✅ CORRECT FIX: Use inngest.send to dispatch a cancellation event.
+      await inngest.send({
+        name: "inngest/run.cancel",
+        data: {
+          run_id: ad.inngestRunId,
+        },
+      });
       
-      // Optionally, update the ad status to CANCELED
       await prisma.ad.update({
         where: { id: ad.id },
-        data: { status: 'FAILED' }, // Or a new CANCELED status
+        data: { status: 'CANCELED' },
       });
 
       res.status(200).json({ message: 'Cancellation request sent.' });
@@ -45,4 +52,4 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.setHeader('Allow', ['POST']);
     res.status(405).end(`Method ${req.method} Not Allowed`);
   }
-} 
+}

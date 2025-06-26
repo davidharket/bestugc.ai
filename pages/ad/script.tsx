@@ -1,135 +1,212 @@
-import { useRouter } from 'next/router'
-import { useState, useEffect } from 'react'
-import axios from 'axios'
-import { useAdCreation } from '../../components/AdCreationContext'
+// pages/ad/script.tsx
+import { useRouter } from 'next/router';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+import { useAdCreation } from '../../components/AdCreationContext';
+import toast from 'react-hot-toast';
 
 const scriptTypes = [
   { key: 'cta', label: 'Call to Action' },
   { key: 'lifestyle', label: 'Product Lifestyle' },
   { key: 'brand', label: 'Brand Story' },
-  { key: 'trending', label: 'Trending Topics' },
-  { key: 'custom', label: 'Custom' },
-]
+];
 
-export default function ScriptAd() {
-  const router = useRouter()
-  const { adData, setAdData } = useAdCreation()
-  const [activeType, setActiveType] = useState('cta')
-  const [scripts, setScripts] = useState<{ [key: string]: string }>({})
-  const [script, setScript] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [customScript, setCustomScript] = useState('')
-  const [isCustom, setIsCustom] = useState(false)
+export default function ScriptAdPage() {
+  const router = useRouter();
+  const { adData, setAdData } = useAdCreation();
+  
+  // Initialize state from context or set defaults
+  const [scripts, setScripts] = useState(adData.scripts || {});
+  const [selectedScript, setSelectedScript] = useState(adData.script || '');
+  const [loading, setLoading] = useState(false);
 
-  const summary = adData.summary || ''
-  const productName = adData.brandName || ''
-  const brandName = adData.brandName || ''
-  const promoDetails = adData.promoDetails || ''
-  const language = adData.language || 'en'
+  // Fetch scripts only if they don't already exist in the context
+  useEffect(() => {
+    const fetchScripts = async () => {
+      if (Object.keys(scripts).length > 0) return; // Don't re-fetch
+      if (!adData.summary) return; // Don't fetch if no product summary
 
-  const fetchAllScripts = async () => {
-    setLoading(true)
-    setError(null)
-    setIsCustom(false)
-    setCustomScript('')
+      setLoading(true);
+      const toastId = toast.loading('Generating script variations...');
+      try {
+        const response = await axios.post('/api/generate-script', {
+          summary: adData.summary,
+          productName: adData.brandName,
+          language: adData.language,
+        });
+        const generatedScripts = response.data.scripts || {};
+        setScripts(generatedScripts);
+        // Set the first generated script as the initial selection
+        const firstScript = Object.values(generatedScripts)[0] as string || '';
+        setSelectedScript(firstScript);
+        setAdData({ scripts: generatedScripts, script: firstScript });
+        toast.success('Scripts generated!', { id: toastId });
+      } catch (err: any) {
+        toast.error(err.response?.data?.error || 'Failed to generate scripts.', { id: toastId });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchScripts();
+  }, [adData.summary, adData.brandName, adData.language, setAdData]);
+
+  const handleRegenerateScripts = async () => {
+    setLoading(true);
+    const toastId = toast.loading('Regenerating scripts...');
     try {
-      const res = await axios.post('/api/generate-script', {
-        summary,
-        productName,
-        brandName,
-        promoDetails,
-        language,
-      })
-      setScripts(res.data.scripts || {})
-      setScript(res.data.scripts?.[activeType] || '')
-      setAdData({ scripts: res.data.scripts })
+      const response = await axios.post('/api/generate-script', {
+        summary: adData.summary,
+        productName: adData.brandName,
+        language: adData.language,
+      });
+      const generatedScripts = response.data.scripts || {};
+      setScripts(generatedScripts);
+      // Set the first generated script as the initial selection
+      const firstScript = Object.values(generatedScripts)[0] as string || '';
+      setSelectedScript(firstScript);
+      setAdData({ scripts: generatedScripts, script: firstScript });
+      toast.success('New scripts generated!', { id: toastId });
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to generate scripts')
-      setScripts({})
-      setScript('')
+      toast.error(err.response?.data?.error || 'Failed to regenerate scripts.', { id: toastId });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
-
-  useEffect(() => {
-    fetchAllScripts()
-    // eslint-disable-next-line
-  }, [])
-
-  const handleTab = (type: string) => {
-    setActiveType(type)
-    setIsCustom(false)
-    setCustomScript('')
-    setScript(scripts[type] || '')
-  }
-
-  const handleCustom = () => {
-    setIsCustom(true)
-    setCustomScript(script)
-  }
-
-  useEffect(() => {
-    if (isCustom) setAdData({ script: customScript })
-    // eslint-disable-next-line
-  }, [customScript, isCustom])
+  };
 
   const handleNext = () => {
-    setAdData({ script: isCustom ? customScript : script });
-    router.push('/ad/avatar')
-  }
+    // Ensure the final selected script is saved to context before proceeding
+    setAdData({ script: selectedScript });
+    router.push('/ad/avatar'); // The flow goes to avatar selection next
+  };
 
   return (
-    <div className="min-h-screen bg-white p-8">
-      <h1 className="text-2xl font-bold mb-4">Script - Step 3</h1>
-      <div className="flex gap-4 mb-6">
-        {scriptTypes.map(t => (
+    <div className="min-h-screen bg-black text-white">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white mb-2">Choose a Script - Step 3</h1>
+          <p className="text-gray-400">Select a script for your ad, or edit it below</p>
+        </div>
+
+        {/* Loading State */}
+        {loading && (
+          <div className="card mb-8">
+            <div className="flex items-center justify-center py-12">
+              <div className="flex items-center gap-3">
+                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-orange-500"></div>
+                <span className="text-orange-400 text-lg">Generating script variations...</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Script Selection */}
+        {!loading && Object.keys(scripts).length > 0 && (
+          <div className="card mb-8">
+            {/* Script Type Tabs */}
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-white">Generated Scripts</h2>
+                <button
+                  onClick={handleRegenerateScripts}
+                  disabled={loading}
+                  className="btn-secondary flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Regenerate
+                </button>
+              </div>
+              
+              <div className="flex flex-wrap gap-3 mb-6">
+                {Object.keys(scripts).map((key) => (
+                  <button
+                    key={key}
+                    onClick={() => setSelectedScript(scripts[key])}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                      selectedScript === scripts[key]
+                        ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25'
+                        : 'bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 hover:border-orange-500/50'
+                    }`}
+                  >
+                    {scriptTypes.find(t => t.key === key)?.label || 'Generated'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Script Editor */}
+            <div>
+              <label className="block text-gray-300 font-medium mb-3">
+                Selected Script 
+                <span className="text-gray-500 text-sm font-normal ml-2">
+                  (Feel free to edit and customize)
+                </span>
+              </label>
+              <textarea
+                className="input w-full"
+                rows={12}
+                value={selectedScript}
+                onChange={(e) => setSelectedScript(e.target.value)}
+                placeholder="Your ad script will appear here..."
+              />
+              <p className="text-gray-500 text-sm mt-2">
+                This script will be used for the video narration. You can edit it to better fit your needs.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!loading && Object.keys(scripts).length === 0 && (
+          <div className="card mb-8">
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.29-1.044-5.709-2.709M15 17h3a2 2 0 002-2V9a2 2 0 00-2-2h-3m-6 8H6a2 2 0 01-2-2V9a2 2 0 012-2h3m0 0V5a2 2 0 012-2h4a2 2 0 012 2v2M9 7h6" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-white mb-2">No Scripts Available</h3>
+              <p className="text-gray-400 mb-4">
+                We'll generate scripts based on your product information from the previous steps.
+              </p>
+              <button
+                onClick={handleRegenerateScripts}
+                disabled={loading}
+                className="btn-primary"
+              >
+                Generate Scripts
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Navigation */}
+        <div className="flex justify-between">
           <button
-            key={t.key}
-            className={`px-4 py-2 border rounded ${activeType === t.key && !isCustom ? 'bg-blue-600 text-white' : 'bg-white'}`}
-            onClick={() => handleTab(t.key)}
-            type="button"
+            className="btn-secondary"
+            onClick={() => router.back()}
           >
-            {t.label}
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back
           </button>
-        ))}
-        <button
-          className={`px-4 py-2 border rounded ${isCustom ? 'bg-blue-600 text-white' : 'bg-white'}`}
-          onClick={handleCustom}
-          type="button"
-        >
-          Custom
-        </button>
-        <button
-          className="ml-4 px-4 py-2 border rounded bg-yellow-500 text-white"
-          onClick={fetchAllScripts}
-          type="button"
-        >
-          Regenerate All
-        </button>
+
+          <button
+            className={`btn-primary ${!selectedScript || loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            onClick={handleNext}
+            disabled={!selectedScript || loading}
+          >
+            Continue to Avatar Selection
+            <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
       </div>
-      {loading && <div className="mb-4 text-blue-600">Generating script...</div>}
-      {error && <div className="mb-4 text-red-600">{error}</div>}
-      {!isCustom && !loading && script && (
-        <textarea className="w-full border rounded p-2 mb-4" rows={8} value={script} readOnly />
-      )}
-      {isCustom && (
-        <textarea
-          className="w-full border rounded p-2 mb-4"
-          rows={8}
-          value={customScript}
-          onChange={e => setCustomScript(e.target.value)}
-          placeholder="Write your own script here..."
-        />
-      )}
-      <button
-        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
-        onClick={handleNext}
-        disabled={(!isCustom && !script) || (isCustom && !customScript)}
-      >
-        Next
-      </button>
     </div>
-  )
-} 
+  );
+}

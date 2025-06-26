@@ -1,132 +1,211 @@
-import { useRouter } from 'next/router'
-import { useState, useEffect } from 'react'
-import { useAdCreation } from '../../components/AdCreationContext'
+import { useRouter } from 'next/router';
+import { useState, useEffect } from 'react';
+import { useAdCreation } from '../../components/AdCreationContext';
+// This is the correct import from our shared library
+import { avatars } from '../../lib/avatars';
 
-export const avatars = [
-  { id: 1, src: '/avatars/female-blonde-adult-inside.mp4', gender: 'female', hair: 'blonde', number: 1, age: 'adult', location: 'inside', label: 'Female Blonde 1 (Adult, Inside)' },
-  { id: 2, src: '/avatars/female-blonde2-adult-inside.mp4', gender: 'female', hair: 'blonde', number: 2, age: 'adult', location: 'inside', label: 'Female Blonde 2 (Adult, Inside)' },
-  { id: 3, src: '/avatars/female-blonde3-adult-inside.mp4', gender: 'female', hair: 'blonde', number: 3, age: 'adult', location: 'inside', label: 'Female Blonde 3 (Adult, Inside)' },
-  { id: 4, src: '/avatars/female-blonde4-adult-inside.mp4', gender: 'female', hair: 'blonde', number: 4, age: 'adult', location: 'inside', label: 'Female Blonde 4 (Adult, Inside)' },
-  { id: 5, src: '/avatars/female-brunette-adult-inside.mp4', gender: 'female', hair: 'brunette', number: 1, age: 'adult', location: 'inside', label: 'Female Brunette 1 (Adult, Inside)' },
-  { id: 6, src: '/avatars/female-brunette2-adult-inside.mp4', gender: 'female', hair: 'brunette', number: 2, age: 'adult', location: 'inside', label: 'Female Brunette 2 (Adult, Inside)' },
-  { id: 7, src: '/avatars/female-brunette3-adult-inside.mp4', gender: 'female', hair: 'brunette', number: 3, age: 'adult', location: 'inside', label: 'Female Brunette 3 (Adult, Inside)' },
-  { id: 8, src: '/avatars/female-blonde-senior-inside.mp4', gender: 'female', hair: 'blonde', number: 1, age: 'senior', location: 'inside', label: 'Female Blonde (Senior, Inside)' },
-  { id: 9, src: '/avatars/male-brunette-adult-inside.mp4', gender: 'male', hair: 'brunette', number: 1, age: 'adult', location: 'inside', label: 'Male Brunette 1 (Adult, Inside)' },
-  { id: 10, src: '/avatars/male-brunette2-adult-inside.mp4', gender: 'male', hair: 'brunette', number: 2, age: 'adult', location: 'inside', label: 'Male Brunette 2 (Adult, Inside)' },
-  { id: 11, src: '/avatars/male-brunette3-adult-inside.mp4', gender: 'male', hair: 'brunette', number: 3, age: 'adult', location: 'inside', label: 'Male Brunette 3 (Adult, Inside)' },
-  { id: 12, src: '/avatars/male-blonde-adult-inside.mp4', gender: 'male', hair: 'blonde', number: 1, age: 'adult', location: 'inside', label: 'Male Blonde 1 (Adult, Inside)' },
-]
-
-const genderOptions = ['male', 'female']
-const ageOptions = ['adult', 'senior']
-const locationOptions = ['inside', 'outside']
+const genderOptions = ['male', 'female'];
+const ageOptions = ['adult', 'senior'];
+const locationOptions = ['inside', 'outside'];
 
 export default function AvatarAd() {
-  const router = useRouter()
-  const { adData, setAdData } = useAdCreation()
-  const [selectedAvatar, setSelectedAvatar] = useState<number | null>(adData.avatarId || null)
-  const [gender, setGender] = useState<string | null>(null)
-  const [age, setAge] = useState<string | null>(null)
-  const [location, setLocation] = useState<string | null>(null)
+  const router = useRouter();
+  const { adData, setAdData } = useAdCreation();
+  const [selectedAvatar, setSelectedAvatar] = useState<number | null>(adData.avatarId || null);
+  const [gender, setGender] = useState<string | null>(null);
+  const [age, setAge] = useState<string | null>(null);
+  const [location, setLocation] = useState<string | null>(null);
 
   useEffect(() => {
-    setAdData({ avatarId: selectedAvatar === null ? undefined : selectedAvatar })
-    // eslint-disable-next-line
-  }, [selectedAvatar])
+    setAdData({ avatarId: selectedAvatar === null ? undefined : selectedAvatar });
+  }, [selectedAvatar]);
 
   const filteredAvatars = avatars.filter(a =>
     (!gender || a.gender === gender) &&
     (!age || a.age === age) &&
     (!location || a.location === location)
-  )
+  );
 
   const handleNext = () => {
-    router.push('/ad/render')
-  }
+    if (selectedAvatar !== null) {
+      router.push('/ad/template');
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-white p-8">
-      <h1 className="text-2xl font-bold mb-4">Choose Avatar - Step 4</h1>
-      <div className="flex gap-4 mb-6">
-        <div>
-          <label className="block font-medium mb-1">Gender</label>
-          <div className="flex gap-2">
-            {genderOptions.map(opt => (
-              <button
-                key={opt}
-                className={`px-3 py-1 border rounded ${gender === opt ? 'bg-blue-600 text-white' : 'bg-white'}`}
-                onClick={() => setGender(gender === opt ? null : opt)}
-                type="button"
-              >
-                {opt.charAt(0).toUpperCase() + opt.slice(1)}
-              </button>
-            ))}
-          </div>
+    <div className="min-h-screen bg-black text-white">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white mb-2">Choose Avatar - Step 4</h1>
+          <p className="text-gray-400">Select the AI avatar that will present your video</p>
         </div>
-        <div>
-          <label className="block font-medium mb-1">Age</label>
-          <div className="flex gap-2">
-            {ageOptions.map(opt => (
-              <button
-                key={opt}
-                className={`px-3 py-1 border rounded ${age === opt ? 'bg-blue-600 text-white' : 'bg-white'}`}
-                onClick={() => setAge(age === opt ? null : opt)}
-                type="button"
-              >
-                {opt.charAt(0).toUpperCase() + opt.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <label className="block font-medium mb-1">Location</label>
-          <div className="flex gap-2">
-            {locationOptions.map(opt => (
-              <button
-                key={opt}
-                className={`px-3 py-1 border rounded ${location === opt ? 'bg-blue-600 text-white' : 'bg-white'}`}
-                onClick={() => setLocation(location === opt ? null : opt)}
-                type="button"
-              >
-                {opt.charAt(0).toUpperCase() + opt.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-      <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 px-2">
-        {filteredAvatars.length === 0 && <div className="text-gray-400 col-span-4">No avatars match the selected filters.</div>}
-        {filteredAvatars.map(a => (
-          <div
-            key={a.id}
-            className={`border rounded p-2 flex flex-col items-center cursor-pointer bg-white shadow-sm transition ring-offset-2 ${selectedAvatar === a.id ? 'ring-2 ring-blue-500' : ''}`}
-            onClick={() => setSelectedAvatar(a.id)}
-            style={{ minWidth: 0 }}
-          >
-            <div className="w-full flex justify-center items-center" style={{ aspectRatio: '9/16', maxWidth: '100%' }}>
-              <video 
-                src={a.src}
-                loop
-                muted
-                playsInline
-                controls={false}
-                disablePictureInPicture
-                controlsList="nodownload nofullscreen noremoteplayback"
-                style={{ width: '100%', height: 'auto', borderRadius: 8, objectFit: 'cover' }}
-                onMouseEnter={e => e.currentTarget.play()}
-                onMouseLeave={e => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
-              />
+
+        {/* Filters */}
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-8">
+          <h2 className="text-xl font-semibold text-white mb-4">Filter Avatars</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Gender Filter */}
+            <div>
+              <label className="block text-gray-300 font-medium mb-3">Gender</label>
+              <div className="flex gap-2">
+                {genderOptions.map(opt => (
+                  <button
+                    key={opt}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                      gender === opt
+                        ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25'
+                        : 'bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 hover:border-orange-500/50'
+                    }`}
+                    onClick={() => setGender(gender === opt ? null : opt)}
+                    type="button"
+                  >
+                    {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Age Filter */}
+            <div>
+              <label className="block text-gray-300 font-medium mb-3">Age</label>
+              <div className="flex gap-2">
+                {ageOptions.map(opt => (
+                  <button
+                    key={opt}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                      age === opt
+                        ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25'
+                        : 'bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 hover:border-orange-500/50'
+                    }`}
+                    onClick={() => setAge(age === opt ? null : opt)}
+                    type="button"
+                  >
+                    {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Location Filter */}
+            <div>
+              <label className="block text-gray-300 font-medium mb-3">Location</label>
+              <div className="flex gap-2">
+                {locationOptions.map(opt => (
+                  <button
+                    key={opt}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                      location === opt
+                        ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25'
+                        : 'bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 hover:border-orange-500/50'
+                    }`}
+                    onClick={() => setLocation(location === opt ? null : opt)}
+                    type="button"
+                  >
+                    {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-        ))}
+        </div>
+
+        {/* --- THIS IS THE JSX THAT WAS MISSING --- */}
+        {/* Avatar Grid */}
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-8">
+          <h2 className="text-xl font-semibold text-white mb-4">
+            Available Avatars
+            <span className="text-gray-400 text-sm font-normal ml-2">
+              ({filteredAvatars.length} of {avatars.length})
+            </span>
+          </h2>
+
+          {filteredAvatars.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-gray-400 mb-4">
+                <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.29-1.044-5.709-2.709M15 17h3a2 2 0 002-2V9a2 2 0 00-2-2h-3m-6 8H6a2 2 0 01-2-2V9a2 2 0 012-2h3m0 0V5a2 2 0 012-2h4a2 2 0 012 2v2M9 7h6" />
+                </svg>
+                <p className="text-lg">No avatars match the selected filters</p>
+                <p className="text-sm">Try adjusting your filter criteria</p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {filteredAvatars.map(avatar => (
+                <div
+                  key={avatar.id}
+                  className={`relative rounded-xl overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105 ${
+                    selectedAvatar === avatar.id
+                      ? 'ring-4 ring-orange-500 shadow-lg shadow-orange-500/25'
+                      : 'border border-gray-700 hover:border-orange-500/50'
+                  }`}
+                  onClick={() => setSelectedAvatar(avatar.id)}
+                >
+                  <div className="aspect-[9/16] bg-gray-800">
+                    <video 
+                      src={avatar.src}
+                      loop
+                      muted
+                      playsInline
+                      controls={false}
+                      disablePictureInPicture
+                      controlsList="nodownload nofullscreen noremoteplayback"
+                      className="w-full h-full object-cover"
+                      onMouseEnter={e => e.currentTarget.play()}
+                      onMouseLeave={e => { 
+                        e.currentTarget.pause(); 
+                        e.currentTarget.currentTime = 0; 
+                      }}
+                    />
+                  </div>
+
+                  {selectedAvatar === avatar.id && (
+                    <div className="absolute inset-0 bg-orange-500/30 flex items-center justify-center pointer-events-none">
+                      <div className="bg-orange-500 rounded-full p-3 shadow-lg">
+                        <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+                    <p className="text-white text-sm font-medium truncate">
+                      {avatar.label}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        {/* --- END OF MISSING JSX --- */}
+
+        {/* Navigation */}
+        <div className="flex justify-between mt-12">
+          <button
+            className="flex items-center justify-center px-6 py-3 bg-gray-800 text-white font-medium rounded-xl border border-gray-700 hover:bg-gray-700 transition-all"
+            onClick={() => router.back()}
+          >
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back
+          </button>
+
+          <button
+            className={`flex items-center justify-center px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 ${selectedAvatar === null ? 'opacity-50 cursor-not-allowed' : ''}`}
+            onClick={handleNext}
+            disabled={selectedAvatar === null}
+          >
+            Next: Choose Template
+            <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
       </div>
-      <button
-        className="mt-8 px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
-        onClick={handleNext}
-        disabled={selectedAvatar === null}
-      >
-        Next
-      </button>
     </div>
-  )
-} 
+  );
+}
