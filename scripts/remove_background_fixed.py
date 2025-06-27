@@ -20,7 +20,7 @@ def process_video(input_path, output_path):
     cap = cv2.VideoCapture(input_path)
     if not cap.isOpened(): raise Exception("Could not open video file.")
     
-    target_fps = min(cap.get(cv2.CAP_PROP_FPS), 30) # Use 30fps for smoother output
+    target_fps = 24  # Fixed: Use consistent 24fps across pipeline
     temp_frame_dir = tempfile.mkdtemp(prefix="rembg_frames_")
     log_progress(f"Using temp directory: {temp_frame_dir}")
 

@@ -3,7 +3,7 @@ require('dotenv').config({ path: './.env.local' });
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
-const API_BASE_URL = process.env.NEXT_PUBLIC_APP_URL || '***REMOVED***';
+const API_BASE_URL = '***REMOVED***'; // Use localhost directly
 
 // Helper to find the latest file in a directory
 const findLatestFile = (dir, extension) => {
@@ -53,7 +53,7 @@ async function runRenderTest() {
   // This function doesn't need to change.
   function generateUserRequestedTimeline(assets) {
     console.log(`🎨 Generating user-requested 13-part timeline...`);
-    const fps = 30;
+    const fps = 24; // Fixed: Use consistent 24fps
     const timeline = [
       { layout: 'avatar-with-corner-image', duration: 5 * fps, assetIndices: [0] },
       { layout: 'fullscreen-avatar',        duration: 5 * fps, assetIndices: [] },
@@ -92,7 +92,7 @@ async function runRenderTest() {
     timeline: timeline,
     audioUrl: latestAudio, 
     processedAvatarUrl: '/avatars-fixed/female-blonde-adult-inside.mp4',
-    cutoutAvatarUrl: latestCutout, 
+    greenscreenAvatarUrl: latestCutout, 
   };
   
   try {
@@ -101,7 +101,8 @@ async function runRenderTest() {
         compositionId: 'Main',
         inputProps: inputProps,
     }, {
-        timeout: 1800000 // 30 min timeout
+        timeout: 1800000, // 30 min timeout
+        headers: { 'x-test-secret': process.env.TEST_SECRET_KEY }
     });
 
     console.log('\n🎉🎉🎉 SUCCESS! Render Complete! 🎉🎉🎉');

@@ -1,17 +1,19 @@
+// inngest/render-video.ts
 import { inngest } from './client';
 import { PrismaClient } from '@prisma/client';
 import { AdCreationData } from '../components/AdCreationContext';
 import { getTemplateById } from '../lib/templates';
 import { generateConcreteTimeline } from '../lib/timeline-generator';
 import axios from 'axios';
-// --- FIX: Import from the new, shared library file ---
+import fs from 'fs';
+import path from 'path';
 import { avatars } from '../lib/avatars';
+import { COMPOSITION_FPS } from '../remotion/constants'; // <-- Import the constant
 
 const prisma = new PrismaClient();
-// ✅ FIX: Use localhost for internal API calls to avoid SSL issues
 const INTERNAL_API_BASE_URL = '***REMOVED***';
 const EXTERNAL_API_BASE_URL = process.env.NEXT_PUBLIC_APP_URL || '***REMOVED***';
-const FPS = 30;
+// const FPS = 24; // This line is removed and replaced by the import above.
 
 export const renderVideoJob = inngest.createFunction(
   {
@@ -107,20 +109,19 @@ export const renderVideoJob = inngest.createFunction(
     // STEP 4: Wait for Lip-Sync to Complete with proper retry logic
     const lipSyncedVideoUrl = await step.run('poll-lipsync-with-retries', async () => {
       let attempts = 0;
-      const maxAttempts = 8; // ✅ FIX: More attempts with better spacing
+      const maxAttempts = 8;
       
       while (attempts < maxAttempts) {
         try {
-          // ✅ FIX: Better wait times - start quick, then slow down
-          let waitTime = 15; // Start with 15s
+          let waitTime = 15;
           if (attempts > 0) {
-            waitTime = attempts <= 2 ? 30 : attempts <= 4 ? 60 : 90; // 30s, 60s, then 90s
+            waitTime = attempts <= 2 ? 30 : attempts <= 4 ? 60 : 90;
             console.log(`⏱️ Waiting ${waitTime}s before attempt ${attempts + 1}/${maxAttempts}...`);
             await new Promise(resolve => setTimeout(resolve, waitTime * 1000));
           }
           
           const response = await axios.get(`${INTERNAL_API_BASE_URL}/api/lipsync/synclabs?jobId=${syncLabsJobId}`, {
-            timeout: 15000, // 15 second timeout for polling
+            timeout: 15000,
             headers: { 'x-test-secret': process.env.TEST_SECRET_KEY }
           });
           const status = response.data.status;
@@ -136,15 +137,13 @@ export const renderVideoJob = inngest.createFunction(
             throw new Error(`Lip-sync job ${syncLabsJobId} failed. Error: ${response.data.error}`);
           }
           
-          // If still processing, continue to next attempt
           console.log(`⏳ Still ${status}, will retry...`);
           attempts++;
           
         } catch (error: any) {
           if (error.message.includes('failed')) {
-            throw error; // Re-throw actual failures
+            throw error;
           }
-          // Check for network errors
           if (error.code === 'ECONNREFUSED' || 
               error.code === 'ERR_BAD_REQUEST' || 
               error.response?.status === 404 || 
@@ -159,46 +158,81 @@ export const renderVideoJob = inngest.createFunction(
         }
       }
       
-      // If we've exhausted all attempts, fall back to original video
       console.warn(`⏰ Timeout: Lip-sync job ${syncLabsJobId} still processing after ${maxAttempts} attempts, using original video as fallback`);
       const avatar = avatars.find((a) => a.id === adData.avatarId);
-      // ✅ FIX: Return relative path for internal processing, not external URL
       return avatar ? avatar.src : "/avatars/female-blonde2-adult-inside.mp4";
     });
     
-    // STEP 5: Remove Background (Real implementation)
+    // STEP 5: Download SyncLabs video locally (before background removal)
+    const { localLipSyncedVideoUrl } = await step.run('download-synclabs-video', async () => {
+      if (!lipSyncedVideoUrl.includes('api.sync.so')) {
+        console.log(`✅ Video already local: ${lipSyncedVideoUrl}`);
+        return { localLipSyncedVideoUrl: lipSyncedVideoUrl };
+      }
+
+      console.log(`📥 Downloading SyncLabs video locally: ${lipSyncedVideoUrl}`);
+      try {
+        const response = await axios.get(lipSyncedVideoUrl, {
+          responseType: 'arraybuffer',
+          timeout: 60000,
+        });
+
+        const videoId = lipSyncedVideoUrl.match(/generations\/([^\/]+)/)?.[1] || 'unknown';
+        const filename = `synclabs-${videoId}.mp4`;
+        const localPath = path.join(process.cwd(), 'public', 'synclabs', filename);
+        
+        const dir = path.dirname(localPath);
+        if (!fs.existsSync(dir)) {
+          fs.mkdirSync(dir, { recursive: true });
+        }
+
+        fs.writeFileSync(localPath, response.data);
+        
+        const relativePath = `/synclabs/${filename}`;
+        console.log(`✅ SyncLabs video downloaded locally: ${relativePath}`);
+        return { localLipSyncedVideoUrl: relativePath };
+        
+      } catch (error: any) {
+        console.warn(`⚠️ Failed to download SyncLabs video: ${error.message}`);
+        console.log(`🔄 Falling back to original avatar video`);
+        const avatar = avatars.find((a) => a.id === adData.avatarId);
+        return { localLipSyncedVideoUrl: avatar ? avatar.src : "/avatars/female-blonde2-adult-inside.mp4" };
+      }
+    });
+
+    // STEP 6: Remove Background (using local file for consistency)
     const { transparentAvatarUrl } = await step.run('remove-video-background', async () => {
       console.log(`🎭 Starting background removal (CPU mode - up to 60min)`);
       try {
         const response = await axios.post(`${INTERNAL_API_BASE_URL}/api/video/remove-background`, { 
-          videoUrl: lipSyncedVideoUrl 
+          localVideoPath: localLipSyncedVideoUrl 
         }, {
           headers: { 'x-test-secret': process.env.TEST_SECRET_KEY },
-          timeout: 3600000 // ✅ FIX: 60 minute timeout for CPU background removal (was 20 min)
+          timeout: 3600000
         });
         console.log(`✅ Background removal completed: ${response.data.cutoutVideoUrl}`);
         return { transparentAvatarUrl: response.data.cutoutVideoUrl };
       } catch (error: any) {
-        console.warn(`⚠️ Background removal failed, using correct lipsynced video as fallback: ${error.message}`);
-        // ✅ FIX: Use the correct lipsynced video instead of hardcoded old cutout
-        console.log(`🔄 Fallback: Using lipsynced video ${lipSyncedVideoUrl} instead of background-removed version`);
-        return { transparentAvatarUrl: lipSyncedVideoUrl };
+        console.warn(`⚠️ Background removal failed, using local lipsynced video as fallback: ${error.message}`);
+        console.log(`🔄 Fallback: Using local lipsynced video ${localLipSyncedVideoUrl} instead of background-removed version`);
+        return { transparentAvatarUrl: localLipSyncedVideoUrl };
       }
     });
     
-    // STEP 6: Get Audio Duration
-    const { durationInSeconds } = await step.run('get-audio-duration', async () => {
+    // STEP 7: Get Video Duration (use lip-sync video duration as master timeline!)
+    const { durationInSeconds } = await step.run('get-video-duration', async () => {
       const response = await axios.post(`${INTERNAL_API_BASE_URL}/api/video/get-duration`, {
-        filePath: audioUrl,
+        filePath: localLipSyncedVideoUrl,  // Use the lip-sync video duration as master
       }, {
-        timeout: 30000, // 30 second timeout for duration check
+        timeout: 30000,
         headers: { 'x-test-secret': process.env.TEST_SECRET_KEY }
       });
+      console.log(`🎞️ Using LIP-SYNC VIDEO duration for timeline: ${response.data.durationInSeconds}s`);
       return { durationInSeconds: response.data.durationInSeconds as number };
     });
-    const totalDurationInFrames = Math.round(durationInSeconds * FPS);
+    const totalDurationInFrames = Math.round(durationInSeconds * COMPOSITION_FPS);
 
-    // STEP 7: Generate Concrete Timeline
+    // STEP 8: Generate Concrete Timeline
     const concreteTimeline = await step.run('generate-concrete-timeline', async () => {
       if (!templateId) throw new Error("A `templateId` must be provided to the render job.");
       const template = getTemplateById(templateId);
@@ -206,29 +240,27 @@ export const renderVideoJob = inngest.createFunction(
       return generateConcreteTimeline(template.timeline, totalDurationInFrames);
     });
 
-    // STEP 8: Render the Final Video
+    // STEP 9: Render the Final Video
     const { finalVideoUrl } = await step.run('render-final-video', async () => {
-      // ✅ FIX: Convert external URLs to localhost for internal processing
       const convertToLocalUrl = (url: string): string => {
         if (!url) {
           console.warn(`⚠️ Empty URL provided to convertToLocalUrl`);
           return '';
         }
         if (url.startsWith('http')) {
-          // Extract just the path from full URLs (external or internal)
           const urlObj = new URL(url);
           console.log(`🔄 Converting external URL for internal processing: ${url} -> ${urlObj.pathname}`);
           return urlObj.pathname;
         }
         console.log(`✅ URL already relative: ${url}`);
-        return url; // Already a relative path
+        return url;
       };
 
       const inputProps = {
         adData: adData,
         timeline: concreteTimeline,
-        audioUrl: convertToLocalUrl(audioUrl),
-        processedAvatarUrl: convertToLocalUrl(lipSyncedVideoUrl),
+        audioUrl: convertToLocalUrl(localLipSyncedVideoUrl), // Use lip-sync video audio as master
+        processedAvatarUrl: convertToLocalUrl(localLipSyncedVideoUrl),
         greenscreenAvatarUrl: convertToLocalUrl(transparentAvatarUrl),
       };
 
@@ -236,9 +268,9 @@ export const renderVideoJob = inngest.createFunction(
         audioUrl: inputProps.audioUrl,
         processedAvatarUrl: inputProps.processedAvatarUrl,
         greenscreenAvatarUrl: inputProps.greenscreenAvatarUrl,
+        masterDuration: `${durationInSeconds}s`,
       });
 
-      // ✅ SAFETY CHECK: Ensure no external URLs are passed to Remotion
       const checkForExternalUrls = (props: any) => {
         const externalUrls: string[] = [];
         Object.entries(props).forEach(([key, value]) => {
@@ -262,13 +294,13 @@ export const renderVideoJob = inngest.createFunction(
         },
         {
           headers: { 'x-test-secret': process.env.TEST_SECRET_KEY },
-          timeout: 2400000, // ✅ FIX: 40 minute timeout for video rendering (was 30 min)
+          timeout: 2400000,
         }
       );
       return { finalVideoUrl: response.data.videoUrl as string };
     });
 
-    // STEP 9: Update Database - ✅ FIX: Direct Prisma call (no HTTP request)
+    // STEP 10: Update Database
     await step.run('update-database-with-final-url', async () => {
       try {
         await prisma.ad.update({
@@ -278,7 +310,6 @@ export const renderVideoJob = inngest.createFunction(
         console.log(`✅ Database updated: Ad ${adId} marked as COMPLETED with video ${finalVideoUrl}`);
       } catch (dbError: any) {
         console.error(`❌ Database update failed: ${dbError.message}`);
-        // Don't throw - the render was successful, we just couldn't update the status
         console.log(`⚠️ Render completed successfully but database update failed. Manual fix required.`);
         console.log(`📹 Video file: ${finalVideoUrl}`);
         console.log(`🆔 Ad ID: ${adId}`);

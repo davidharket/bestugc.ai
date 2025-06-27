@@ -67,7 +67,7 @@ def render_video():
             # 2. Generate video clips for each scene in the timeline
             print("Step 2/3: Generating scene clips...")
             scene_clips = []
-            fps = 30
+            fps = 24  # Fixed: Use consistent 24fps
 
             for i, scene in enumerate(timeline):
                 scene_duration = scene["duration"] / fps

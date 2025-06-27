@@ -1,4 +1,5 @@
 import { AbsoluteFill, Img, Video, useCurrentFrame, interpolate, spring, Easing } from 'remotion';
+import { COMPOSITION_FPS } from '../constants';
 
 const isVideo = (url: string) => {
   if (!url) return false;
@@ -8,7 +9,7 @@ const isVideo = (url: string) => {
 
 export const SequentialLayeringScene: React.FC<{ backgroundUrl: string, images: string[] }> = ({ backgroundUrl, images }) => {
   const frame = useCurrentFrame();
-  const fps = 30;
+  const fps = COMPOSITION_FPS; // Use the centralized FPS constant
 
   return (
     <AbsoluteFill>

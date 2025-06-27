@@ -1,3 +1,4 @@
+// remotion/Main.tsx
 import React from 'react';
 import {
   AbsoluteFill,
@@ -10,6 +11,7 @@ import { z } from 'zod';
 import { AdCreationData } from '../components/AdCreationContext';
 import { ConcreteScene } from '../lib/timeline-generator';
 import { LayoutType } from '../lib/templates';
+import { COMPOSITION_FPS } from './constants'; // Import for timeline calculations
 
 // Import all scene components
 import { AvatarWithCornerAsset } from './scenes/AvatarWithCornerAsset';
@@ -71,7 +73,7 @@ export const RemotionRoot: React.FC = () => {
         id="Main"
         component={MainComposition}
         durationInFrames={totalDuration}
-        fps={30}
+        fps={COMPOSITION_FPS}
         width={1080}
         height={1920}
         schema={MainCompositionProps}
@@ -79,21 +81,22 @@ export const RemotionRoot: React.FC = () => {
           adData: MOCK_AD_DATA,
           timeline: ALL_SCENES_TIMELINE,
           audioUrl: 'generated_audio/audio-69d70954b6a1.mp3',
-          processedAvatarUrl: 'avatars-fixed/female-blonde-adult-inside.mp4', // This will be a local file for the mock
-          greenscreenAvatarUrl: 'cutouts/cutout-69d70954b6a1.webm', // Dev/test fallback - production uses dynamic URLs
+          processedAvatarUrl: 'avatars-fixed/female-blonde-adult-inside.mp4',
+          greenscreenAvatarUrl: 'cutouts/cutout-69d70954b6a1.webm',
+
         }}
       />
       <Composition
         id="TestCutoutScene"
         component={CutoutAvatarScene}
         durationInFrames={150}
-        fps={30}
+        fps={COMPOSITION_FPS}
         width={1080}
         height={1920}
         schema={TestCutoutSceneProps}
         defaultProps={{
           backgroundSrc: 'uploads/scraped/2ebccc5c81598a87/c9b66cad787b.webp',
-          greenscreenSrc: 'cutouts/cutout-69d70954b6a1.webm', // Dev/test fallback - production uses dynamic URLs
+          greenscreenSrc: 'cutouts/cutout-69d70954b6a1.webm',
           position: 'center',
           avatarStartFrom: 0,
         }}
@@ -105,15 +108,11 @@ export const RemotionRoot: React.FC = () => {
 // --- THIS IS THE CORRECTED, INTELLIGENT ASSET RESOLVER ---
 const resolveAsset = (assetPath: string): string => {
   if (!assetPath) {
-    // Return an empty string for undefined paths to prevent errors
     return '';
   }
-  // If it's a full web URL (from SyncLabs), return it directly.
   if (assetPath.startsWith('http://') || assetPath.startsWith('https://')) {
     return assetPath;
   }
-  // Otherwise, treat it as a local static file relative to /public.
-  // The `staticFile` function handles this correctly.
   return staticFile(assetPath);
 };
 
@@ -134,7 +133,7 @@ export const MainComposition: React.FC<z.infer<typeof MainCompositionProps>> = (
       {timeline.map((scene: ConcreteScene, index: number) => {
         const duration = scene.duration;
         const currentFromFrame = fromFrame;
-        fromFrame += duration; // Move this before the return
+        fromFrame += duration;
         
         return (
           <Sequence key={`${scene.layout}-${index}`} from={currentFromFrame} durationInFrames={duration}>
@@ -163,22 +162,22 @@ function renderScene(
   const getAsset = (index?: number) =>
     index !== undefined && assets[index] ? assets[index] : '';
 
-  // Use our smart resolver on EVERY asset path.
   const resolvedVideoUrl = resolveAsset(videoUrl);
   const resolvedGreenscreenUrl = resolveAsset(greenscreenUrl);
 
-  // Handle collage scenes separately as they have multiple assets
+  // Calculate the start time in seconds based on the frame position in the timeline
+  const avatarVideoStartFrom = startFrame / COMPOSITION_FPS;
+
   if (scene.layout === 'buildup-collage') {
     const collageAssets = scene.assetIndices?.map(i => resolveAsset(getAsset(i))) || [];
     return <BuildupCollageScene assetUrls={collageAssets} />;
   }
 
-  // Handle single-asset scenes
   const resolvedAssetUrl = resolveAsset(getAsset(scene.assetIndices?.[0]));
 
   switch (scene.layout as LayoutType) {
     case 'fullscreen-avatar':
-      return <FullScreenAvatar src={resolvedVideoUrl} startFrom={startFrame} />;
+      return <FullScreenAvatar src={resolvedVideoUrl} startFrom={avatarVideoStartFrom} />;
     case 'fullscreen-asset':
       return <FullScreenAsset src={resolvedAssetUrl} />;
     case 'cutout-left-over-asset':
@@ -189,7 +188,7 @@ function renderScene(
           backgroundSrc={resolvedAssetUrl}
           greenscreenSrc={resolvedGreenscreenUrl}
           position={scene.layout.split('-')[1] as 'left' | 'right' | 'center'}
-          avatarStartFrom={startFrame}
+          avatarStartFrom={avatarVideoStartFrom} // Use timeline position for proper sync
         />
       );
     case 'avatar-with-corner-asset':
@@ -197,7 +196,7 @@ function renderScene(
         <AvatarWithCornerAsset
           videoSrc={resolvedVideoUrl}
           assetSrc={resolvedAssetUrl}
-          startFrom={startFrame}
+          startFrom={avatarVideoStartFrom}
         />
       );
     case 'split-screen-top-asset':
@@ -205,7 +204,7 @@ function renderScene(
         <SplitScreenScene
           videoSrc={resolvedVideoUrl}
           assetSrc={resolvedAssetUrl}
-          startFrom={startFrame}
+          startFrom={avatarVideoStartFrom}
         />
       );
     default:

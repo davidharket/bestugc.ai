@@ -26,7 +26,7 @@ export interface VideoTemplate {
   timeline: WeightedScene[];
 }
 
-const FPS = 30; // Define frames per second for easy duration calculation.
+const FPS = 24; // Match SyncLabs video frame rate for accurate timeline calculation
 
 // The official library of all available video templates, using weights.
 export const TEMPLATE_LIBRARY: VideoTemplate[] = [

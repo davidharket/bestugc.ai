@@ -1,6 +1,7 @@
 // remotion/scenes/SplitScreenScene.tsx
 import { AbsoluteFill, Img, Video } from 'remotion';
 import React from 'react';
+import { COMPOSITION_FPS } from '../constants';
 
 const isVideo = (url: string): boolean => {
   if (!url) return false;
@@ -10,8 +11,11 @@ const isVideo = (url: string): boolean => {
 export const SplitScreenScene: React.FC<{
   videoSrc: string; // Avatar video
   assetSrc: string; // Product image or video
-  startFrom?: number;
+  startFrom?: number; // In seconds
 }> = ({ videoSrc, assetSrc, startFrom = 0 }) => {
+
+  // Convert seconds to frames for Video startFrom parameter
+  const startFromFrames = Math.round(startFrom * COMPOSITION_FPS);
 
   // Style for the TOP asset. This is correct and remains unchanged.
   const assetFillStyle: React.CSSProperties = {
@@ -98,7 +102,7 @@ export const SplitScreenScene: React.FC<{
             maxHeight: 'none', // Allow overflow for transform positioning
             maxWidth: '100%'
           }}
-          startFrom={startFrom}
+          startFrom={startFromFrames}
           muted={true}
         />
       </div>

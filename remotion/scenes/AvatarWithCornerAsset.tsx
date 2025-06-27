@@ -1,6 +1,7 @@
 // remotion/scenes/AvatarWithCornerAsset.tsx
 import { AbsoluteFill, Img, Video } from 'remotion';
 import React from 'react';
+import { COMPOSITION_FPS } from '../constants';
 
 const isVideo = (url: string): boolean => {
   if (!url) return false;
@@ -10,15 +11,18 @@ const isVideo = (url: string): boolean => {
 export const AvatarWithCornerAsset: React.FC<{
   videoSrc: string;
   assetSrc: string;
-  startFrom?: number;
+  startFrom?: number; // In seconds
 }> = ({ videoSrc, assetSrc, startFrom = 0 }) => {
+  // Convert seconds to frames for Video startFrom parameter
+  const startFromFrames = Math.round(startFrom * COMPOSITION_FPS);
+
   return (
     <AbsoluteFill className="bg-black">
       {/* Main Avatar Video (Correct) */}
       <Video
         src={videoSrc}
         className="w-full h-full object-cover"
-        startFrom={startFrom}
+        startFrom={startFromFrames} // Use frames instead of seconds
         muted={true}
       />
 

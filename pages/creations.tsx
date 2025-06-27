@@ -186,74 +186,57 @@ function AdCard({ ad, onDelete, onCancel, onRestart }: {
       </div>
 
       {/* Action Buttons */}
-      <div className="grid grid-cols-2 gap-2">
-        {ad.status === 'COMPLETED' && ad.finalVideoUrl && (
+      <div className="grid grid-cols-3 gap-2">
+        {/* Always show restart button for ALL ads */}
+        <button
+          onClick={() => onRestart(ad.id)}
+          className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm font-medium"
+          title={`Re-render this ad with latest improvements`}
+        >
+          🔄 Re-render
+        </button>
+
+        {/* Conditional buttons based on status */}
+        {ad.status === 'COMPLETED' && ad.finalVideoUrl ? (
           <>
             <a
               href={getVideoUrl(ad.finalVideoUrl)}
               download
               className="bg-gradient-to-r from-orange-500 to-orange-600 text-white text-center px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm font-medium"
             >
-              Download
+              📥 Download
             </a>
             <button
               onClick={() => onDelete(ad.id)}
               className="bg-gray-800 text-gray-300 hover:bg-red-600 hover:text-white px-3 py-2 rounded-lg transition-all duration-200 text-sm"
             >
-              Delete
+              🗑️ Delete
             </button>
           </>
-        )}
-        
-        {canCancel && (
+        ) : canCancel ? (
           <>
             <button
               onClick={() => onCancel(ad.id)}
               className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded-lg transition-all duration-200 text-sm"
             >
-              Cancel
-            </button>
-            <button
-              onClick={() => onRestart(ad.id)}
-              className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm"
-              title="Force restart this ad"
-            >
-              Restart
-            </button>
-          </>
-        )}
-        
-        {canRestart && (
-          <>
-            <button
-              onClick={() => onRestart(ad.id)}
-              className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm"
-            >
-              Retry
+              ⏹️ Cancel
             </button>
             <button
               onClick={() => onDelete(ad.id)}
               className="bg-gray-800 text-gray-300 hover:bg-red-600 hover:text-white px-3 py-2 rounded-lg transition-all duration-200 text-sm"
             >
-              Delete
+              🗑️ Delete
             </button>
           </>
-        )}
-        
-        {ad.status !== 'COMPLETED' && !canCancel && !canRestart && (
+        ) : (
           <>
-            <button
-              onClick={() => onRestart(ad.id)}
-              className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm"
-              title="Restart this ad"
-            >
-              Restart
-            </button>
+            {/* Empty placeholder for failed/other states */}
+            <div></div>
             <button
               onClick={() => onDelete(ad.id)}
               className="bg-gray-800 text-gray-300 hover:bg-red-600 hover:text-white px-3 py-2 rounded-lg transition-all duration-200 text-sm"
             >
-              Delete
+              🗑️ Delete
             </button>
           </>
         )}
@@ -329,15 +312,31 @@ export default function MyCreations() {
   };
 
   const handleRestartAd = async (adId: string) => {
-    if (!confirm('Are you sure you want to restart this ad? This will restart the entire pipeline.')) return;
+    const ad = ads.find(a => a.id === adId);
+    const adName = ad?.brandName || `Ad #${adId.slice(0, 6)}`;
+    
+    if (!confirm(`🔄 Re-render "${adName}"?\n\nThis will restart the entire pipeline with the latest improvements including:\n• Fixed audio synchronization\n• Better video quality\n• Updated processing\n\nThis typically takes 2-5 minutes.`)) return;
+    
+    const toastId = toast.loading(`🔄 Restarting "${adName}"...`);
     
     try {
       await axios.post('/api/render/restart-job', { adId });
-      toast.success('Ad pipeline restarted successfully!');
-      fetchAds(); // Refresh the list
+      toast.success(`✅ "${adName}" is now re-rendering! Check the processing status below.`, { id: toastId });
+      
+      // Immediately update the local state to show processing
+      setAds(prevAds => 
+        prevAds.map(ad => 
+          ad.id === adId 
+            ? { ...ad, status: 'PENDING', finalVideoUrl: undefined } 
+            : ad
+        )
+      );
+      
+      // Also refresh from server
+      setTimeout(() => fetchAds(), 1000);
     } catch (error) {
       console.error('Failed to restart ad:', error);
-      toast.error('Failed to restart ad. Please try again.');
+      toast.error(`❌ Failed to restart "${adName}". Please try again.`, { id: toastId });
     }
   };
 
@@ -404,25 +403,40 @@ export default function MyCreations() {
         </div>
 
         {/* Filters */}
-        <div className="flex gap-2 mb-6 overflow-x-auto">
-          {[
-            { key: 'all', label: 'All', count: stats.total },
-            { key: 'completed', label: 'Completed', count: stats.completed },
-            { key: 'processing', label: 'Processing', count: stats.processing },
-            { key: 'failed', label: 'Failed', count: stats.failed }
-          ].map(({ key, label, count }) => (
+        {/* Quick Actions */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+          {/* Filter Buttons */}
+          <div className="flex gap-2 overflow-x-auto">
+            {[
+              { key: 'all', label: 'All', count: stats.total },
+              { key: 'completed', label: 'Completed', count: stats.completed },
+              { key: 'processing', label: 'Processing', count: stats.processing },
+              { key: 'failed', label: 'Failed', count: stats.failed }
+            ].map(({ key, label, count }) => (
+              <button
+                key={key}
+                onClick={() => setFilter(key as any)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                  filter === key
+                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
+                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                }`}
+              >
+                {label} ({count})
+              </button>
+            ))}
+          </div>
+
+          {/* Quick Restart Button */}
+          {ads.length > 0 && (
             <button
-              key={key}
-              onClick={() => setFilter(key as any)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${
-                filter === key
-                  ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
-                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-              }`}
+              onClick={() => handleRestartAd(ads[0].id)}
+              className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm font-medium whitespace-nowrap"
+              title="Re-render your most recent ad with latest improvements"
             >
-              {label} ({count})
+              🔄 Re-render Latest
             </button>
-          ))}
+          )}
         </div>
 
         {/* Content */}

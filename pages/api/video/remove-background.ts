@@ -31,6 +31,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   console.log(`🎭 Background removal started (CPU mode - be patient)`);
 
   try {
+    // ✅ FIX: Convert relative paths to absolute paths for Python script
+    let processedSourcePath = sourceIdentifier;
+    if (localVideoPath && !localVideoPath.startsWith('http')) {
+      // If it's a relative path starting with /, convert to absolute path
+      if (localVideoPath.startsWith('/')) {
+        processedSourcePath = path.join(process.cwd(), 'public', localVideoPath);
+      } else {
+        processedSourcePath = localVideoPath;
+      }
+      console.log(`🔄 Converting relative path to absolute: ${localVideoPath} -> ${processedSourcePath}`);
+    } else if (videoUrl && !videoUrl.startsWith('http')) {
+      // Same for videoUrl if it's a relative path
+      if (videoUrl.startsWith('/')) {
+        processedSourcePath = path.join(process.cwd(), 'public', videoUrl);
+      } else {
+        processedSourcePath = videoUrl;
+      }
+      console.log(`🔄 Converting relative path to absolute: ${videoUrl} -> ${processedSourcePath}`);
+    }
+
+    // Verify the file exists if it's a local path
+    if (!processedSourcePath.startsWith('http') && !fs.existsSync(processedSourcePath)) {
+      throw new Error(`Local video file not found: ${processedSourcePath}`);
+    }
+
     const sourceHash = crypto.createHash('sha256').update(sourceIdentifier).digest('hex').slice(0, 12);
     const outputFilename = `cutout-${sourceHash}.webm`;
     const outputPath = path.join(process.cwd(), 'public', 'cutouts', outputFilename);
@@ -47,8 +72,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log(`🔄 Processing with robust background removal...`);
     const pythonScriptPath = path.join(process.cwd(), 'scripts', 'remove_background_robust.py');
     
-    // Pass the source (either URL or local path) to the Python script
-    const pythonProcess = spawn('python', [pythonScriptPath, sourceIdentifier, outputPath]);
+    // Pass the processed absolute path to the Python script
+    const pythonProcess = spawn('python', [pythonScriptPath, processedSourcePath, outputPath]);
 
     // Reduced logging - only show important progress updates
     pythonProcess.stdout.on('data', (data) => {

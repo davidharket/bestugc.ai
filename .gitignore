@@ -27,3 +27,9 @@ public/renders
 .DS_Store
 output.txt
 /dist
+public/videos/
+public\cutouts
+public\generated_audio
+public\renders
+public\temp
+public\videos-fixed

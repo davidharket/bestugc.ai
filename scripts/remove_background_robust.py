@@ -6,7 +6,7 @@ import tempfile
 import time
 import requests
 from rembg import new_session, remove
-import cv2 # <-- Import OpenCV to detect FPS
+import cv2 # Keep cv2 import as it might be useful for future enhancements
 
 def log_progress(message):
     print(f"[{time.strftime('%H:%M:%S')}] {message}", flush=True)
@@ -46,14 +46,20 @@ def main():
                 log_progress(f"Using local file source: {input_source}")
                 input_video_path = input_source
 
-            # --- THE FPS FIX: DETECT THE ORIGINAL FRAMERATE ---
-            cap = cv2.VideoCapture(input_video_path)
-            if not cap.isOpened():
-                raise Exception("Could not open video file to detect FPS.")
-            original_fps = cap.get(cv2.CAP_PROP_FPS)
-            cap.release()
-            log_progress(f"OK - Detected original video framerate: {original_fps:.2f} FPS")
-            # --- END FPS FIX ---
+            # --- THE FPS FIX: Enforce a standard 24 FPS for the entire pipeline ---
+            # PREVIOUSLY: This logic dynamically detected the original video's FPS.
+            # This was the source of the mismatch.
+            # cap = cv2.VideoCapture(input_video_path)
+            # if not cap.isOpened():
+            #     raise Exception("Could not open video file to detect FPS.")
+            # original_fps = cap.get(cv2.CAP_PROP_FPS)
+            # cap.release()
+            # log_progress(f"OK - Detected original video framerate: {original_fps:.2f} FPS")
+
+            # NEW: We hardcode the target framerate to match our Remotion composition.
+            TARGET_FPS = 24
+            log_progress(f"OK - Enforcing standard framerate: {TARGET_FPS} FPS")
+            # --- END OF FIX ---
 
             raw_frames_dir = os.path.join(temp_dir, 'raw_frames')
             processed_frames_dir = os.path.join(temp_dir, 'processed_frames')
@@ -61,6 +67,7 @@ def main():
             os.makedirs(processed_frames_dir)
 
             log_progress("Step 1/3: Extracting frames from video...")
+            # This ffmpeg command correctly extracts all frames, regardless of original FPS.
             extract_command = ['ffmpeg', '-i', input_video_path, os.path.join(raw_frames_dir, 'frame-%06d.png')]
             run_command(extract_command)
 
@@ -82,13 +89,13 @@ def main():
             
             assemble_command = [
                 'ffmpeg', '-y',
-                '-framerate', str(original_fps), # <-- THE FIX: Use the detected framerate
+                '-framerate', str(TARGET_FPS), # <-- THE FIX: Use the standard framerate
                 '-i', os.path.join(processed_frames_dir, 'frame-%06d.png'),
                 '-c:v', 'libvpx-vp9',
                 '-pix_fmt', 'yuva420p',
                 '-b:v', '1M',
                 '-crf', '30',
-                '-g', str(int(original_fps)), # Keyframe every second for better seeking
+                '-g', str(TARGET_FPS), # Keyframe every second for better seeking
                 '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',
                 '-metadata:s:v:0', 'alpha_mode="1"',
                 '-an',
