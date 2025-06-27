@@ -18,18 +18,17 @@ yarn-error.log*
 prisma/dev.db
 prisma/dev.db-journal
 
-# Uploads
-public/uploads
-public/generated_audio
-public/renders
+# Generated Assets - Should not be tracked
+public/uploads/
+public/generated_audio/
+public/renders/
+public/cutouts/
+public/synclabs/
+public/videos/
+public/temp/
+public/videos-fixed/
 
 # Other
 .DS_Store
 output.txt
 /dist
-public/videos/
-public\cutouts
-public\generated_audio
-public\renders
-public\temp
-public\videos-fixed
