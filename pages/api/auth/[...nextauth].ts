@@ -1,83 +1,80 @@
-import NextAuth, { NextAuthOptions } from 'next-auth'
-import GoogleProvider from 'next-auth/providers/google'
-import GitHubProvider from 'next-auth/providers/github'
-import AppleProvider from 'next-auth/providers/apple'
-import EmailProvider from 'next-auth/providers/email'
-import { PrismaAdapter } from "@next-auth/prisma-adapter"
-import { prisma } from '../../../lib/prisma'
-import nodemailer from 'nodemailer'
+// pages/api/auth/[...nextauth].ts
+
+import NextAuth, { NextAuthOptions, User as NextAuthUser } from 'next-auth';
+import GoogleProvider from 'next-auth/providers/google';
+import { PrismaAdapter } from '@next-auth/prisma-adapter';
+import { prisma } from '../../../lib/prisma';
+
+// Extend the built-in session and user types to include our custom fields
+declare module 'next-auth' {
+  interface Session {
+    user?: {
+      id?: string | null;
+      plan?: string | null;
+      credits?: number | null;
+    } & NextAuthUser;
+  }
+  
+  interface User extends NextAuthUser {
+    plan?: string | null;
+    credits?: number | null;
+  }
+}
 
 export const authOptions: NextAuthOptions = {
+  // Use Prisma as the database adapter for NextAuth
   adapter: PrismaAdapter(prisma),
+
+  // Configure one or more authentication providers
   providers: [
-    EmailProvider({
-      async sendVerificationRequest({ identifier: email, url, provider }) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.log(`\n📧 Magic Link for ${email}:\n${url}\n`);
-          // In development, we log the link to the console.
-          // NextAuth will handle the redirect to verifyRequest page automatically if this promise resolves.
-          return;
-        } else {
-          // Production: Send email using a real SMTP server
-          // This part requires EMAIL_SERVER_... and EMAIL_FROM to be set up.
-          const { host, port, auth } = provider.server as { host: string; port: number; auth: { user: string; pass: string; } };          const transport = nodemailer.createTransport({ host, port, auth });
-          await transport.sendMail({
-            to: email,
-            from: provider.from,
-            subject: `Sign in to YourApp`, // Customize your subject
-            text: `Sign in to YourApp by clicking this link:\n${url}\n`,
-            html: `<p>Sign in to YourApp by clicking this link: <a href="${url}">Sign In</a></p>`,
-          });
-        }
-      },
-    }),
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || '',
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
-    GitHubProvider({
-      clientId: process.env.GITHUB_CLIENT_ID || '',
-      clientSecret: process.env.GITHUB_CLIENT_SECRET || '',
-    }),
-    AppleProvider({
-      clientId: process.env.APPLE_CLIENT_ID || '',
-      clientSecret: process.env.APPLE_CLIENT_SECRET || '', // Note: Apple provider needs more config for clientSecret
-    }),
+    // You can add more providers here (e.g., GitHub, Apple, etc.)
   ],
+
+  // Define custom pages for sign-in, errors, etc.
   pages: {
-    signIn: '/auth/signin', // Path to your custom sign-in page
-    verifyRequest: '/auth/verify-request', // Recommended for EmailProvider
-    // signOut: '/auth/signout', // (Optional) Path to a custom sign-out page
-    // error: '/auth/error', // (Optional) Path to a custom error page
-    // newUser: '/auth/new-user' // (Optional) New users will be directed here on first sign-in
+    signIn: '/auth/signin',
+    verifyRequest: '/auth/verify-request', 
+    error: '/auth/error', // A page to handle sign-in errors
   },
+
+  // Use a database session strategy for persistent logins
   session: {
-    strategy: 'jwt',
+    strategy: 'database',
   },
+
+  // Callbacks are used to control what happens when an action is performed.
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-        token.email = user.email;
-        // @ts-ignore // User from adapter might not have plan/credits directly typed yet
-        token.plan = user.plan;
-        // @ts-ignore
-        token.credits = user.credits;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (token && session.user) {
-        session.user.id = token.id as string;
-        session.user.email = token.email as string;
-        session.user.plan = token.plan || 'FREE'; // Default to FREE if not set
-        session.user.credits = typeof token.credits === 'number' ? token.credits : 30; // Default credits
-        // session.user.name and session.user.image should be populated by the adapter.
+    /**
+     * The session callback is called whenever a session is checked.
+     * We use it here to add our custom properties (id, plan, credits) to the session object
+     * so they are available on the client-side.
+     */
+    async session({ session, user }) {
+      if (session.user) {
+        // Add the standard user ID to the session
+        session.user.id = user.id;
+
+        // Fetch the user from our database to get the latest custom fields
+        const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
+        
+        if (dbUser) {
+          session.user.plan = dbUser.plan;
+          session.user.credits = dbUser.credits;
+        }
       }
       return session;
     },
   },
-  secret: process.env.SESSION_SECRET || process.env.NEXTAUTH_SECRET, // Fallback to NEXTAUTH_SECRET
-}
 
-export default NextAuth(authOptions) 
+  // A secret is required for session encryption and for production environments.
+  // Falls back to the standard NEXTAUTH_SECRET if SESSION_SECRET is not set.
+  secret: process.env.SESSION_SECRET || process.env.NEXTAUTH_SECRET,
+};
+
+// Export the NextAuth handler with the configured options
+export default NextAuth(authOptions);
+

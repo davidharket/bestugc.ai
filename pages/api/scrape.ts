@@ -104,10 +104,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
                 if (dimensions.width && dimensions.width >= 100) {
                     const filename = `${crypto.randomBytes(6).toString('hex')}${getFileExtension(absoluteSrc)}`;
-                    fs.writeFileSync(path.join(baseUploadPath, filename), imageResponse.data);
-                    downloadedImages.push(`/uploads/scraped/${scrapeId}/${filename}`);
+                    const filePath = path.join(baseUploadPath, filename);
+                    fs.writeFileSync(filePath, imageResponse.data);
+                    fs.chmodSync(filePath, 0o644);
+                    downloadedImages.push(`/api/serve-scraped-asset/${scrapeId}/${filename}`);
                 }
-            } catch (imgError) { /* ignore image errors */ }
+            } catch (imgError) {
+              console.error(`Failed to download or save image:`, imgError);
+            }
         }
     }).get();
 
