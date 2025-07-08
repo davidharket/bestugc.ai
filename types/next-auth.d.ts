@@ -1,26 +1,27 @@
-import NextAuth, { DefaultSession, DefaultUser } from "next-auth"
-import { JWT, DefaultJWT } from "next-auth/jwt"
+// types/next-auth.d.ts
 
-declare module "next-auth" {
+import { DefaultSession, DefaultUser } from 'next-auth';
+
+// Extend the built-in session and user types
+declare module 'next-auth' {
   /**
-   * Returned by `useSession`, `getSession` and received as a prop on the `SessionProvider` React Context
+   * The shape of the user object returned in the session.
+   * We use an intersection type (&) to add our custom properties
+   * to the existing DefaultSession user object.
    */
-  interface Session extends DefaultSession {
-    user?: User
+  interface Session {
+    user?: DefaultSession['user'] & {
+      id: string;
+      credits?: number | null;
+      plan?: string | null;
+    };
   }
 
+  /**
+   * Also augment the User model to include our custom fields.
+   */
   interface User extends DefaultUser {
-    id: string
-    plan?: string
-    credits?: number
+    credits?: number | null;
+    plan?: string | null;
   }
 }
-
-declare module "next-auth/jwt" {
-  /** Returned by the `jwt` callback and `getToken`, when using JWT sessions */
-  interface JWT extends DefaultJWT {
-    id?: string
-    plan?: string
-    credits?: number
-  }
-} 

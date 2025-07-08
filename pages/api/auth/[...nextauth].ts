@@ -15,10 +15,6 @@ declare module 'next-auth' {
     } & NextAuthUser;
   }
   
-  interface User extends NextAuthUser {
-    plan?: string | null;
-    credits?: number | null;
-  }
 }
 
 export const authOptions: NextAuthOptions = {
@@ -53,18 +49,13 @@ export const authOptions: NextAuthOptions = {
      * We use it here to add our custom properties (id, plan, credits) to the session object
      * so they are available on the client-side.
      */
+
     async session({ session, user }) {
       if (session.user) {
-        // Add the standard user ID to the session
-        session.user.id = user.id;
-
-        // Fetch the user from our database to get the latest custom fields
-        const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
-        
-        if (dbUser) {
-          session.user.plan = dbUser.plan;
-          session.user.credits = dbUser.credits;
-        }
+        // This is the correct way to merge the data
+        session.user.id = user.id; // user.id comes from the database User model
+        session.user.credits = user.credits;
+        session.user.plan = user.plan;
       }
       return session;
     },
