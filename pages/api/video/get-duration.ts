@@ -4,8 +4,18 @@ import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 
-// The "export default" is the critical part that was missing.
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // --- ✅ START: ROBUST SECURITY CHECK ---
+  // This ensures only our worker (or a test script) can call this sensitive endpoint.
+  const internalSecret = process.env.INTERNAL_SECRET_KEY;
+  if (!internalSecret || req.headers['x-internal-secret'] !== internalSecret) {
+    // Also allow test script access for local testing
+    if (process.env.NODE_ENV !== 'development' || req.headers['x-test-secret'] !== process.env.TEST_SECRET_KEY) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+  }
+  // --- ✅ END: ROBUST SECURITY CHECK ---
+
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
     return res.status(405).json({ error: 'Method not allowed' });
@@ -16,7 +26,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'Missing or invalid filePath' });
   }
 
-  // The filePath from the API call will be relative, e.g., /generated_audio/audio.mp3
+  // The filePath from the API call will be relative, e.g., /synclabs/video.mp4
   // We need to join it with the project's public directory to get an absolute path.
   const absolutePath = path.join(process.cwd(), 'public', filePath);
 
@@ -37,12 +47,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       duration += data.toString();
     });
 
+    let ffprobeError = '';
+    ffprobe.stderr.on('data', (data) => {
+        ffprobeError += data.toString();
+    });
+
     await new Promise<void>((resolve, reject) => {
       ffprobe.on('close', (code) => {
         if (code === 0) {
           resolve();
         } else {
-          reject(new Error(`ffprobe exited with code ${code}`));
+          reject(new Error(`ffprobe exited with code ${code}. Error: ${ffprobeError}`));
         }
       });
       ffprobe.on('error', reject);

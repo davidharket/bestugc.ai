@@ -1,5 +1,4 @@
 // pages/api/video/remove-background.ts
-
 import { NextApiRequest, NextApiResponse } from 'next';
 import { spawn } from 'child_process';
 import path from 'path';
@@ -7,20 +6,18 @@ import fs from 'fs';
 import crypto from 'crypto';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // --- Test Script Authentication ---
-  if (
-    process.env.NODE_ENV === 'development' &&
-    req.headers['x-test-secret'] !== process.env.TEST_SECRET_KEY
-  ) {
-    return res.status(401).json({ error: 'Unauthorized: Invalid test secret' });
+  // --- ROBUST SECURITY CHECK ---
+  const internalSecret = process.env.INTERNAL_SECRET_KEY;
+  if (!internalSecret || req.headers['x-internal-secret'] !== internalSecret) {
+    if (process.env.NODE_ENV !== 'development' || req.headers['x-test-secret'] !== process.env.TEST_SECRET_KEY) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
   }
-  // --- End Authentication ---
-
+  
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // --- MODIFIED: Accept either a URL or a local file path ---
   const { videoUrl, localVideoPath } = req.body;
   if (!videoUrl && !localVideoPath) {
     return res.status(400).json({ error: 'Either videoUrl or localVideoPath is required.' });
@@ -28,30 +25,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const startTime = Date.now();
   const sourceIdentifier = localVideoPath || videoUrl;
-  console.log(`🎭 Background removal started (CPU mode - be patient)`);
+  console.log(`[BG-REMOVAL] 🎭 Process started for: ${sourceIdentifier}`);
 
   try {
-    // ✅ FIX: Convert relative paths to absolute paths for Python script
     let processedSourcePath = sourceIdentifier;
     if (localVideoPath && !localVideoPath.startsWith('http')) {
-      // If it's a relative path starting with /, convert to absolute path
       if (localVideoPath.startsWith('/')) {
         processedSourcePath = path.join(process.cwd(), 'public', localVideoPath);
       } else {
         processedSourcePath = localVideoPath;
       }
-      console.log(`🔄 Converting relative path to absolute: ${localVideoPath} -> ${processedSourcePath}`);
-    } else if (videoUrl && !videoUrl.startsWith('http')) {
-      // Same for videoUrl if it's a relative path
-      if (videoUrl.startsWith('/')) {
-        processedSourcePath = path.join(process.cwd(), 'public', videoUrl);
-      } else {
-        processedSourcePath = videoUrl;
-      }
-      console.log(`🔄 Converting relative path to absolute: ${videoUrl} -> ${processedSourcePath}`);
     }
 
-    // Verify the file exists if it's a local path
     if (!processedSourcePath.startsWith('http') && !fs.existsSync(processedSourcePath)) {
       throw new Error(`Local video file not found: ${processedSourcePath}`);
     }
@@ -60,49 +45,45 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const outputFilename = `cutout-${sourceHash}.webm`;
     const outputPath = path.join(process.cwd(), 'public', 'cutouts', outputFilename);
     const cutoutsDir = path.dirname(outputPath);
-    if (!fs.existsSync(cutoutsDir)) {
-      fs.mkdirSync(cutoutsDir, { recursive: true });
-    }
-
-    if (fs.existsSync(outputPath)) {
-      fs.unlinkSync(outputPath);
-      console.log("🗑️ Cleared cached cutout");
-    }
+    if (!fs.existsSync(cutoutsDir)) fs.mkdirSync(cutoutsDir, { recursive: true });
+    if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
     
-    console.log(`🔄 Processing with robust background removal...`);
+    // ✅ THE FIX: Point directly to the Python executable inside your virtual environment.
+    const pythonExecutable = path.join(process.cwd(), 'venv', 'bin', 'python3');
     const pythonScriptPath = path.join(process.cwd(), 'scripts', 'remove_background_robust.py');
     
-    // Pass the processed absolute path to the Python script
-    const pythonProcess = spawn('python', [pythonScriptPath, processedSourcePath, outputPath]);
+    console.log(`[BG-REMOVAL] 🔄 Using Python from venv: ${pythonExecutable}`);
+    console.log(`[BG-REMOVAL] 🔄 Processing with robust background removal script...`);
 
-    // Reduced logging - only show important progress updates
+    const pythonProcess = spawn(pythonExecutable, [pythonScriptPath, processedSourcePath, outputPath]);
+
+    let lastLog = "";
     pythonProcess.stdout.on('data', (data) => {
-      const output = data.toString().trim();
-      if (output.includes('Step ') || output.includes('SUCCESS') || output.includes('ERROR') || output.includes('Processing frame')) {
-        console.log(`[BG Removal]: ${output}`);
-      }
+      lastLog = data.toString().trim();
+      console.log(`[Python Script]: ${lastLog}`);
     });
+
+    let errorLog = "";
     pythonProcess.stderr.on('data', (data) => {
-      const error = data.toString().trim();
-      if (error.length > 0) {
-        console.error(`[BG Error]: ${error}`);
-      }
+        errorLog += data.toString();
+        console.error(`[Python Error]: ${data.toString().trim()}`);
     });
 
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
         pythonProcess.kill('SIGKILL');
         reject(new Error('Background removal process timed out after 60 minutes.'));
-      }, 3600000); // 60 minutes for CPU processing
+      }, 3600000);
 
       pythonProcess.on('close', (code) => {
         clearTimeout(timeout);
         if (code === 0 && fs.existsSync(outputPath)) {
           resolve();
         } else {
-          reject(new Error(`Python process exited with code ${code}. Check logs for details.`));
+          reject(new Error(`Python process exited with code ${code}. Last log: "${lastLog}". Error: ${errorLog}`));
         }
       });
+
       pythonProcess.on('error', (error) => {
         clearTimeout(timeout);
         reject(error);
@@ -113,17 +94,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const fileStats = fs.statSync(outputPath);
     const fileSizeMB = Math.round(fileStats.size / (1024 * 1024) * 100) / 100;
     
-    console.log(`✅ Background removal completed in ${processingTime}ms`);
+    console.log(`[BG-REMOVAL] ✅ Success! Completed in ${processingTime}ms.`);
     res.status(200).json({ 
       cutoutVideoUrl: `/cutouts/${outputFilename}`,
       processingTimeMs: processingTime,
       fileSizeMB: fileSizeMB,
-      cached: false
     });
 
   } catch (error: any) {
     const processingTime = Date.now() - startTime;
-    console.error(`❌ Background removal API failed after ${processingTime}ms:`, error.message);
+    console.error(`[BG-REMOVAL] ❌ API failed after ${processingTime}ms:`, error.message);
     res.status(500).json({ 
       error: 'Background removal failed', 
       details: error.message,

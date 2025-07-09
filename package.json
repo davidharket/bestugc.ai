@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "npm run build:scripts && next build",
     "build:scripts": "tsc --project tsconfig.scripts.json",
-    "start": "next start", // PM2 still calls this
+    "start": "next start",
     "ready": "echo App is ready!",
     "start:worker": "node dist/workers/renderWorker.js",
     "lint": "next lint",

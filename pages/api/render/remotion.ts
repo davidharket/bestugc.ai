@@ -1,40 +1,52 @@
 // pages/api/render/remotion.ts
 import { NextApiRequest, NextApiResponse } from 'next';
-import { renderQueue } from '../../../lib/queue';
+import { bundle } from '@remotion/bundler';
+import { renderMedia, selectComposition } from '@remotion/renderer';
+import path from 'path';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  console.log('[API /api/render/remotion] Received request.');
-
+  // Add the same internal secret check for security
+  if (req.headers['x-internal-secret'] !== process.env.INTERNAL_SECRET_KEY) {
+     return res.status(401).json({ error: 'Unauthorized' });
+  }
+    
   if (req.method !== 'POST') {
-    console.log(`[API] Method not allowed: ${req.method}`);
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { adId, templateId, userId } = req.body;
-    console.log(`[API] Request body:`, req.body);
-
-    if (!adId || !templateId || !userId) {
-      console.log('[API] Missing required parameters.');
-      return res.status(400).json({ error: 'Missing required parameters: adId, templateId, userId' });
+    const { compositionId, inputProps } = req.body;
+    
+    if (!compositionId || !inputProps) {
+        return res.status(400).json({ error: 'Missing compositionId or inputProps' });
     }
 
-    console.log(`[API] Attempting to add job to queue for Ad ID: ${adId}`);
-    const job = await renderQueue.add('render-video-job', { adId, templateId, userId });
-    console.log(`[API] Job successfully added to queue with ID: ${job.id}`);
+    const bundleLocation = await bundle({
+      entryPoint: path.resolve('./remotion/index.ts'),
+    });
     
-    res.status(202).json({
-      success: true,
-      message: 'Render job accepted and queued.',
-      jobId: job.id,
+    const composition = await selectComposition({
+      serveUrl: bundleLocation,
+      id: compositionId,
+      inputProps,
     });
 
-  } catch (error) {
-    console.error('❌ API error adding job to queue:', error);
-    res.status(500).json({
-      error: 'Failed to queue render job',
-      details: error instanceof Error ? error.message : 'Unknown error',
+    const outputFilename = `remotion-render-${new Date().getTime()}.mp4`;
+    const outputPath = path.resolve(`./public/renders/${outputFilename}`);
+
+    await renderMedia({
+      composition,
+      serveUrl: bundleLocation,
+      codec: 'h264',
+      outputLocation: outputPath,
+      inputProps,
     });
+
+    const finalVideoUrl = `/renders/${outputFilename}`;
+    res.status(200).json({ videoUrl: finalVideoUrl });
+
+  } catch (error: any) {
+    console.error('Remotion render API error:', error);
+    res.status(500).json({ error: 'Failed to render video', details: error.message });
   }
 }
-

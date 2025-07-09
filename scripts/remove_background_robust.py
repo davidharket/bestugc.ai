@@ -6,7 +6,7 @@ import tempfile
 import time
 import requests
 from rembg import new_session, remove
-import cv2 # Keep cv2 import as it might be useful for future enhancements
+import cv2
 
 def log_progress(message):
     print(f"[{time.strftime('%H:%M:%S')}] {message}", flush=True)
@@ -16,8 +16,7 @@ def download_file(url, target_path):
     with requests.get(url, stream=True, timeout=180) as r:
         r.raise_for_status()
         with open(target_path, 'wb') as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
+            for chunk in r.iter_content(chunk_size=8192): f.write(chunk)
     log_progress("Download complete.")
 
 def run_command(command):
@@ -39,27 +38,15 @@ def main():
         try:
             input_video_path = ''
             
-            if input_source.startswith('http://') or input_source.startswith('https://'):
+            if input_source.startswith(('http://', 'https://')):
                 input_video_path = os.path.join(temp_dir, 'input.mp4')
                 download_file(input_source, input_video_path)
             else:
                 log_progress(f"Using local file source: {input_source}")
                 input_video_path = input_source
 
-            # --- THE FPS FIX: Enforce a standard 24 FPS for the entire pipeline ---
-            # PREVIOUSLY: This logic dynamically detected the original video's FPS.
-            # This was the source of the mismatch.
-            # cap = cv2.VideoCapture(input_video_path)
-            # if not cap.isOpened():
-            #     raise Exception("Could not open video file to detect FPS.")
-            # original_fps = cap.get(cv2.CAP_PROP_FPS)
-            # cap.release()
-            # log_progress(f"OK - Detected original video framerate: {original_fps:.2f} FPS")
-
-            # NEW: We hardcode the target framerate to match our Remotion composition.
             TARGET_FPS = 24
             log_progress(f"OK - Enforcing standard framerate: {TARGET_FPS} FPS")
-            # --- END OF FIX ---
 
             raw_frames_dir = os.path.join(temp_dir, 'raw_frames')
             processed_frames_dir = os.path.join(temp_dir, 'processed_frames')
@@ -67,16 +54,21 @@ def main():
             os.makedirs(processed_frames_dir)
 
             log_progress("Step 1/3: Extracting frames from video...")
-            # This ffmpeg command correctly extracts all frames, regardless of original FPS.
             extract_command = ['ffmpeg', '-i', input_video_path, os.path.join(raw_frames_dir, 'frame-%06d.png')]
             run_command(extract_command)
 
-            log_progress("Step 2/3: Removing background from each frame...")
-            session = new_session('u2net')
+            log_progress("Step 2/3: Removing background from each frame (GPU ACCELERATED)...")
+            
+            # --- ✅ THE GPU ACCELERATION FIX ---
+            # Tell rembg to use the 'u2net' model and run it on the GPU using the CUDAExecutionProvider.
+            session = new_session('u2net', providers=['CUDAExecutionProvider'])
+            # --- END OF FIX ---
+
             raw_frames = sorted(os.listdir(raw_frames_dir))
             for i, frame_name in enumerate(raw_frames):
-                if (i + 1) % 30 == 0:
+                if (i + 1) % 50 == 0: # Log progress more frequently with faster GPU processing
                     log_progress(f"  - Processing frame {i + 1}/{len(raw_frames)}")
+                
                 input_frame_path = os.path.join(raw_frames_dir, frame_name)
                 output_frame_path = os.path.join(processed_frames_dir, frame_name)
                 
@@ -85,17 +77,17 @@ def main():
                     output_data = remove(input_data, session=session)
                     f_out.write(output_data)
             
-            log_progress("Step 3/3: Assembling final transparent video with failsafe settings...")
+            log_progress("Step 3/3: Assembling final transparent video...")
             
             assemble_command = [
                 'ffmpeg', '-y',
-                '-framerate', str(TARGET_FPS), # <-- THE FIX: Use the standard framerate
+                '-framerate', str(TARGET_FPS),
                 '-i', os.path.join(processed_frames_dir, 'frame-%06d.png'),
                 '-c:v', 'libvpx-vp9',
                 '-pix_fmt', 'yuva420p',
                 '-b:v', '1M',
                 '-crf', '30',
-                '-g', str(TARGET_FPS), # Keyframe every second for better seeking
+                '-g', str(TARGET_FPS),
                 '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',
                 '-metadata:s:v:0', 'alpha_mode="1"',
                 '-an',

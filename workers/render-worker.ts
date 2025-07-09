@@ -9,30 +9,65 @@ import fs from 'fs';
 import path from 'path';
 import { avatars } from '../lib/avatars';
 import { COMPOSITION_FPS } from '../remotion/constants';
+import { bundle } from '@remotion/bundler';
+import { renderMedia, selectComposition } from '@remotion/renderer';
 
-// --- Configuration ---
 const prisma = new PrismaClient();
-const INTERNAL_API_BASE_URL = '***REMOVED***';
-const EXTERNAL_API_BASE_URL = process.env.NEXT_PUBLIC_APP_URL || '***REMOVED***';
-const redisConnection = {
-  host: process.env.REDIS_HOST || '127.0.0.1',
-  port: parseInt(process.env.REDIS_PORT || '6379', 10),
-};
 
-// The entire render pipeline, now as a self-contained function
+const INTERNAL_API_URL = process.env.INTERNAL_API_URL || '***REMOVED***';
+const INTERNAL_SECRET_KEY = process.env.INTERNAL_SECRET_KEY;
+const api = axios.create({
+  baseURL: INTERNAL_API_URL,
+  headers: { 'x-internal-secret': INTERNAL_SECRET_KEY }
+});
+
+async function generateTts(text: string, language: string): Promise<string> {
+  const response = await api.post('/api/tts/elevenlabs', { text, language });
+  return response.data.audioUrl as string;
+}
+
+async function runLipSync(videoUrl: string, audioUrl: string): Promise<{ jobId: string, finalUrl: string }> {
+  const syncLabsResponse = await api.post('/api/lipsync/synclabs', { videoUrl, audioUrl });
+  const jobId = syncLabsResponse.data.jobId as string;
+
+  for (let i = 0; i < 15; i++) {
+    await new Promise(resolve => setTimeout(resolve, 30000));
+    const statusRes = await api.get(`/api/lipsync/synclabs?jobId=${jobId}`);
+    if (statusRes.data.status === 'COMPLETED') {
+      return { jobId, finalUrl: statusRes.data.lipSyncedVideoUrl };
+    }
+    if (statusRes.data.status === 'FAILED') {
+      throw new Error(`Lip-sync job ${jobId} failed.`);
+    }
+  }
+  throw new Error(`Lip-sync job ${jobId} timed out.`);
+}
+
+async function removeBackground(localVideoPath: string): Promise<string> {
+  const response = await api.post('/api/video/remove-background', { localVideoPath });
+  return response.data.cutoutVideoUrl;
+}
+
+async function getDuration(filePath: string): Promise<number> {
+  const response = await api.post('/api/video/get-duration', { filePath });
+  return response.data.durationInSeconds;
+}
+
 async function processRenderJob(adId: string, templateId: string): Promise<void> {
     const log = (message: string) => console.log(`[Job ${adId}] ${message}`);
+    const EXTERNAL_API_BASE_URL = process.env.NEXT_PUBLIC_APP_URL;
+    if (!EXTERNAL_API_BASE_URL) {
+        throw new Error("NEXT_PUBLIC_APP_URL environment variable is not set!");
+    }
 
     log('🚀 Starting render job...');
     
-    // STEP 1: Get Ad Data & Update Status
-    log('1/9: Fetching ad data from database...');
+    log('1/9: Fetching ad data...');
     const adRecord = await prisma.ad.findUnique({ where: { id: adId } });
     if (!adRecord) throw new Error(`Ad with ID ${adId} not found.`);
     await prisma.ad.update({ where: { id: adId }, data: { status: 'RENDERING' } });
 
     const adData: AdCreationData = {
-        // ... (This part is identical to your inngest function)
         productUrl: adRecord.productUrl ?? undefined,
         summary: adRecord.summary ?? undefined,
         brandName: adRecord.brandName ?? undefined,
@@ -44,80 +79,75 @@ async function processRenderJob(adId: string, templateId: string): Promise<void>
         templateId: adRecord.templateId ?? undefined,
     };
 
-    // STEP 2: Generate TTS Audio
     log('2/9: Generating TTS audio...');
-    const ttsResponse = await axios.post(`${INTERNAL_API_BASE_URL}/api/tts/elevenlabs`, { text: adData.script, language: adData.language });
-    const audioUrl = ttsResponse.data.audioUrl as string;
+    const audioUrl = await generateTts(adData.script!, adData.language!);
+    const absoluteAudioUrl = `${EXTERNAL_API_BASE_URL}${audioUrl}`;
 
-    // STEP 3: Start Lip-Sync Job
+    log('--- Pausing for 3 seconds to ensure audio file is accessible via public URL ---');
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
     log('3/9: Starting lip-sync job...');
     const avatar = avatars.find((a) => a.id === adData.avatarId);
     if (!avatar) throw new Error(`Avatar with ID ${adData.avatarId} not found.`);
-    const syncLabsResponse = await axios.post(`${INTERNAL_API_BASE_URL}/api/lipsync/synclabs`, {
-        videoUrl: `${EXTERNAL_API_BASE_URL}${avatar.src}`,
-        audioUrl: `${EXTERNAL_API_BASE_URL}${audioUrl}`,
-    });
-    const syncLabsJobId = syncLabsResponse.data.jobId as string;
-    await prisma.ad.update({ where: { id: adId }, data: { syncLabsJobId } });
+    const absoluteVideoUrl = `${EXTERNAL_API_BASE_URL}${avatar.src}`;
     
-    // STEP 4: Poll for Lip-Sync Completion
-    log('4/9: Waiting for lip-sync to complete...');
-    let lipSyncedVideoUrl = '';
-    for (let i = 0; i < 15; i++) { // Poll for up to 7.5 minutes
-        await new Promise(resolve => setTimeout(resolve, 30000)); // wait 30s
-        const statusRes = await axios.get(`${INTERNAL_API_BASE_URL}/api/lipsync/synclabs?jobId=${syncLabsJobId}`);
-        log(`   - Lip-sync status: ${statusRes.data.status}`);
-        if (statusRes.data.status === 'COMPLETED') {
-            lipSyncedVideoUrl = statusRes.data.lipSyncedVideoUrl;
-            break;
-        }
-        if (statusRes.data.status === 'FAILED') {
-            throw new Error('Lip-sync job failed.');
-        }
-    }
-    if (!lipSyncedVideoUrl) throw new Error('Lip-sync job timed out.');
+    const { jobId: syncJobId, finalUrl: lipSyncedVideoUrl } = await runLipSync(absoluteVideoUrl, absoluteAudioUrl);
+    await prisma.ad.update({ where: { id: adId }, data: { syncLabsJobId: syncJobId } });
     
-    // STEP 5: Download SyncLabs video locally
     log('5/9: Downloading processed video...');
-    const videoId = lipSyncedVideoUrl.match(/generations\/([^\/]+)/)?.[1] || 'unknown';
+    const videoId = lipSyncedVideoUrl.match(/generations\/([^\/]+)/)?.[1] || adId;
     const filename = `synclabs-${videoId}.mp4`;
     const localPath = path.join(process.cwd(), 'public', 'synclabs', filename);
-    const dir = path.dirname(localPath);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.mkdirSync(path.dirname(localPath), { recursive: true });
     const downloadResponse = await axios.get(lipSyncedVideoUrl, { responseType: 'arraybuffer' });
     fs.writeFileSync(localPath, downloadResponse.data);
     const localLipSyncedVideoUrl = `/synclabs/${filename}`;
 
-    // STEP 6: Remove Background
     log('6/9: Removing video background...');
-    const bgRemovalResponse = await axios.post(`${INTERNAL_API_BASE_URL}/api/video/remove-background`, { localVideoPath: localLipSyncedVideoUrl });
-    const transparentAvatarUrl = bgRemovalResponse.data.cutoutVideoUrl;
+    const transparentAvatarUrl = await removeBackground(localLipSyncedVideoUrl);
 
-    // STEP 7: Get Video Duration
     log('7/9: Getting video duration...');
-    const durationResponse = await axios.post(`${INTERNAL_API_BASE_URL}/api/video/get-duration`, { filePath: localLipSyncedVideoUrl });
-    const durationInSeconds = durationResponse.data.durationInSeconds as number;
+    const durationInSeconds = await getDuration(localLipSyncedVideoUrl);
     const totalDurationInFrames = Math.round(durationInSeconds * COMPOSITION_FPS);
 
-    // STEP 8: Generate Timeline & Render
     log('8/9: Rendering final video with Remotion...');
     const template = getTemplateById(templateId);
     if (!template) throw new Error(`Template with ID ${templateId} not found.`);
     const concreteTimeline = generateConcreteTimeline(template.timeline, totalDurationInFrames);
-    const inputProps = {
-        adData: adData,
-        timeline: concreteTimeline,
-        audioUrl: localLipSyncedVideoUrl,
-        processedAvatarUrl: localLipSyncedVideoUrl,
-        greenscreenAvatarUrl: transparentAvatarUrl,
-    };
-    const remotionResponse = await axios.post(`${INTERNAL_API_BASE_URL}/api/render/remotion`, {
-        compositionId: 'Main',
-        inputProps,
-    });
-    const finalVideoUrl = remotionResponse.data.videoUrl as string;
 
-    // STEP 9: Update Database
+    const toAbsoluteUrl = (url: string) => {
+        if (!url) return '';
+        if (url.startsWith('http')) return url;
+        return `${EXTERNAL_API_BASE_URL}${url}`;
+    };
+
+    const remotionAdData = {
+        ...adData,
+        selectedImages: (adData.selectedImages || []).map(toAbsoluteUrl),
+        selectedVideos: (adData.selectedVideos || []).map(toAbsoluteUrl),
+    };
+    
+    const inputProps = {
+        adData: remotionAdData,
+        timeline: concreteTimeline,
+        audioUrl: toAbsoluteUrl(localLipSyncedVideoUrl),
+        processedAvatarUrl: toAbsoluteUrl(localLipSyncedVideoUrl),
+        greenscreenAvatarUrl: toAbsoluteUrl(transparentAvatarUrl),
+    };
+
+    // ✅ THIS IS THE CORRECTED LINE
+    log(`Passing these props to Remotion: ${JSON.stringify(inputProps, null, 2)}`);
+    
+    const bundleLocation = await bundle({ entryPoint: path.resolve('./remotion/index.ts'), webpackOverride: (config) => config });
+    const composition = await selectComposition({ serveUrl: bundleLocation, id: 'Main', inputProps });
+    composition.durationInFrames = totalDurationInFrames;
+
+    const outputFilename = `final-ad-${adId}.mp4`;
+    const outputPath = path.resolve(`./public/renders/${outputFilename}`);
+    
+    await renderMedia({ composition, serveUrl: bundleLocation, codec: 'h264', outputLocation: outputPath, inputProps });
+    const finalVideoUrl = `/renders/${outputFilename}`;
+
     log('9/9: Finalizing and updating database...');
     await prisma.ad.update({
         where: { id: adId },
@@ -127,8 +157,11 @@ async function processRenderJob(adId: string, templateId: string): Promise<void>
     log('✅ Render job finished successfully!');
 }
 
+const redisConnection = {
+  host: process.env.REDIS_HOST || '127.0.0.1',
+  port: parseInt(process.env.REDIS_PORT || '6379', 10),
+};
 
-// --- The BullMQ Worker Definition ---
 const worker = new Worker('render-video', async job => {
   const { adId, templateId } = job.data;
   console.log(`[RenderWorker] Picked up job: ${job.id} for ad: ${adId}`);
@@ -136,16 +169,14 @@ const worker = new Worker('render-video', async job => {
   try {
     await processRenderJob(adId, templateId);
   } catch (error: any) {
-    console.error(`[RenderWorker] Job ${job.id} for ad ${adId} FAILED:`, error.message);
-    // Update the ad status to FAILED in the database
+    console.error(`[RenderWorker] Job ${job.id} for ad ${adId} FAILED:`, error.message, error.stack);
     await prisma.ad.update({
       where: { id: adId },
       data: { status: 'FAILED' },
     });
-    // Rethrow the error so BullMQ knows the job failed and can retry if configured
     throw error;
   }
-}, { connection: redisConnection, concurrency: 2 }); // Process up to 2 jobs at a time
+}, { connection: redisConnection, concurrency: 1 });
 
 console.log('[RenderWorker] Worker is listening for jobs on the "render-video" queue.');
 
