@@ -8,6 +8,7 @@
     },
     "include": [
       "lib/**/*.ts", // We only need to compile our library files for the script
-      "components/**/*.ts"
+      "components/**/*.ts",
+      "workers/**/*.ts"
     ]
   }

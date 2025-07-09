@@ -4,7 +4,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { prisma } from "../../../lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]";
-import { inngest } from "../../../inngest/client"; // Ensure client is imported
+import { inngest } from "../../../lib/inngest";
 import { Ad } from "@prisma/client";
 import path from "path";
 import fs from "fs/promises";

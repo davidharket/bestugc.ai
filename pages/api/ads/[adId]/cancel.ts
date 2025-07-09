@@ -4,7 +4,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { PrismaClient } from '@prisma/client';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../auth/[...nextauth]';
-import { inngest } from '../../../../inngest/client';
+import { inngest } from '../../../../lib/inngest';
 
 const prisma = new PrismaClient();
 

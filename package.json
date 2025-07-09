@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run build:scripts && next build",
     "build:scripts": "tsc --project tsconfig.scripts.json",
-    "start": "next start",
+    "start": "next start", // PM2 still calls this
+    "ready": "echo App is ready!",
+    "start:worker": "node dist/workers/renderWorker.js",
     "lint": "next lint",
     "inngest:dev": "inngest dev",
     "prisma": "prisma"
@@ -23,10 +25,13 @@
     "@types/node": "^20.0.0",
     "@types/react": "^18.0.0",
     "axios": "^1.6.0",
+    "bullmq": "^5.56.2",
     "cheerio": "^1.0.0-rc.12",
+    "dotenv": "^17.1.0",
     "gl-chromakey": "^1.0.0-beta.2",
     "image-size": "^2.0.2",
     "inngest": "^3.39.0",
+    "ioredis": "^5.6.1",
     "micro": "^10.0.1",
     "next": "^14.0.0",
     "next-auth": "^4.24.0",
@@ -44,12 +49,14 @@
   },
   "devDependencies": {
     "@types/cheerio": "^0.22.32",
+    "@types/ioredis": "^5.0.0",
     "@types/mime-types": "^3.0.1",
     "@types/nodemailer": "^6.4.17",
     "autoprefixer": "^10.4.0",
     "inngest-cli": "^1.8.2",
     "postcss": "^8.4.0",
     "prisma": "^5.10.2",
-    "typescript": "^5.0.0"
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
   }
 }
