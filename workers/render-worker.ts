@@ -79,8 +79,16 @@ async function processRenderJob(adId: string, templateId: string): Promise<void>
         templateId: adRecord.templateId ?? undefined,
     };
 
-    log('2/9: Generating TTS audio...');
-    const audioUrl = await generateTts(adData.script!, adData.language!);
+    log('2/9: Checking for existing audio or generating new TTS...');
+    let audioUrl: string;
+    if (adData.audioUrl) {
+      log('Using existing audio from preview');
+      audioUrl = adData.audioUrl;
+    } else {
+      log('Generating new TTS audio...');
+      audioUrl = await generateTts(adData.script!, adData.language!);
+    }
+    
     const absoluteAudioUrl = `${EXTERNAL_API_BASE_URL}${audioUrl}`;
 
     log('--- Pausing for 3 seconds to ensure audio file is accessible via public URL ---');

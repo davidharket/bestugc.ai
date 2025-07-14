@@ -20,6 +20,7 @@ import { FullScreenAsset } from './scenes/FullScreenAsset';
 import { FullScreenAvatar } from './scenes/FullScreenAvatar';
 import { BuildupCollageScene } from './scenes/BuildupCollageScene';
 import { SplitScreenScene } from './scenes/SplitScreenScene';
+import { Subtitles, SUBTITLE_STYLES, parseTranscriptWithTimings } from './components/Subtitles';
 
 // --- Zod Schemas for Type Safety ---
 export const MainCompositionProps = z.object({
@@ -108,12 +109,16 @@ export const RemotionRoot: React.FC = () => {
 // --- THIS IS THE CORRECTED, INTELLIGENT ASSET RESOLVER ---
 const resolveAsset = (assetPath: string): string => {
   if (!assetPath) {
+    console.warn('[resolveAsset] Empty asset path provided');
     return '';
   }
   if (assetPath.startsWith('http://') || assetPath.startsWith('https://')) {
+    console.log('[resolveAsset] Using remote asset:', assetPath);
     return assetPath;
   }
-  return staticFile(assetPath);
+  const resolved = staticFile(assetPath);
+  console.log('[resolveAsset] Resolved local asset:', assetPath, '->', resolved);
+  return resolved;
 };
 
 // --- Main Rendering Composition ---
@@ -126,6 +131,20 @@ export const MainComposition: React.FC<z.infer<typeof MainCompositionProps>> = (
 }) => {
   const assets = [...(adData.selectedImages || []), ...(adData.selectedVideos || [])];
   let fromFrame = 0;
+  
+  // Calculate total duration for subtitle timing
+  const totalDuration = timeline.reduce((acc, scene) => acc + scene.duration, 0);
+  const totalDurationInSeconds = totalDuration / COMPOSITION_FPS;
+  
+  // Get subtitle configuration
+  const enableSubtitles = adData.enableSubtitles !== false;
+  const subtitleStyle = SUBTITLE_STYLES.find(s => s.id === adData.subtitleStyle) || SUBTITLE_STYLES[0];
+  const subtitleAnimation = adData.subtitleAnimation || 'fade';
+  const subtitlePosition = adData.subtitlePosition || 'bottom';
+  const scriptText = adData.selectedScript || adData.script || '';
+  
+  // Generate subtitle timings
+  const subtitleTimings = scriptText ? parseTranscriptWithTimings(scriptText, totalDurationInSeconds) : [];
 
   return (
     <AbsoluteFill className="bg-white">
@@ -147,6 +166,18 @@ export const MainComposition: React.FC<z.infer<typeof MainCompositionProps>> = (
           </Sequence>
         );
       })}
+      
+      {/* Subtitle Layer */}
+      {enableSubtitles && scriptText && (
+        <Subtitles
+          transcript={scriptText}
+          wordTimings={subtitleTimings}
+          style={subtitleStyle}
+          animationType={subtitleAnimation}
+          position={subtitlePosition}
+          maxWordsPerLine={4}
+        />
+      )}
     </AbsoluteFill>
   );
 };
@@ -168,12 +199,26 @@ function renderScene(
   // Calculate the start time in seconds based on the frame position in the timeline
   const avatarVideoStartFrom = startFrame / COMPOSITION_FPS;
 
+  console.log(`[renderScene] Rendering scene: ${scene.layout}`, {
+    assetIndices: scene.assetIndices,
+    resolvedVideoUrl,
+    resolvedGreenscreenUrl,
+    avatarVideoStartFrom,
+    assetsLength: assets.length
+  });
+
   if (scene.layout === 'buildup-collage') {
     const collageAssets = scene.assetIndices?.map(i => resolveAsset(getAsset(i))) || [];
     return <BuildupCollageScene assetUrls={collageAssets} />;
   }
 
   const resolvedAssetUrl = resolveAsset(getAsset(scene.assetIndices?.[0]));
+  
+  console.log(`[renderScene] Asset resolution for ${scene.layout}:`, {
+    assetIndex: scene.assetIndices?.[0],
+    rawAsset: getAsset(scene.assetIndices?.[0]),
+    resolvedAssetUrl
+  });
 
   switch (scene.layout as LayoutType) {
     case 'fullscreen-avatar':

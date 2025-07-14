@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useAdCreation } from '../../components/AdCreationContext';
 // This is the correct import from our shared library
 import { avatars } from '../../lib/avatars';
+import axios from 'axios';
 
 const genderOptions = ['male', 'female'];
 const ageOptions = ['adult', 'senior'];
@@ -15,10 +16,37 @@ export default function AvatarAd() {
   const [gender, setGender] = useState<string | null>(null);
   const [age, setAge] = useState<string | null>(null);
   const [location, setLocation] = useState<string | null>(null);
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
 
   useEffect(() => {
     setAdData({ avatarId: selectedAvatar === null ? undefined : selectedAvatar });
   }, [selectedAvatar]);
+
+  // Generate audio when avatar is selected
+  useEffect(() => {
+    if (selectedAvatar !== null && adData.selectedScript && adData.language) {
+      generateAudio();
+    }
+  }, [selectedAvatar, adData.selectedScript, adData.language]);
+
+  const generateAudio = async () => {
+    if (!adData.selectedScript || !adData.language) return;
+    
+    setIsGeneratingAudio(true);
+    try {
+      const response = await axios.post('/api/tts/elevenlabs', {
+        text: adData.selectedScript,
+        language: adData.language,
+        voiceId: 'auto', // Let the system choose
+      });
+      // Store the audio URL in the ad data for later use
+      setAdData({ audioUrl: response.data.audioUrl });
+    } catch (error) {
+      console.error('Error generating audio:', error);
+    } finally {
+      setIsGeneratingAudio(false);
+    }
+  };
 
   const filteredAvatars = avatars.filter(a =>
     (!gender || a.gender === gender) &&
@@ -39,6 +67,16 @@ export default function AvatarAd() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Choose Avatar - Step 4</h1>
           <p className="text-gray-400">Select the AI avatar that will present your video</p>
+          
+          {/* Audio Generation Status */}
+          {isGeneratingAudio && (
+            <div className="mt-4 p-4 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+              <div className="flex items-center gap-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-orange-500"></div>
+                <span className="text-orange-400 text-sm">Generating audio for your selected script...</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Filters */}

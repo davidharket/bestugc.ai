@@ -18,6 +18,16 @@ export const CutoutAvatarScene: React.FC<{
   // Convert seconds to frames for OffthreadVideo startFrom parameter
   const startFromFrames = Math.round(avatarStartFrom * COMPOSITION_FPS);
 
+  if (!backgroundSrc) {
+    console.warn('[CutoutAvatarScene] No backgroundSrc provided');
+    return <AbsoluteFill style={{ backgroundColor: '#1a1a1a' }} />;
+  }
+  
+  if (!greenscreenSrc) {
+    console.warn('[CutoutAvatarScene] No greenscreenSrc provided');
+    return <AbsoluteFill style={{ backgroundColor: '#1a1a1a' }} />;
+  }
+
   const getPositionStyle = (): React.CSSProperties => {
     const baseStyle: React.CSSProperties = {
       position: 'absolute',
@@ -72,6 +82,9 @@ export const CutoutAvatarScene: React.FC<{
             width: '100%',
             objectFit: 'cover',
             objectPosition: 'bottom',
+          }}
+          onError={(error) => {
+            console.error('[CutoutAvatarScene] OffthreadVideo error:', error);
           }}
         />
       </div>

@@ -34,7 +34,7 @@ export default function CreateAd() {
   const [brandName, setBrandName] = useState(adData.brandName || '')
 
   // Promo info
-  const [showPromo, setShowPromo] = useState(adData.showPromo || false)
+  const [showPromo, setShowPromo] = useState(adData.showPromo !== undefined ? adData.showPromo : true)
   const [originalPrice, setOriginalPrice] = useState(adData.originalPrice || '')
   const [promoPrice, setPromoPrice] = useState(adData.promoPrice || '')
   const [promoDetails, setPromoDetails] = useState(adData.promoDetails || '')
@@ -270,45 +270,6 @@ export default function CreateAd() {
           </div>
         )}
 
-        {/* Product Details */}
-        <div className="card mb-8">
-          <h2 className="text-xl font-semibold text-white mb-6">Product Details</h2>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-gray-300 font-medium mb-2">Brand / Product name</label>
-              <input 
-                type="text" 
-                className="input w-full" 
-                value={brandName} 
-                onChange={e => setBrandName(e.target.value)} 
-                placeholder="e.g. AeroFlow hårføner – Blå" 
-              />
-            </div>
-            
-
-            
-            <div>
-              <label className="block text-gray-300 font-medium mb-2">Product description</label>
-              <textarea 
-                className="input w-full" 
-                rows={4} 
-                value={summary} 
-                onChange={e => {
-                  setSummary(e.target.value);
-                  setAdData({ summary: e.target.value });
-                }} 
-                maxLength={1000} 
-                placeholder="Describe your product"
-              />
-              <div className="flex justify-between items-center mt-2">
-                <span className="text-gray-500 text-sm">This description will be used to generate your ad script</span>
-                <span className="text-gray-500 text-sm">{summary.length}/1000</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Assets */}
         <div className="card mb-8">
           <h2 className="text-xl font-semibold text-white mb-4">Media Assets</h2>
@@ -415,6 +376,45 @@ export default function CreateAd() {
                 <span className="text-xs">Upload</span>
                 <input type="file" accept="video/*" multiple hidden ref={videoInputRef} onChange={handleVideoUpload} />
               </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Product Details */}
+        <div className="card mb-8">
+          <h2 className="text-xl font-semibold text-white mb-6">Product Details</h2>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-gray-300 font-medium mb-2">Brand / Product name</label>
+              <input 
+                type="text" 
+                className="input w-full" 
+                value={brandName} 
+                onChange={e => setBrandName(e.target.value)} 
+                placeholder="e.g. AeroFlow hårføner – Blå" 
+              />
+            </div>
+            
+
+            
+            <div>
+              <label className="block text-gray-300 font-medium mb-2">Product description</label>
+              <textarea 
+                className="input w-full" 
+                rows={4} 
+                value={summary} 
+                onChange={e => {
+                  setSummary(e.target.value);
+                  setAdData({ summary: e.target.value });
+                }} 
+                maxLength={1000} 
+                placeholder="Describe your product"
+              />
+              <div className="flex justify-between items-center mt-2">
+                <span className="text-gray-500 text-sm">This description will be used to generate your ad script</span>
+                <span className="text-gray-500 text-sm">{summary.length}/1000</span>
+              </div>
             </div>
           </div>
         </div>

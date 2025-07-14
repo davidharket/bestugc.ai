@@ -4,13 +4,20 @@ import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../auth/[...nextauth]';
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 const DEFAULT_VOICE_ID = '21m00Tcm4TlvDq8ikWAM'; // Example: Rachel
 
 const NORWEGIAN_VOICES = {
   female: ['uNsWM1StCcpydKYOjKyu', 'b3jcIbyC3BSnaRu8avEk'],
-  male: ['9pRpxWU0T7UFt2oEMH6n', 'dgrgQcxISbZtq517iweJ', '2dhHLsmg0MVma2t041qT', 'xF681s0UeE04gsf0mVsJ']
+  male: ['9pRpxWU0T7UFt2oEMH6n', 'dgrgQcxISbZtq517iweJ', '2dhHLsmg0MVma2t041qT', 'xF681s0UeE04gsf0mVsJ', '4kCDY3HJwvO7Zp3con83', 'vUmLiNBm6MDcy1NUHaVr']
+};
+
+const ENGLISH_VOICES = {
+  female: ['21m00Tcm4TlvDq8ikWAM', 'EXAVITQu4vr4xnSDxMaL'],
+  male: ['pNInz6obpgDQGcFmaJgB', '29vD33N1CtxCmqQRPOHJ', 'CYw3kZ02Hs0563khs1Fj', 'JBFqnCBsd6RMkjVDRZzb', 'ZQe5CqHNLjbsabgITWbw', 'bVMeCyTHy58xNoL34h3p']
 };
 
 function getVoiceId(language: string, gender: string): string {
@@ -18,8 +25,9 @@ function getVoiceId(language: string, gender: string): string {
     const voices = gender === 'male' ? NORWEGIAN_VOICES.male : NORWEGIAN_VOICES.female;
     return voices[Math.floor(Math.random() * voices.length)];
   }
-  if (gender === 'male') return 'pNInz6obpgDQGcFmaJgB'; // Adam
-  return '21m00Tcm4TlvDq8ikWAM'; // Rachel
+  // Default to English voices
+  const voices = gender === 'male' ? ENGLISH_VOICES.male : ENGLISH_VOICES.female;
+  return voices[Math.floor(Math.random() * voices.length)];
 }
 
 function getModelId(language: string): string {
@@ -29,10 +37,15 @@ function getModelId(language: string): string {
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // --- ✅ START: ROBUST SECURITY CHECK ---
   const internalSecret = process.env.INTERNAL_SECRET_KEY;
-  if (!internalSecret || req.headers['x-internal-secret'] !== internalSecret) {
-    if (process.env.NODE_ENV !== 'development' || req.headers['x-test-secret'] !== process.env.TEST_SECRET_KEY) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+  const session = await getServerSession(req, res, authOptions);
+  
+  // Allow internal secret OR authenticated user session
+  const isInternalRequest = internalSecret && req.headers['x-internal-secret'] === internalSecret;
+  const isAuthenticatedUser = session?.user?.id;
+  const isDevMode = process.env.NODE_ENV === 'development' && req.headers['x-test-secret'] === process.env.TEST_SECRET_KEY;
+  
+  if (!isInternalRequest && !isAuthenticatedUser && !isDevMode) {
+    return res.status(401).json({ error: 'Unauthorized' });
   }
   // --- ✅ END: ROBUST SECURITY CHECK ---
 

@@ -9,6 +9,11 @@ export const FullScreenAvatar: React.FC<{
 	// Convert seconds to frames for Video startFrom parameter
 	const startFromFrames = Math.round(startFrom * COMPOSITION_FPS);
 
+	if (!src) {
+		console.warn('[FullScreenAvatar] No src provided, showing placeholder');
+		return <AbsoluteFill style={{ backgroundColor: '#1a1a1a' }} />;
+	}
+
 	return (
 		<AbsoluteFill className="bg-black justify-center items-center">
 			<Video
@@ -16,6 +21,9 @@ export const FullScreenAvatar: React.FC<{
 				className="w-full h-full object-cover"
 				startFrom={startFromFrames} // <-- Use frames instead of seconds
 				muted={true} // Audio is handled globally in MainComposition
+				onError={(error) => {
+					console.error('[FullScreenAvatar] Video error:', error);
+				}}
 			/>
 		</AbsoluteFill>
 	);

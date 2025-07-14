@@ -2,6 +2,13 @@
 const nextConfig = {
   reactStrictMode: true,
   
+  // Increase API timeout for long-running operations
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '10mb',
+    },
+  },
+  
   // ✅ Add rewrites to handle video files properly
   async rewrites() {
     return [

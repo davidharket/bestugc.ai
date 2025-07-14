@@ -63,7 +63,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       console.log('[SyncLabs API] Sending POST request with public URLs:', { audioUrl, videoUrl });
       
       const response = await axios.post(`${SYNC_LABS_API_URL}/generate`, 
-        { model: "lipsync-2", input: [{ type: "video", url: videoUrl }, { type: "audio", url: audioUrl }] },
+        { 
+          model: "lipsync-2", 
+          input: [{ type: "video", url: videoUrl }, { type: "audio", url: audioUrl }],
+          options: { sync_mode: "bounce" }
+        },
         { headers: { 'Content-Type': 'application/json', 'x-api-key': SYNC_LABS_API_KEY } }
       );
 

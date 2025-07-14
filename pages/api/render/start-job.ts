@@ -25,13 +25,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // ---- THIS IS THE MAIN CHANGE ----
-    // Remove the Inngest call and add a job to the BullMQ queue instead.
+    // First, check if user has enough credits and deduct 10 credits for video creation
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { credits: true }
+    });
+
+    if (!user || user.credits < 10) {
+      return res.status(400).json({ 
+        message: 'Insufficient credits. You need at least 10 credits to create a video.' 
+      });
+    }
+
+    // Deduct 10 credits from user's balance
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: { credits: { decrement: 10 } }
+    });
+
+    // Add a job to the BullMQ queue
     const job = await renderQueue.add('render-video-job', {
         adId: adId,
         templateId: templateId,
     });
-    // ---------------------------------
 
     // Update the Ad record with the BullMQ job ID for tracking
     await prisma.ad.update({
@@ -39,7 +55,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       data: { inngestRunId: job.id }, // We can reuse the same DB field for the job ID
     });
 
-    console.log(`[API] Job ${job.id} added to the render queue for Ad ID: ${adId}`);
+    console.log(`[API] Job ${job.id} added to the render queue for Ad ID: ${adId}. 10 credits deducted from user ${session.user.id}`);
 
     return res.status(202).json({
       message: 'Video rendering job accepted.',

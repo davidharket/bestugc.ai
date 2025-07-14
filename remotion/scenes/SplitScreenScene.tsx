@@ -17,6 +17,16 @@ export const SplitScreenScene: React.FC<{
   // Convert seconds to frames for Video startFrom parameter
   const startFromFrames = Math.round(startFrom * COMPOSITION_FPS);
 
+  if (!videoSrc) {
+    console.warn('[SplitScreenScene] No videoSrc provided');
+    return <AbsoluteFill style={{ backgroundColor: '#1a1a1a' }} />;
+  }
+  
+  if (!assetSrc) {
+    console.warn('[SplitScreenScene] No assetSrc provided');
+    return <AbsoluteFill style={{ backgroundColor: '#1a1a1a' }} />;
+  }
+
   // Style for the TOP asset. This is correct and remains unchanged.
   const assetFillStyle: React.CSSProperties = {
     width: '100%',

@@ -3,16 +3,21 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../auth/[...nextauth]';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // --- ✅ START: ROBUST SECURITY CHECK ---
-  // This ensures only our worker (or a test script) can call this sensitive endpoint.
   const internalSecret = process.env.INTERNAL_SECRET_KEY;
-  if (!internalSecret || req.headers['x-internal-secret'] !== internalSecret) {
-    // Also allow test script access for local testing
-    if (process.env.NODE_ENV !== 'development' || req.headers['x-test-secret'] !== process.env.TEST_SECRET_KEY) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
+  const session = await getServerSession(req, res, authOptions);
+  
+  // Allow internal secret OR authenticated user session
+  const isInternalRequest = internalSecret && req.headers['x-internal-secret'] === internalSecret;
+  const isAuthenticatedUser = session?.user?.id;
+  const isDevMode = process.env.NODE_ENV === 'development' && req.headers['x-test-secret'] === process.env.TEST_SECRET_KEY;
+  
+  if (!isInternalRequest && !isAuthenticatedUser && !isDevMode) {
+    return res.status(401).json({ error: 'Unauthorized' });
   }
   // --- ✅ END: ROBUST SECURITY CHECK ---
 

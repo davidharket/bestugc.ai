@@ -20,9 +20,16 @@ export interface AdCreationData {
   audience?: string;
   script?: string;
   scripts?: { [key: string]: string };
+  selectedScript?: string;
   avatarId?: number;
   templateId?: string;
   syncLabsJobId?: string; // It's good practice to add any potential fields
+  subtitleStyle?: string;
+  subtitleAnimation?: 'fade' | 'slide' | 'typewriter' | 'bounce';
+  subtitlePosition?: 'bottom' | 'top' | 'center';
+  enableSubtitles?: boolean;
+  audioUrl?: string;
+  audioDuration?: number;
 }
 
 interface AdCreationContextType {

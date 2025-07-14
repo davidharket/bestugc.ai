@@ -16,6 +16,16 @@ export const AvatarWithCornerAsset: React.FC<{
   // Convert seconds to frames for Video startFrom parameter
   const startFromFrames = Math.round(startFrom * COMPOSITION_FPS);
 
+  if (!videoSrc) {
+    console.warn('[AvatarWithCornerAsset] No videoSrc provided');
+    return <AbsoluteFill style={{ backgroundColor: '#1a1a1a' }} />;
+  }
+  
+  if (!assetSrc) {
+    console.warn('[AvatarWithCornerAsset] No assetSrc provided');
+    return <AbsoluteFill style={{ backgroundColor: '#1a1a1a' }} />;
+  }
+
   return (
     <AbsoluteFill className="bg-black">
       {/* Main Avatar Video (Correct) */}

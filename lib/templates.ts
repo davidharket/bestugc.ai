@@ -35,10 +35,10 @@ export const TEMPLATE_LIBRARY: VideoTemplate[] = [
     name: 'The Quick Hook',
     description: 'Rapid cuts to grab attention instantly. Ideal for TikTok, Reels, and Shorts.',
     timeline: [
-      { layout: 'fullscreen-asset', durationWeight: 2, assetIndices: [0] },
-      { layout: 'cutout-left-over-asset', durationWeight: 3, assetIndices: [1] },
-      { layout: 'split-screen-top-asset', durationWeight: 3, assetIndices: [0] },
       { layout: 'fullscreen-avatar', durationWeight: 2 },
+      { layout: 'cutout-left-over-asset', durationWeight: 3, assetIndices: [0] },
+      { layout: 'avatar-with-corner-asset', durationWeight: 3, assetIndices: [1] },
+      { layout: 'cutout-right-over-asset', durationWeight: 2, assetIndices: [2] },
     ],
   },
   {
@@ -48,7 +48,7 @@ export const TEMPLATE_LIBRARY: VideoTemplate[] = [
     timeline: [
       { layout: 'fullscreen-avatar', durationWeight: 3 },
       { layout: 'avatar-with-corner-asset', durationWeight: 4, assetIndices: [0] },
-      { layout: 'split-screen-top-asset', durationWeight: 4, assetIndices: [1] },
+      { layout: 'cutout-center-over-asset', durationWeight: 4, assetIndices: [1] },
       { layout: 'fullscreen-avatar', durationWeight: 2 },
     ],
   },
@@ -57,9 +57,33 @@ export const TEMPLATE_LIBRARY: VideoTemplate[] = [
     name: 'Product Is The Hero',
     description: 'Maximum screen time for your product images and videos. Great for demos.',
     timeline: [
-      { layout: 'split-screen-top-asset', durationWeight: 4, assetIndices: [0] },
-      { layout: 'fullscreen-asset', durationWeight: 3, assetIndices: [1] },
+      { layout: 'avatar-with-corner-asset', durationWeight: 4, assetIndices: [0] },
+      { layout: 'cutout-left-over-asset', durationWeight: 3, assetIndices: [1] },
       { layout: 'cutout-right-over-asset', durationWeight: 4, assetIndices: [2] },
+      { layout: 'fullscreen-avatar', durationWeight: 2 },
+    ],
+  },
+  {
+    id: 'cutout-showcase',
+    name: 'Avatar Showcase',
+    description: 'Dynamic cutout avatar moving across different product backgrounds.',
+    timeline: [
+      { layout: 'fullscreen-avatar', durationWeight: 2 },
+      { layout: 'cutout-left-over-asset', durationWeight: 3, assetIndices: [0] },
+      { layout: 'cutout-center-over-asset', durationWeight: 3, assetIndices: [1] },
+      { layout: 'cutout-right-over-asset', durationWeight: 3, assetIndices: [2] },
+      { layout: 'cutout-left-over-asset', durationWeight: 2, assetIndices: [3] },
+    ],
+  },
+  {
+    id: 'avatar-focus',
+    name: 'Avatar Focus',
+    description: 'Maximum avatar presence with minimal asset-only scenes.',
+    timeline: [
+      { layout: 'fullscreen-avatar', durationWeight: 3 },
+      { layout: 'cutout-center-over-asset', durationWeight: 4, assetIndices: [0] },
+      { layout: 'avatar-with-corner-asset', durationWeight: 4, assetIndices: [1] },
+      { layout: 'cutout-right-over-asset', durationWeight: 3, assetIndices: [2] },
       { layout: 'fullscreen-avatar', durationWeight: 2 },
     ],
   },

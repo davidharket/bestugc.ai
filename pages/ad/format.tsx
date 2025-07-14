@@ -5,23 +5,23 @@ import axios from 'axios'
 import Spinner from '../../components/Spinner'
 
 const formatOptions = [
-  { label: 'Landscape (16:9)', value: '16:9' },
-  { label: 'Portrait (9:16)', value: '9:16' },
+  { label: 'Horizontal (16:9)', value: '16:9', disabled: true, comingSoon: true },
+  { label: 'Vertical (9:16)', value: '9:16', disabled: false },
 ]
 const durationOptions = [15, 30, 60]
 const languageOptions = [
-  { label: 'Norwegian', value: 'no' },
-  { label: 'Danish', value: 'da' },
-  { label: 'Swedish', value: 'sv' },
-  { label: 'English', value: 'en' },
+  { label: 'Norwegian', value: 'no', flag: '🇳🇴' },
+  { label: 'Danish', value: 'da', flag: '🇩🇰' },
+  { label: 'Swedish', value: 'sv', flag: '🇸🇪' },
+  { label: 'English', value: 'en', flag: '🇺🇸' },
 ]
 
 export default function FormatAd() {
   const router = useRouter()
   const { adData, setAdData } = useAdCreation()
-  const [format, setFormat] = useState(adData.format || '16:9')
+  const [format, setFormat] = useState(adData.format || '9:16')
   const [duration, setDuration] = useState(adData.duration || 15)
-  const [language, setLanguage] = useState(adData.language || 'en')
+  const [language, setLanguage] = useState(adData.language || 'no')
   const [audience, setAudience] = useState(adData.audience || '')
 
   const [aiAudienceSuggestions, setAiAudienceSuggestions] = useState<string[]>([])
@@ -71,15 +71,32 @@ export default function FormatAd() {
             {formatOptions.map(opt => (
               <button
                 key={opt.value}
-                className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
+                className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 flex items-center gap-2 relative ${
                   format === opt.value 
                     ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25' 
-                    : 'bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 hover:border-orange-500/50'
+                    : opt.disabled 
+                      ? 'bg-gray-800 text-gray-500 border border-gray-700 cursor-not-allowed opacity-50'
+                      : 'bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 hover:border-orange-500/50'
                 }`}
-                onClick={() => setFormat(opt.value)}
+                onClick={() => !opt.disabled && setFormat(opt.value)}
                 type="button"
+                disabled={opt.disabled}
               >
+                {opt.value === '16:9' ? (
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v1a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" clipRule="evenodd" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+                  </svg>
+                )}
                 {opt.label}
+                {opt.comingSoon && (
+                  <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs px-2 py-1 rounded-full">
+                    Coming Soon
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -113,7 +130,7 @@ export default function FormatAd() {
             {languageOptions.map(opt => (
               <button
                 key={opt.value}
-                className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
+                className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 flex items-center gap-2 ${
                   language === opt.value 
                     ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25' 
                     : 'bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 hover:border-orange-500/50'
@@ -121,6 +138,7 @@ export default function FormatAd() {
                 onClick={() => setLanguage(opt.value)}
                 type="button"
               >
+                <span className="text-lg">{opt.flag}</span>
                 {opt.label}
               </button>
             ))}

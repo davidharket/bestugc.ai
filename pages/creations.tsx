@@ -21,11 +21,10 @@ interface Ad {
   isWatermarked?: boolean
 }
 
-function AdCard({ ad, onDelete, onCancel, onRestart }: { 
+function AdCard({ ad, onDelete, onCancel }: { 
   ad: Ad; 
   onDelete: (adId: string) => void; 
   onCancel: (adId: string) => void; 
-  onRestart: (adId: string) => void; 
 }) {
   const getVideoUrl = (finalVideoUrl: string | undefined) => {
     if (!finalVideoUrl) return '';
@@ -138,8 +137,6 @@ function AdCard({ ad, onDelete, onCancel, onRestart }: {
 
   // Determine which actions are available
   const canCancel = ad.status === 'PENDING' || ad.status === 'RENDERING';
-  const canRestart = ad.status === 'FAILED';
-  const canForceRestart = ad.status !== 'COMPLETED'; // Allow force restart for any non-completed ad
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 hover:border-orange-500/50 transition-all duration-200">
@@ -186,16 +183,7 @@ function AdCard({ ad, onDelete, onCancel, onRestart }: {
       </div>
 
       {/* Action Buttons */}
-      <div className="grid grid-cols-3 gap-2">
-        {/* Always show restart button for ALL ads */}
-        <button
-          onClick={() => onRestart(ad.id)}
-          className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm font-medium"
-          title={`Re-render this ad with latest improvements`}
-        >
-          🔄 Re-render
-        </button>
-
+      <div className="grid grid-cols-2 gap-2">
         {/* Conditional buttons based on status */}
         {ad.status === 'COMPLETED' && ad.finalVideoUrl ? (
           <>
@@ -230,7 +218,7 @@ function AdCard({ ad, onDelete, onCancel, onRestart }: {
           </>
         ) : (
           <>
-            {/* Empty placeholder for failed/other states */}
+            {/* For failed/other states, show only delete button */}
             <div></div>
             <button
               onClick={() => onDelete(ad.id)}
@@ -311,34 +299,6 @@ export default function MyCreations() {
     }
   };
 
-  const handleRestartAd = async (adId: string) => {
-    const ad = ads.find(a => a.id === adId);
-    const adName = ad?.brandName || `Ad #${adId.slice(0, 6)}`;
-    
-    if (!confirm(`🔄 Re-render "${adName}"?\n\nThis will restart the entire pipeline with the latest improvements including:\n• Fixed audio synchronization\n• Better video quality\n• Updated processing\n\nThis typically takes 2-5 minutes.`)) return;
-    
-    const toastId = toast.loading(`🔄 Restarting "${adName}"...`);
-    
-    try {
-      await axios.post('/api/render/restart-job', { adId });
-      toast.success(`✅ "${adName}" is now re-rendering! Check the processing status below.`, { id: toastId });
-      
-      // Immediately update the local state to show processing
-      setAds(prevAds => 
-        prevAds.map(ad => 
-          ad.id === adId 
-            ? { ...ad, status: 'PENDING', finalVideoUrl: undefined } 
-            : ad
-        )
-      );
-      
-      // Also refresh from server
-      setTimeout(() => fetchAds(), 1000);
-    } catch (error) {
-      console.error('Failed to restart ad:', error);
-      toast.error(`❌ Failed to restart "${adName}". Please try again.`, { id: toastId });
-    }
-  };
 
   const filteredAds = ads.filter(ad => {
     switch (filter) {
@@ -427,16 +387,6 @@ export default function MyCreations() {
             ))}
           </div>
 
-          {/* Quick Restart Button */}
-          {ads.length > 0 && (
-            <button
-              onClick={() => handleRestartAd(ads[0].id)}
-              className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm font-medium whitespace-nowrap"
-              title="Re-render your most recent ad with latest improvements"
-            >
-              🔄 Re-render Latest
-            </button>
-          )}
         </div>
 
         {/* Content */}
@@ -494,7 +444,6 @@ export default function MyCreations() {
                 ad={ad} 
                 onDelete={handleDeleteAd} 
                 onCancel={handleCancelAd} 
-                onRestart={handleRestartAd} 
               />
             ))}
           </div>
