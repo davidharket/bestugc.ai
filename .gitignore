@@ -7,7 +7,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-
+*.tsbuildinfo
 # Secrets
 .env
 .env.local
@@ -18,7 +18,7 @@ yarn-error.log*
 # Database
 prisma/dev.db
 prisma/dev.db-journal
-
+/dev.db*
 # Generated Assets - Should not be tracked
 public/uploads/
 public/generated_audio/
@@ -28,7 +28,11 @@ public/synclabs/
 public/videos/
 public/temp/
 public/videos-fixed/
-
+public/fonts/
+public/music/
+logs/
+public/avatars-fixed/
+public/b-roll/
 # Other
 .DS_Store
 output.txt

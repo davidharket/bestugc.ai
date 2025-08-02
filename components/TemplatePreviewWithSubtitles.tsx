@@ -15,6 +15,9 @@ interface TemplatePreviewWithSubtitlesProps {
   className?: string;
   audioUrl?: string;
   audioDuration?: number;
+  wordTimings?: Array<{ word: string; startTime: number; endTime: number; }>;
+  useCapsLock?: boolean;
+  currentPreviewFormat?: '9:16' | '4:5';
 }
 
 // Function to break script into chunks for preview
@@ -44,6 +47,8 @@ const ScenePreview: React.FC<{
   const getLayoutStyles = () => {
     const baseContainer = "relative w-full h-full overflow-hidden rounded-lg bg-gray-900";
     const avatarStyle = "absolute bottom-0 w-auto object-cover object-bottom";
+    
+    // Layout debug removed for production
     
     switch (layout) {
       case 'fullscreen-avatar':
@@ -108,6 +113,78 @@ const ScenePreview: React.FC<{
           avatar: `${avatarStyle} h-2/3 right-0`,
           asset: "w-full h-full object-cover rounded-lg",
           assetContainer: "absolute top-2 left-2 w-1/2 h-1/2"
+        };
+      
+      case 'small-cutout-bottom-left':
+        return {
+          container: baseContainer,
+          avatar: `absolute bottom-2 left-2 w-auto object-cover object-bottom h-1/3 z-10`,
+          asset: "w-full h-full object-cover",
+          assetContainer: "absolute inset-0 z-0"
+        };
+      
+      case 'small-cutout-bottom-right':
+        return {
+          container: baseContainer,
+          avatar: `absolute bottom-2 right-2 w-auto object-cover object-bottom h-1/3 z-10`,
+          asset: "w-full h-full object-cover",
+          assetContainer: "absolute inset-0 z-0"
+        };
+      
+      case 'small-cutout-center':
+        return {
+          container: baseContainer,
+          avatar: `absolute bottom-2 left-1/2 transform -translate-x-1/2 w-auto object-cover object-bottom h-1/3 z-10`,
+          asset: "w-full h-full object-cover",
+          assetContainer: "absolute inset-0 z-0"
+        };
+      
+      case 'small-cutout-bottom-left-no-padding':
+        return {
+          container: baseContainer,
+          avatar: `absolute bottom-0 left-0 w-auto object-cover object-bottom h-1/3 z-10`,
+          asset: "w-full h-full object-cover",
+          assetContainer: "absolute inset-0 z-0"
+        };
+      
+      case 'small-cutout-bottom-right-no-padding':
+        return {
+          container: baseContainer,
+          avatar: `absolute bottom-0 right-0 w-auto object-cover object-bottom h-1/3 z-10`,
+          asset: "w-full h-full object-cover",
+          assetContainer: "absolute inset-0 z-0"
+        };
+      
+      case 'small-cutout-center-tilted-left':
+        return {
+          container: baseContainer,
+          avatar: `absolute bottom-1/4 left-1/2 transform -translate-x-1/2 rotate-12 w-auto object-cover object-center h-2/5 z-10`,
+          asset: "w-full h-full object-cover",
+          assetContainer: "absolute inset-0 z-0"
+        };
+      
+      case 'small-cutout-center-tilted-right':
+        return {
+          container: baseContainer,
+          avatar: `absolute bottom-1/4 left-1/2 transform -translate-x-1/2 -rotate-12 w-auto object-cover object-center h-2/5 z-10`,
+          asset: "w-full h-full object-cover",
+          assetContainer: "absolute inset-0 z-0"
+        };
+      
+      case 'small-cutout-top-left':
+        return {
+          container: baseContainer,
+          avatar: `absolute top-2 left-2 w-auto object-cover object-top h-1/3 z-10`,
+          asset: "w-full h-full object-cover",
+          assetContainer: "absolute inset-0 z-0"
+        };
+      
+      case 'small-cutout-top-right':
+        return {
+          container: baseContainer,
+          avatar: `absolute top-2 right-2 w-auto object-cover object-top h-1/3 z-10`,
+          asset: "w-full h-full object-cover",
+          assetContainer: "absolute inset-0 z-0"
         };
       
       default:
@@ -182,11 +259,14 @@ export const TemplatePreviewWithSubtitles: React.FC<TemplatePreviewWithSubtitles
   enableSubtitles,
   className = "",
   audioUrl,
-  audioDuration
+  audioDuration,
+  wordTimings,
+  useCapsLock = false,
+  currentPreviewFormat = '9:16'
 }) => {
   const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
   const [currentChunkIndex, setCurrentChunkIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const previewRef = useRef<HTMLDivElement>(null);
@@ -207,37 +287,74 @@ export const TemplatePreviewWithSubtitles: React.FC<TemplatePreviewWithSubtitles
   // Break script into chunks for subtitle preview
   const scriptChunks = script ? breakScriptIntoChunks(script, 4) : [];
   
-  // Auto-advance through scenes
+  // Auto-advance through scenes synchronized with audio
   useEffect(() => {
     if (!isPlaying || isHovered) return;
     
     const totalWeight = template.timeline.reduce((sum, scene) => sum + scene.durationWeight, 0);
     const currentScene = template.timeline[currentSceneIndex];
-    // Use actual audio duration if available, otherwise fallback to 30 seconds for better preview
-    const totalPreviewDuration = audioDuration ? audioDuration * 1000 : 30000;
-    const sceneDuration = (currentScene.durationWeight / totalWeight) * totalPreviewDuration;
+    
+    let sceneDuration: number;
+    
+    if (wordTimings && wordTimings.length > 0 && audioDuration) {
+      // Synchronize scene changes with audio timing for better representation
+      const totalPreviewDuration = audioDuration * 1000;
+      sceneDuration = (currentScene.durationWeight / totalWeight) * totalPreviewDuration;
+      
+      // Ensure minimum scene duration of 1 second for better UX
+      sceneDuration = Math.max(sceneDuration, 1000);
+    } else {
+      // Fallback to proportional timing based on scene weights
+      const totalPreviewDuration = audioDuration ? audioDuration * 1000 : 30000;
+      sceneDuration = (currentScene.durationWeight / totalWeight) * totalPreviewDuration;
+      
+      // Ensure minimum scene duration of 2 seconds for fallback
+      sceneDuration = Math.max(sceneDuration, 2000);
+    }
     
     const timer = setTimeout(() => {
       setCurrentSceneIndex((prev) => (prev + 1) % template.timeline.length);
     }, sceneDuration);
     
     return () => clearTimeout(timer);
-  }, [currentSceneIndex, isPlaying, isHovered, template.timeline, audioDuration]);
+  }, [currentSceneIndex, isPlaying, isHovered, template.timeline, audioDuration, wordTimings]);
   
-  // Auto-advance through subtitle chunks
+  // Auto-advance through subtitle chunks using word timings
   useEffect(() => {
     if (!isPlaying || isHovered || !enableSubtitles || scriptChunks.length === 0) return;
     
-    // Calculate duration per chunk based on actual audio duration
-    const totalPreviewDuration = audioDuration ? audioDuration * 1000 : 30000;
-    const chunkDuration = totalPreviewDuration / scriptChunks.length;
+    let chunkDuration: number;
+    
+    if (wordTimings && wordTimings.length > 0) {
+      // Use actual word timings for precise subtitle synchronization
+      const wordsPerChunk = Math.ceil(wordTimings.length / scriptChunks.length);
+      const currentChunkStartIndex = currentChunkIndex * wordsPerChunk;
+      const nextChunkStartIndex = Math.min((currentChunkIndex + 1) * wordsPerChunk, wordTimings.length);
+      
+      if (currentChunkStartIndex < wordTimings.length && nextChunkStartIndex <= wordTimings.length) {
+        const currentChunkStartTime = wordTimings[currentChunkStartIndex].startTime;
+        const nextChunkStartTime = nextChunkStartIndex < wordTimings.length 
+          ? wordTimings[nextChunkStartIndex].startTime 
+          : wordTimings[wordTimings.length - 1].endTime;
+        
+        chunkDuration = (nextChunkStartTime - currentChunkStartTime) * 1000;
+      } else {
+        // Fallback to equal duration if timing data is incomplete
+        const totalPreviewDuration = audioDuration ? audioDuration * 1000 : 30000;
+        chunkDuration = totalPreviewDuration / scriptChunks.length;
+      }
+    } else {
+      // Fallback to equal duration distribution
+      const totalPreviewDuration = audioDuration ? audioDuration * 1000 : 30000;
+      chunkDuration = totalPreviewDuration / scriptChunks.length;
+    }
     
     const timer = setTimeout(() => {
       setCurrentChunkIndex((prev) => (prev + 1) % scriptChunks.length);
     }, chunkDuration);
     
     return () => clearTimeout(timer);
-  }, [currentChunkIndex, isPlaying, isHovered, enableSubtitles, scriptChunks.length, audioDuration]);
+  }, [currentChunkIndex, isPlaying, isHovered, enableSubtitles, scriptChunks.length, audioDuration, wordTimings]);
 
   const currentScene = template.timeline[currentSceneIndex];
   const sceneAsset = currentScene.assetIndices && currentScene.assetIndices[0] !== undefined 
@@ -278,9 +395,19 @@ export const TemplatePreviewWithSubtitles: React.FC<TemplatePreviewWithSubtitles
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsPlaying(!isPlaying)}
-            className="text-orange-400 hover:text-orange-300"
+            className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors"
           >
-            {isPlaying ? '⏸️' : '▶️'}
+            {isPlaying ? (
+              <>
+                <span className="text-lg">⏸️</span>
+                Pause
+              </>
+            ) : (
+              <>
+                <span className="text-lg">▶️</span>
+                Play Preview
+              </>
+            )}
           </button>
           <span className="text-sm text-gray-400">
             {currentSceneIndex + 1}/{template.timeline.length}
@@ -291,7 +418,7 @@ export const TemplatePreviewWithSubtitles: React.FC<TemplatePreviewWithSubtitles
       {/* Main Preview with Subtitles */}
       <div 
         ref={previewRef}
-        className="aspect-[9/16] w-full max-w-xs mx-auto relative"
+        className={`${currentPreviewFormat === '4:5' ? 'aspect-[4/5]' : 'aspect-[9/16]'} w-full max-w-xs mx-auto relative`}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
@@ -333,7 +460,7 @@ export const TemplatePreviewWithSubtitles: React.FC<TemplatePreviewWithSubtitles
                 lineHeight: subtitleStyle.lineHeight,
               }}
             >
-              {scriptChunks[currentChunkIndex]}
+              {useCapsLock ? scriptChunks[currentChunkIndex]?.toUpperCase() : scriptChunks[currentChunkIndex]}
             </div>
           </div>
         )}
@@ -348,13 +475,22 @@ export const TemplatePreviewWithSubtitles: React.FC<TemplatePreviewWithSubtitles
         {/* Audio player (hidden but functional) */}
         {audioUrl && (
           <audio
+            ref={(audio) => {
+              if (audio) {
+                if (isPlaying && audio.paused) {
+                  audio.play().catch(() => {});
+                } else if (!isPlaying && !audio.paused) {
+                  audio.pause();
+                }
+              }
+            }}
             src={audioUrl}
-            loop
-            autoPlay
+            loop={false}
             muted={false}
             style={{ display: 'none' }}
             onPlay={() => setIsPlaying(true)}
             onPause={() => setIsPlaying(false)}
+            onEnded={() => setIsPlaying(false)}
           />
         )}
       </div>

@@ -1,5 +1,6 @@
 // remotion/scenes/CutoutAvatarScene.tsx
-import { AbsoluteFill, Img, OffthreadVideo, Video, useCurrentFrame, useVideoConfig } from 'remotion';
+import { AbsoluteFill, Img, OffthreadVideo, Video, useCurrentFrame, useVideoConfig, getInputProps } from 'remotion';
+import { LoopingVideo } from '../components/LoopingVideo';
 import React from 'react';
 import { COMPOSITION_FPS } from '../constants';
 
@@ -13,10 +14,26 @@ export const CutoutAvatarScene: React.FC<{
   greenscreenSrc: string;
   position: 'center' | 'left' | 'right';
   avatarStartFrom?: number;
-}> = ({ backgroundSrc, greenscreenSrc, position, avatarStartFrom = 0 }) => {
-
-  // Convert seconds to frames for OffthreadVideo startFrom parameter
-  const startFromFrames = Math.round(avatarStartFrom * COMPOSITION_FPS);
+  backgroundVideoDurationInFrames?: number;
+}> = ({ backgroundSrc, greenscreenSrc, position, avatarStartFrom = 0, backgroundVideoDurationInFrames = 300 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const inputProps = getInputProps();
+  
+  // Check if we're in preview mode
+  const isPreviewMode = (inputProps as any)?.adData?.previewMode === true;
+  
+  let videoStartFrame: number;
+  
+  if (isPreviewMode) {
+    // PREVIEW MODE: Use simpler logic without custom looping
+    // Just start from the beginning of the scene for preview
+    videoStartFrame = 0;
+  } else {
+    // FINAL RENDER: Use original timing logic for proper lip-sync
+    // Use the timeline position passed from Main.tsx for proper sync with processed avatar
+    videoStartFrame = Math.round(avatarStartFrom * COMPOSITION_FPS);
+  }
 
   if (!backgroundSrc) {
     console.warn('[CutoutAvatarScene] No backgroundSrc provided');
@@ -65,7 +82,12 @@ export const CutoutAvatarScene: React.FC<{
     <AbsoluteFill className="bg-black">
       {/* Background layer */}
       {isVideo(backgroundSrc) ? (
-        <Video src={backgroundSrc} style={coverStyle} muted />
+        <LoopingVideo 
+          src={backgroundSrc} 
+          style={coverStyle} 
+          videoDurationInFrames={backgroundVideoDurationInFrames}
+          muted 
+        />
       ) : (
         <Img src={backgroundSrc} style={coverStyle} />
       )}
@@ -75,7 +97,7 @@ export const CutoutAvatarScene: React.FC<{
         <OffthreadVideo
           src={greenscreenSrc}
           transparent={true}
-          startFrom={startFromFrames}
+          startFrom={videoStartFrame}
           muted={true}
           style={{
             height: '100%',

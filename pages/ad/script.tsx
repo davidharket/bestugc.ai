@@ -33,6 +33,7 @@ export default function ScriptAdPage() {
           summary: adData.summary,
           productName: adData.brandName,
           language: adData.language,
+          isAiGenerated: true,
         });
         const generatedScripts = response.data.scripts || {};
         setScripts(generatedScripts);
@@ -42,7 +43,17 @@ export default function ScriptAdPage() {
         setAdData({ scripts: generatedScripts, script: firstScript });
         toast.success('Scripts generated!', { id: toastId });
       } catch (err: any) {
-        toast.error(err.response?.data?.error || 'Failed to generate scripts.', { id: toastId });
+        if (err.response?.status === 429) {
+          const rateLimitInfo = err.response?.data?.rateLimitInfo;
+          const resetTime = rateLimitInfo?.resetTime ? new Date(rateLimitInfo.resetTime) : null;
+          const resetTimeString = resetTime ? resetTime.toLocaleTimeString() : 'later';
+          toast.error(
+            `Rate limit exceeded. You can generate more scripts after ${resetTimeString}.`,
+            { id: toastId, duration: 8000 }
+          );
+        } else {
+          toast.error(err.response?.data?.error || 'Failed to generate scripts.', { id: toastId });
+        }
       } finally {
         setLoading(false);
       }
@@ -59,6 +70,7 @@ export default function ScriptAdPage() {
         summary: adData.summary,
         productName: adData.brandName,
         language: adData.language,
+        isAiGenerated: true,
       });
       const generatedScripts = response.data.scripts || {};
       setScripts(generatedScripts);
@@ -68,7 +80,17 @@ export default function ScriptAdPage() {
       setAdData({ scripts: generatedScripts, script: firstScript });
       toast.success('New scripts generated!', { id: toastId });
     } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Failed to regenerate scripts.', { id: toastId });
+      if (err.response?.status === 429) {
+        const rateLimitInfo = err.response?.data?.rateLimitInfo;
+        const resetTime = rateLimitInfo?.resetTime ? new Date(rateLimitInfo.resetTime) : null;
+        const resetTimeString = resetTime ? resetTime.toLocaleTimeString() : 'later';
+        toast.error(
+          `Rate limit exceeded. You can generate more scripts after ${resetTimeString}.`,
+          { id: toastId, duration: 8000 }
+        );
+      } else {
+        toast.error(err.response?.data?.error || 'Failed to regenerate scripts.', { id: toastId });
+      }
     } finally {
       setLoading(false);
     }
@@ -151,10 +173,14 @@ export default function ScriptAdPage() {
                 value={selectedScript}
                 onChange={(e) => setSelectedScript(e.target.value)}
                 placeholder="Your ad script will appear here..."
+                maxLength={2000}
               />
-              <p className="text-gray-500 text-sm mt-2">
-                This script will be used for the video narration. You can edit it to better fit your needs.
-              </p>
+              <div className="flex justify-between items-center mt-2">
+                <p className="text-gray-500 text-sm">
+                  This script will be used for the video narration. You can edit it to better fit your needs.
+                </p>
+                <span className="text-gray-500 text-sm">{selectedScript.length}/2000</span>
+              </div>
             </div>
           </div>
         )}

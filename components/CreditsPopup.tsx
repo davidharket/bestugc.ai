@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import { purchaseCredits } from '../lib/credit-operations'
 
 interface CreditsPopupProps {
   isOpen: boolean
@@ -11,30 +12,30 @@ interface CreditsPopupProps {
 
 const creditPacks = [
   {
-    id: 'TOPUP_50',
-    name: '50 Credits',
-    price: '199kr',
-    credits: 50,
-    pricePerCredit: '4.0kr',
+    id: 'TOPUP_10',
+    name: '10 Credits',
+    price: '49kr',
+    credits: 10,
+    pricePerCredit: '4.9kr',
     color: 'from-blue-500 to-blue-600'
   },
   {
-    id: 'TOPUP_100',
-    name: '100 Credits',
-    price: '349kr',
-    credits: 100,
-    pricePerCredit: '3.5kr',
+    id: 'TOPUP_20',
+    name: '20 Credits',
+    price: '89kr',
+    credits: 20,
+    pricePerCredit: '4.5kr',
     popular: true,
-    savings: '12% OFF',
+    savings: '10% savings',
     color: 'from-orange-500 to-orange-600'
   },
   {
-    id: 'TOPUP_200',
-    name: '200 Credits',
-    price: '599kr',
-    credits: 200,
-    pricePerCredit: '3.0kr',
-    savings: '25% OFF',
+    id: 'TOPUP_30',
+    name: '30 Credits',
+    price: '119kr',
+    credits: 30,
+    pricePerCredit: '4.0kr',
+    savings: '20% savings',
     color: 'from-purple-500 to-purple-600'
   }
 ]
@@ -50,15 +51,18 @@ export const CreditsPopup: React.FC<CreditsPopupProps> = ({ isOpen, onClose, cur
     setLoadingItem(itemId)
     
     try {
-      const { data } = await axios.post('/api/stripe/checkout-sessions', {
-        itemType: 'credits',
-        itemId,
+      await purchaseCredits(async () => {
+        const { data } = await axios.post('/api/stripe/checkout-sessions', {
+          itemType: 'credits',
+          itemId,
+        })
+        if (data.url) {
+          window.location.href = data.url
+        } else {
+          toast.error('Could not initiate payment. Please try again.')
+        }
+        return data
       })
-      if (data.url) {
-        window.location.href = data.url
-      } else {
-        toast.error('Could not initiate payment. Please try again.')
-      }
     } catch (error: any) {
       console.error("Error redirecting to checkout:", error)
       toast.error(error.response?.data?.error || 'Failed to start payment process.')

@@ -2,7 +2,6 @@
 import { useSession, signIn } from 'next-auth/react';
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { Layout } from '../components/Layout'; // Import the new Layout
 
 // You can populate this array with the paths to your best avatar videos
 const showcaseVideos = [
@@ -27,7 +26,7 @@ export default function LandingPage() {
   }
 
   return (
-    <Layout>
+    <>
       {/* Hero Section */}
       <div className="bg-white">
         <div className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
@@ -100,6 +99,6 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
-    </Layout>
+    </>
   );
 }

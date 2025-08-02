@@ -11,17 +11,17 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2022-11-15',
 });
 
-// Placeholder Price IDs - replace with your actual Stripe Price IDs
+// Stripe Price IDs for plans and credit top-ups
 const PLAN_PRICE_IDS: Record<string, string> = {
-  BASIC: 'price_placeholder_basic_plan', // e.g., 499kr plan
-  PRO: 'price_placeholder_pro_plan',     // e.g., 999kr plan
-  PREMIUM: 'price_placeholder_premium_plan', // e.g., 1499kr plan
+  BASIC: 'price_1RmVP7Cse2bWjZUuxe6qVDXR',    // Basic subscription plan
+  PRO: 'price_1RmVPaCse2bWjZUuF1QNnBf0',      // Pro subscription plan
+  PREMIUM: 'price_1RmVPmCse2bWjZUu54p90iVP',  // Premium subscription plan
 };
 
 const CREDIT_TOPUP_PRICE_IDS: Record<string, string> = {
-  TOPUP_50: 'price_placeholder_topup_50',   // e.g., 50 credits
-  TOPUP_100: 'price_placeholder_topup_100', // e.g., 100 credits
-  TOPUP_200: 'price_placeholder_topup_200', // e.g., 200 credits
+  TOPUP_10: 'price_1RmVQ2Cse2bWjZUuC8icXn8n',  // 10 credits
+  TOPUP_20: 'price_1RmVQGCse2bWjZUuXGghklOL',  // 20 credits
+  TOPUP_30: 'price_1RmVQpCse2bWjZUuA12G3RxE',  // 30 credits
 };
 
 interface CheckoutRequestBody {
@@ -96,6 +96,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       mode: mode,
       success_url: successUrl,
       cancel_url: cancelUrl,
+      allow_promotion_codes: true, // Enable coupon codes
       // Pass metadata to identify the user and purchase type in webhooks
       metadata: {
         userId: userId,

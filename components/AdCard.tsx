@@ -18,7 +18,7 @@ export const AdCard: React.FC<AdCardProps> = ({ ad, onDelete }) => {
       {ad.status === 'COMPLETED' && ad.finalVideoUrl && (
         <>
           <a
-            href={`***REMOVED***${ad.finalVideoUrl}`}  // Force localhost for downloads
+            href={`${process.env.NEXT_PUBLIC_APP_URL || ''}${ad.finalVideoUrl}`}
             download={`${ad.brandName || 'video'}.mp4`}
             target="_blank"
             rel="noopener noreferrer"
@@ -28,7 +28,7 @@ export const AdCard: React.FC<AdCardProps> = ({ ad, onDelete }) => {
           </a>
           {/* Also add a local preview button */}
           <a
-            href={`***REMOVED***${ad.finalVideoUrl}`}
+            href={`${process.env.NEXT_PUBLIC_APP_URL || ''}${ad.finalVideoUrl}`}
             target="_blank"
             rel="noopener noreferrer"
             className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg transition-all duration-200 text-sm"

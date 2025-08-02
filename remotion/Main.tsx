@@ -20,7 +20,19 @@ import { FullScreenAsset } from './scenes/FullScreenAsset';
 import { FullScreenAvatar } from './scenes/FullScreenAvatar';
 import { BuildupCollageScene } from './scenes/BuildupCollageScene';
 import { SplitScreenScene } from './scenes/SplitScreenScene';
+import { SmallCutoutBottomLeftScene } from './scenes/SmallCutoutBottomLeftScene';
+import { SmallCutoutBottomRightScene } from './scenes/SmallCutoutBottomRightScene';
+import { SmallCutoutCenterScene } from './scenes/SmallCutoutCenterScene';
+import { SmallCutoutBottomLeftNoPadding } from './scenes/SmallCutoutBottomLeftNoPadding';
+import { SmallCutoutBottomRightNoPadding } from './scenes/SmallCutoutBottomRightNoPadding';
+import { SmallCutoutCenterTiltedLeft } from './scenes/SmallCutoutCenterTiltedLeft';
+import { SmallCutoutCenterTiltedRight } from './scenes/SmallCutoutCenterTiltedRight';
+import { SmallCutoutTopLeft } from './scenes/SmallCutoutTopLeft';
+import { SmallCutoutTopRight } from './scenes/SmallCutoutTopRight';
 import { Subtitles, SUBTITLE_STYLES, parseTranscriptWithTimings } from './components/Subtitles';
+
+// Import 4:5 components
+import { Main4x5Composition, Main4x5CompositionProps } from './Main4x5';
 
 // --- Zod Schemas for Type Safety ---
 export const MainCompositionProps = z.object({
@@ -88,6 +100,22 @@ export const RemotionRoot: React.FC = () => {
         }}
       />
       <Composition
+        id="Main4x5"
+        component={Main4x5Composition}
+        durationInFrames={totalDuration}
+        fps={COMPOSITION_FPS}
+        width={1080}
+        height={1350}
+        schema={Main4x5CompositionProps}
+        defaultProps={{
+          adData: MOCK_AD_DATA,
+          timeline: ALL_SCENES_TIMELINE,
+          audioUrl: 'generated_audio/audio-69d70954b6a1.mp3',
+          processedAvatarUrl: 'avatars-fixed/female-blonde-adult-inside.mp4',
+          greenscreenAvatarUrl: 'cutouts/cutout-69d70954b6a1.webm',
+        }}
+      />
+      <Composition
         id="TestCutoutScene"
         component={CutoutAvatarScene}
         durationInFrames={150}
@@ -129,7 +157,32 @@ export const MainComposition: React.FC<z.infer<typeof MainCompositionProps>> = (
   processedAvatarUrl,
   greenscreenAvatarUrl,
 }) => {
-  const assets = [...(adData.selectedImages || []), ...(adData.selectedVideos || [])];
+  // Helper function to get assets in proper order
+  const getOrderedAssets = (orderedAssets: any[], fallbackAssets: string[]) => {
+    if (orderedAssets && orderedAssets.length > 0) {
+      // Sort by order and extract URLs
+      return orderedAssets
+        .sort((a, b) => a.order - b.order)
+        .map(asset => asset.url)
+        .filter((url: string) => url !== '');
+    }
+    // Fallback to unordered assets if no ordered assets
+    return (fallbackAssets || []).filter((url: string) => url !== '');
+  };
+
+  // Get properly ordered assets respecting user-defined order
+  const orderedImages = getOrderedAssets(adData.orderedImages || [], adData.selectedImages || []);
+  const orderedVideos = getOrderedAssets(adData.orderedVideos || [], adData.selectedVideos || []);
+  const orderedBRoll = getOrderedAssets(adData.orderedBRoll || [], adData.selectedBRoll || []);
+  
+  // Combine all assets and sort by their original order numbers
+  const allOrderedAssets = [
+    ...(adData.orderedImages || []).map((asset: any) => ({ ...asset, type: 'image' })),
+    ...(adData.orderedVideos || []).map((asset: any) => ({ ...asset, type: 'video' })),
+    ...(adData.orderedBRoll || []).map((asset: any) => ({ ...asset, type: 'broll' }))
+  ].sort((a, b) => a.order - b.order);
+  
+  const assets = allOrderedAssets.map(asset => asset.url);
   let fromFrame = 0;
   
   // Calculate total duration for subtitle timing
@@ -143,12 +196,41 @@ export const MainComposition: React.FC<z.infer<typeof MainCompositionProps>> = (
   const subtitlePosition = adData.subtitlePosition || 'bottom';
   const scriptText = adData.selectedScript || adData.script || '';
   
-  // Generate subtitle timings
-  const subtitleTimings = scriptText ? parseTranscriptWithTimings(scriptText, totalDurationInSeconds) : [];
+  // Use ElevenLabs word timings if available, otherwise generate fallback timings
+  const subtitleTimings = adData.wordTimings && adData.wordTimings.length > 0 
+    ? adData.wordTimings 
+    : (scriptText ? parseTranscriptWithTimings(scriptText, totalDurationInSeconds) : []);
+
+  // Professional dB-based volume calculation for background music
+  const calculateBackgroundMusicVolume = (): number => {
+    // Professional audio mixing standards:
+    // - TTS audio (voice) is at 1.0 volume (0dB reference)
+    // - Background music should be -18dB below voice for optimal intelligibility
+    // - This ensures music enhances without competing with speech
+    
+    const ttsVolumeDb = 0; // TTS at reference level (1.0 = 0dB)
+    const musicOffsetDb = -18; // 18dB below TTS audio (professional standard)
+    
+    // Convert dB to linear volume using: volume = 10^(dB/20)
+    // -18dB = 0.126 linear volume (approximately 12.6% of TTS volume)
+    const linearVolume = Math.pow(10, (ttsVolumeDb + musicOffsetDb) / 20);
+    
+    // Safety limits: min 5%, max 25% to prevent audio issues
+    return Math.max(0.05, Math.min(0.25, linearVolume));
+  };
 
   return (
     <AbsoluteFill className="bg-white">
-      <Audio src={resolveAsset(audioUrl)} />
+      <Audio src={resolveAsset(audioUrl)} volume={1.0} />
+      
+      {/* Background Music with dB-based volume calculation */}
+      {adData.backgroundMusicUrl && (
+        <Audio 
+          src={resolveAsset(adData.backgroundMusicUrl)} 
+          volume={calculateBackgroundMusicVolume()} 
+        />
+      )}
+      
       {timeline.map((scene: ConcreteScene, index: number) => {
         const duration = scene.duration;
         const currentFromFrame = fromFrame;
@@ -176,6 +258,7 @@ export const MainComposition: React.FC<z.infer<typeof MainCompositionProps>> = (
           animationType={subtitleAnimation}
           position={subtitlePosition}
           maxWordsPerLine={4}
+          useCapsLock={adData.useCapsLock || false}
         />
       )}
     </AbsoluteFill>
@@ -224,7 +307,7 @@ function renderScene(
     case 'fullscreen-avatar':
       return <FullScreenAvatar src={resolvedVideoUrl} startFrom={avatarVideoStartFrom} />;
     case 'fullscreen-asset':
-      return <FullScreenAsset src={resolvedAssetUrl} />;
+      return <FullScreenAsset src={resolvedAssetUrl} videoDurationInFrames={300} />;
     case 'cutout-left-over-asset':
     case 'cutout-right-over-asset':
     case 'cutout-center-over-asset':
@@ -234,6 +317,80 @@ function renderScene(
           greenscreenSrc={resolvedGreenscreenUrl}
           position={scene.layout.split('-')[1] as 'left' | 'right' | 'center'}
           avatarStartFrom={avatarVideoStartFrom} // Use timeline position for proper sync
+          backgroundVideoDurationInFrames={300}
+        />
+      );
+    case 'small-cutout-bottom-left':
+      return (
+        <SmallCutoutBottomLeftScene
+          backgroundSrc={resolvedAssetUrl}
+          greenscreenSrc={resolvedGreenscreenUrl}
+          avatarStartFrom={avatarVideoStartFrom}
+          backgroundVideoDurationInFrames={300}
+        />
+      );
+    case 'small-cutout-bottom-right':
+      return (
+        <SmallCutoutBottomRightScene
+          backgroundSrc={resolvedAssetUrl}
+          greenscreenSrc={resolvedGreenscreenUrl}
+          avatarStartFrom={avatarVideoStartFrom}
+        />
+      );
+    case 'small-cutout-center':
+      return (
+        <SmallCutoutCenterScene
+          backgroundSrc={resolvedAssetUrl}
+          greenscreenSrc={resolvedGreenscreenUrl}
+          avatarStartFrom={avatarVideoStartFrom}
+        />
+      );
+    case 'small-cutout-bottom-left-no-padding':
+      return (
+        <SmallCutoutBottomLeftNoPadding
+          backgroundSrc={resolvedAssetUrl}
+          greenscreenSrc={resolvedGreenscreenUrl}
+          avatarStartFrom={avatarVideoStartFrom}
+        />
+      );
+    case 'small-cutout-bottom-right-no-padding':
+      return (
+        <SmallCutoutBottomRightNoPadding
+          backgroundSrc={resolvedAssetUrl}
+          greenscreenSrc={resolvedGreenscreenUrl}
+          avatarStartFrom={avatarVideoStartFrom}
+        />
+      );
+    case 'small-cutout-center-tilted-left':
+      return (
+        <SmallCutoutCenterTiltedLeft
+          backgroundSrc={resolvedAssetUrl}
+          greenscreenSrc={resolvedGreenscreenUrl}
+          avatarStartFrom={avatarVideoStartFrom}
+        />
+      );
+    case 'small-cutout-center-tilted-right':
+      return (
+        <SmallCutoutCenterTiltedRight
+          backgroundSrc={resolvedAssetUrl}
+          greenscreenSrc={resolvedGreenscreenUrl}
+          avatarStartFrom={avatarVideoStartFrom}
+        />
+      );
+    case 'small-cutout-top-left':
+      return (
+        <SmallCutoutTopLeft
+          backgroundSrc={resolvedAssetUrl}
+          greenscreenSrc={resolvedGreenscreenUrl}
+          avatarStartFrom={avatarVideoStartFrom}
+        />
+      );
+    case 'small-cutout-top-right':
+      return (
+        <SmallCutoutTopRight
+          backgroundSrc={resolvedAssetUrl}
+          greenscreenSrc={resolvedGreenscreenUrl}
+          avatarStartFrom={avatarVideoStartFrom}
         />
       );
     case 'avatar-with-corner-asset':
@@ -242,6 +399,7 @@ function renderScene(
           videoSrc={resolvedVideoUrl}
           assetSrc={resolvedAssetUrl}
           startFrom={avatarVideoStartFrom}
+          assetVideoDurationInFrames={300}
         />
       );
     case 'split-screen-top-asset':
@@ -250,6 +408,7 @@ function renderScene(
           videoSrc={resolvedVideoUrl}
           assetSrc={resolvedAssetUrl}
           startFrom={avatarVideoStartFrom}
+          assetVideoDurationInFrames={300}
         />
       );
     default:

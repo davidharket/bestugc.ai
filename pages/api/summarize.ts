@@ -38,14 +38,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'Missing or invalid text' })
   }
 
+  // Intelligent text truncation for large content
+  const truncateIntelligently = (content: string, maxLength: number = 50000): string => {
+    if (content.length <= maxLength) return content;
+    
+    // Try to find a good breaking point (end of sentence, paragraph, etc.)
+    const truncated = content.substring(0, maxLength);
+    const lastSentence = truncated.lastIndexOf('.');
+    const lastParagraph = truncated.lastIndexOf('\n\n');
+    
+    // Use the best breaking point available
+    if (lastParagraph > maxLength * 0.8) {
+      return content.substring(0, lastParagraph);
+    } else if (lastSentence > maxLength * 0.7) {
+      return content.substring(0, lastSentence + 1);
+    } else {
+      // Fall back to word boundary
+      const lastSpace = truncated.lastIndexOf(' ');
+      return content.substring(0, lastSpace > maxLength * 0.9 ? lastSpace : maxLength);
+    }
+  };
+
+  const processedText = truncateIntelligently(text);
+
   try {
     const completion = await client.chat.completions.create({
       // The `model` property is required by the SDK's type definitions.
       // Its value should be the deployment name, which is now guaranteed to be a string.
       model: AZURE_OPENAI_DEPLOYMENT_NAME,
       messages: [
-        { role: 'system', content: 'Provide an accurate and factual summary of the following product information. Focus on describing the product and its features clearly and objectively. Do not use sales language, persuasion, or emojis. End with a complete sentence.' },
-        { role: 'user', content: text },
+        { role: 'system', content: 'Provide an accurate and factual summary of the following product information. Focus on describing the product and its features clearly and objectively. Do not use sales language, persuasion, or emojis. End with a complete sentence. If the content appears truncated, focus on the most relevant product details available.' },
+        { role: 'user', content: processedText },
       ],
       max_tokens: 500,
       temperature: 0.7,

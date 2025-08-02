@@ -40,17 +40,36 @@ interface SignInPageProps {
 
 export default function SignInPage({ providers, csrfToken }: SignInPageProps) {
   const [email, setEmail] = useState('');
-  const [isLoadingEmail, setIsLoadingEmail] = useState(false);
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null);
+  const [error, setError] = useState('');
 
-  const handleEmailSignIn = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoadingEmail(true);
+    setIsLoading(true);
+    setError('');
+
     try {
-      await signIn('email', { email, callbackUrl: '/dashboard', redirect: false });
+      const result = await signIn('credentials', {
+        email,
+        password,
+        name: isSignUp ? name : undefined,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError(result.error === 'CredentialsSignin' ? 'Invalid credentials' : result.error);
+      } else if (result?.ok) {
+        window.location.href = '/dashboard';
+      }
     } catch (error) {
-      console.error("Email sign-in error", error);
-      setIsLoadingEmail(false);
+      console.error('Auth error:', error);
+      setError('An error occurred. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -69,26 +88,16 @@ export default function SignInPage({ providers, csrfToken }: SignInPageProps) {
       icon: <GoogleIcon />,
       name: "Google",
       style: "bg-white hover:bg-gray-100 border-gray-300 text-gray-900 shadow-md hover:shadow-lg"
-    },
-    github: {
-      icon: <GithubIcon />,
-      name: "GitHub",
-      style: "bg-gray-800 hover:bg-gray-900 text-white shadow-md hover:shadow-lg"
-    },
-    apple: {
-      icon: <AppleIcon />,
-      name: "Apple",
-      style: "bg-black hover:bg-gray-900 text-white shadow-md hover:shadow-lg border border-gray-800"
-    },
+    }
   };
 
-  // Filter out the Email provider from the list of OAuth providers to render separately
-  const oauthProviders = providers && Object.values(providers).filter(p => p.id !== 'email');
+  // Only show Google provider
+  const oauthProviders = providers && Object.values(providers).filter(p => p.id === 'google');
 
   return (
     <>
       <Head>
-        <title>Sign In - Ageco.ai</title>
+        <title>Sign In - Best UGC</title>
         <meta name="description" content="Sign in to create AI-powered video ads that convert" />
       </Head>
       
@@ -106,9 +115,9 @@ export default function SignInPage({ providers, csrfToken }: SignInPageProps) {
             <div className="mb-8">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center">
-                  <span className="text-orange-500 font-bold text-2xl">A</span>
+                  <span className="text-orange-500 font-bold text-2xl">B</span>
                 </div>
-                <span className="text-3xl font-bold">Ageco.ai</span>
+                <span className="text-3xl font-bold">Best UGC</span>
               </div>
               
               <h1 className="text-5xl font-extrabold leading-tight mb-6">
@@ -137,13 +146,13 @@ export default function SignInPage({ providers, csrfToken }: SignInPageProps) {
                       <span key={i} className="text-yellow-300 text-lg">⭐</span>
                     ))}
                   </div>
-                  <p className="text-orange-100 text-sm">Loved by 1000+ businesses</p>
+                  <p className="text-orange-100 text-sm">Loved by growing businesses</p>
                 </div>
               </div>
               
               <div className="grid grid-cols-3 gap-6 pt-6 border-t border-white/20">
                 <div className="text-center">
-                  <div className="text-2xl font-bold">10K+</div>
+                  <div className="text-2xl font-bold">200+</div>
                   <div className="text-orange-100 text-sm">Videos Created</div>
                 </div>
                 <div className="text-center">
@@ -165,22 +174,40 @@ export default function SignInPage({ providers, csrfToken }: SignInPageProps) {
             {/* Mobile Logo */}
             <div className="lg:hidden flex items-center justify-center gap-2 mb-8">
               <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl flex items-center justify-center">
-                <span className="text-white font-bold text-xl">A</span>
+                <span className="text-white font-bold text-xl">B</span>
               </div>
-              <span className="text-2xl font-bold text-white">Ageco.ai</span>
+              <span className="text-2xl font-bold text-white">Best UGC</span>
             </div>
 
             <div className="text-center mb-8">
               <h2 className="text-3xl font-extrabold text-white mb-2">
-                Welcome back
+                {isSignUp ? 'Create your account' : 'Welcome back'}
               </h2>
               <p className="text-gray-400">
-                Sign in to start creating AI video ads
+                {isSignUp ? 'Start creating AI video ads today' : 'Sign in to start creating AI video ads'}
               </p>
             </div>
 
-            {/* Email Sign-in Form */}
-            <form onSubmit={handleEmailSignIn} className="space-y-6 mb-6">
+            {/* Sign-in/Sign-up Form */}
+            <form onSubmit={handleSubmit} className="space-y-6 mb-6">
+              {isSignUp && (
+                <div>
+                  <label htmlFor="name" className="sr-only">Full Name</label>
+                  <input
+                    id="name"
+                    name="name"
+                    type="text"
+                    autoComplete="name"
+                    required={isSignUp}
+                    className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:border-orange-500 focus:outline-none transition-colors"
+                    placeholder="Enter your full name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+              )}
+              
               <div>
                 <label htmlFor="email" className="sr-only">Email address</label>
                 <input
@@ -193,30 +220,67 @@ export default function SignInPage({ providers, csrfToken }: SignInPageProps) {
                   placeholder="Enter your email address"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  disabled={isLoadingEmail}
+                  disabled={isLoading}
                 />
               </div>
               
+              <div>
+                <label htmlFor="password" className="sr-only">Password</label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete={isSignUp ? "new-password" : "current-password"}
+                  required
+                  className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:border-orange-500 focus:outline-none transition-colors"
+                  placeholder={isSignUp ? "Create a password" : "Enter your password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
+
+              {error && (
+                <div className="text-red-400 text-sm text-center">
+                  {error}
+                </div>
+              )}
+              
               <button
                 type="submit"
-                disabled={isLoadingEmail}
+                disabled={isLoading}
                 className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 disabled:opacity-70 disabled:transform-none"
               >
-                {isLoadingEmail ? (
+                {isLoading ? (
                   <>
                     <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <span>Sending magic link...</span>
+                    <span>{isSignUp ? 'Creating account...' : 'Signing in...'}</span>
                   </>
                 ) : (
                   <>
                     <EmailIcon />
-                    <span>Continue with Email</span>
+                    <span>{isSignUp ? 'Create Account' : 'Sign In'}</span>
                   </>
                 )}
               </button>
+              
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSignUp(!isSignUp);
+                    setError('');
+                    setName('');
+                    setPassword('');
+                  }}
+                  className="text-orange-400 hover:text-orange-300 text-sm underline"
+                >
+                  {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+                </button>
+              </div>
             </form>
 
             {/* Divider */}
@@ -283,7 +347,7 @@ export default function SignInPage({ providers, csrfToken }: SignInPageProps) {
               </p>
               
               <div className="flex items-center justify-center gap-1 text-sm text-gray-400">
-                <span>New to Ageco.ai?</span>
+                <span>New to Best UGC?</span>
                 <Link href="/" className="text-orange-400 hover:text-orange-300 font-medium">
                   Learn more
                 </Link>

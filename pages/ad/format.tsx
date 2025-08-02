@@ -7,19 +7,25 @@ import Spinner from '../../components/Spinner'
 const formatOptions = [
   { label: 'Horizontal (16:9)', value: '16:9', disabled: true, comingSoon: true },
   { label: 'Vertical (9:16)', value: '9:16', disabled: false },
+  { label: 'Square (4:5)', value: '4:5', disabled: false },
 ]
 const durationOptions = [15, 30, 60]
 const languageOptions = [
   { label: 'Norwegian', value: 'no', flag: '🇳🇴' },
   { label: 'Danish', value: 'da', flag: '🇩🇰' },
   { label: 'Swedish', value: 'sv', flag: '🇸🇪' },
+  { label: 'Dutch', value: 'nl', flag: '🇳🇱' },
   { label: 'English', value: 'en', flag: '🇺🇸' },
 ]
 
 export default function FormatAd() {
   const router = useRouter()
   const { adData, setAdData } = useAdCreation()
-  const [format, setFormat] = useState(adData.format || '9:16')
+  const [selectedFormats, setSelectedFormats] = useState<string[]>(
+    adData.enableDualFormat && adData.format ? 
+      adData.format === '9:16' ? ['9:16', '4:5'] : [adData.format] :
+      [adData.format || '9:16']
+  )
   const [duration, setDuration] = useState(adData.duration || 15)
   const [language, setLanguage] = useState(adData.language || 'no')
   const [audience, setAudience] = useState(adData.audience || '')
@@ -28,6 +34,21 @@ export default function FormatAd() {
   const [suggestionsLoading, setSuggestionsLoading] = useState(false)
   const [suggestionsError, setSuggestionsError] = useState<string | null>(null)
 
+  const handleFormatToggle = (formatValue: string) => {
+    if (formatValue === '16:9') return // Disabled format
+    
+    setSelectedFormats(prev => {
+      if (prev.includes(formatValue)) {
+        // Remove format if already selected, but ensure at least one format remains
+        const newFormats = prev.filter(f => f !== formatValue)
+        return newFormats.length > 0 ? newFormats : prev
+      } else {
+        // Add format
+        return [...prev, formatValue]
+      }
+    })
+  }
+
   const fetchAudienceSuggestions = useCallback(async () => {
     if (adData.summary) {
       setSuggestionsLoading(true)
@@ -35,6 +56,7 @@ export default function FormatAd() {
       try {
         const response = await axios.post('/api/ai/generate-audience-suggestions', {
           productDescription: adData.summary,
+          isAiGenerated: true,
         })
         setAiAudienceSuggestions(response.data.suggestions || [])
       } catch (err: any) {
@@ -47,9 +69,20 @@ export default function FormatAd() {
   }, [adData.summary])
 
   useEffect(() => {
-    setAdData({ format, duration, language, audience })
+    const enableDualFormat = selectedFormats.length > 1
+    const primaryFormat = selectedFormats.includes('9:16') ? '9:16' : selectedFormats[0]
+    const previewFormat: '9:16' | '4:5' = (primaryFormat === '4:5') ? '4:5' : '9:16'
+    
+    setAdData({ 
+      format: primaryFormat, 
+      duration, 
+      language, 
+      audience,
+      enableDualFormat,
+      currentPreviewFormat: previewFormat
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [format, duration, language, audience])
+  }, [selectedFormats, duration, language, audience])
 
   useEffect(() => {
     fetchAudienceSuggestions()
@@ -67,24 +100,44 @@ export default function FormatAd() {
         {/* Video Format */}
         <div className="card mb-8">
           <label className="block text-xl font-semibold text-white mb-4">Video format</label>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3 mb-4">
             {formatOptions.map(opt => (
               <button
                 key={opt.value}
-                className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 flex items-center gap-2 relative ${
-                  format === opt.value 
+                className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 flex items-center gap-3 relative ${
+                  selectedFormats.includes(opt.value) 
                     ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25' 
                     : opt.disabled 
                       ? 'bg-gray-800 text-gray-500 border border-gray-700 cursor-not-allowed opacity-50'
                       : 'bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 hover:border-orange-500/50'
                 }`}
-                onClick={() => !opt.disabled && setFormat(opt.value)}
+                onClick={() => handleFormatToggle(opt.value)}
                 type="button"
                 disabled={opt.disabled}
               >
+                {/* Checkbox */}
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                  selectedFormats.includes(opt.value)
+                    ? 'bg-white border-white'
+                    : opt.disabled
+                      ? 'border-gray-600'
+                      : 'border-gray-400'
+                }`}>
+                  {selectedFormats.includes(opt.value) && (
+                    <svg className="w-3 h-3 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </div>
+                
+                {/* Icon */}
                 {opt.value === '16:9' ? (
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v1a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" clipRule="evenodd" />
+                  </svg>
+                ) : opt.value === '4:5' ? (
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2H4zm8 12H4V5h8v10z" clipRule="evenodd" />
                   </svg>
                 ) : (
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -100,6 +153,25 @@ export default function FormatAd() {
               </button>
             ))}
           </div>
+          
+          {/* Multiple Format Warning */}
+          {selectedFormats.length > 1 && (
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <svg className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <div className="text-amber-300">
+                  <div className="font-medium text-sm mb-1">Multiple Format Generation</div>
+                  <div className="text-xs space-y-1">
+                    <div>• Rendering will take approximately {selectedFormats.length}x longer (up to {selectedFormats.length * 5} minutes)</div>
+                    <div>• Only one TTS audio and lipsync processing will be performed</div>
+                    <div>• Both videos will appear in your creations once complete</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Duration */}
@@ -158,6 +230,7 @@ export default function FormatAd() {
             value={audience}
             onChange={e => setAudience(e.target.value)}
             placeholder="Describe your target audience or select a suggestion"
+            maxLength={300}
           />
           
           {/* Loading State */}
@@ -214,8 +287,17 @@ export default function FormatAd() {
           )}
         </div>
 
-        {/* Continue Button */}
-        <div className="flex justify-end">
+        {/* Navigation Buttons */}
+        <div className="flex justify-between">
+          <button 
+            className="btn-secondary"
+            onClick={() => router.push('/ad/create')}
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to Asset Selection
+          </button>
           <button 
             className={`btn-primary ${!audience.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
             onClick={() => router.push('/ad/script')}

@@ -1,9 +1,10 @@
 // components/SidebarNavigation.tsx
 import Link from 'next/link'
 import { useRouter } from 'next/router'
-import { useState } from 'react'
-import { useSession, signOut } from 'next-auth/react'
+import { useState, useEffect } from 'react'
+import { signOut } from 'next-auth/react'
 import { CreditsPopup } from './CreditsPopup'
+import { useRefreshableSession } from '../lib/session-refresh'
 
 interface SidebarNavigationProps {
   isOpen: boolean
@@ -67,8 +68,18 @@ const navigationItems = [
 
 export const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ isOpen, onClose }) => {
   const router = useRouter()
-  const { data: session } = useSession()
+  const { data: session, refreshUserData } = useRefreshableSession()
   const [creditsPopupOpen, setCreditsPopupOpen] = useState(false)
+
+  // Listen for global session refresh events
+  useEffect(() => {
+    const handleSessionRefresh = () => {
+      refreshUserData();
+    };
+
+    window.addEventListener('session-refresh', handleSessionRefresh);
+    return () => window.removeEventListener('session-refresh', handleSessionRefresh);
+  }, [refreshUserData]);
 
   interface UserSession {
     name?: string | null;
@@ -106,9 +117,9 @@ export const SidebarNavigation: React.FC<SidebarNavigationProps> = ({ isOpen, on
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">A</span>
+                  <span className="text-white font-bold text-lg">B</span>
                 </div>
-                <span className="text-xl font-bold text-white">Ageco.ai</span>
+                <span className="text-xl font-bold text-white">Best UGC</span>
               </div>
               
               {/* Close button for mobile */}

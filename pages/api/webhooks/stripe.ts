@@ -20,9 +20,9 @@ const PLAN_CREDITS: Record<string, number> = {
 }
 
 const CREDIT_TOPUP_AMOUNTS: Record<string, number> = {
-  TOPUP_50: 50,
-  TOPUP_100: 100,
-  TOPUP_200: 200,
+  TOPUP_10: 10,
+  TOPUP_20: 20,
+  TOPUP_30: 30,
 }
 
 // Disable Next.js body parsing for this route to access the raw body for signature verification
@@ -68,15 +68,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const planName = itemId.toUpperCase() // e.g., BASIC, PRO
           const creditsToGrant = PLAN_CREDITS[planName]
           
+          // Retrieve the actual subscription object to get proper dates and price ID
+          const stripeSubscription = await stripe.subscriptions.retrieve(session.subscription.toString())
+          
           await prisma.subscription.create({
             data: {
               userId: userId,
               stripeSubscriptionId: session.subscription.toString(),
-              stripePriceId: session.metadata?.priceId || (session.line_items?.data[0]?.price?.id ?? 'unknown_price_id'), // Attempt to get priceId
-              status: 'active', // Assuming session completion means active subscription
-              currentPeriodStart: new Date((session as any).current_period_start * 1000), // These fields might not be directly on session, but on underlying subscription obj
-              currentPeriodEnd: new Date((session as any).current_period_end * 1000), // or from a separate subscription retrieval.
-                                                                                        // For a more robust solution, retrieve the subscription object from session.subscription ID
+              stripePriceId: stripeSubscription.items.data[0]?.price.id || 'unknown_price_id',
+              status: stripeSubscription.status,
+              currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
+              currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
             },
           })
           await prisma.user.update({

@@ -1,17 +1,26 @@
 // components/Layout.tsx
 import Link from 'next/link';
-import { useSession, signIn, signOut } from 'next-auth/react';
-import { ReactNode, useState } from 'react';
+import { signIn, signOut } from 'next-auth/react';
+import { ReactNode, useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { CreditsPopup } from './CreditsPopup';
-import { SidebarNavigation } from './SidebarNavigation';
+import { useRefreshableSession } from '../lib/session-refresh';
 
 export const Layout = ({ children }: { children: ReactNode }) => {
-  const { data: session, status } = useSession();
+  const { data: session, status, refreshUserData, isRefreshing } = useRefreshableSession();
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [creditsPopupOpen, setCreditsPopupOpen] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Listen for global session refresh events
+  useEffect(() => {
+    const handleSessionRefresh = () => {
+      refreshUserData();
+    };
+
+    window.addEventListener('session-refresh', handleSessionRefresh);
+    return () => window.removeEventListener('session-refresh', handleSessionRefresh);
+  }, [refreshUserData]);
 
   interface UserSession {
     name?: string | null;
@@ -22,67 +31,75 @@ export const Layout = ({ children }: { children: ReactNode }) => {
   }
   const user = session?.user as UserSession;
 
-  // Pages that should use the sidebar layout when authenticated
-  const sidebarPages = ['/dashboard', '/creations', '/subscription', '/settings', '/help', '/ad/create', '/ad/script', '/ad/avatar', '/ad/format', '/ad/render'];
-  const shouldShowSidebar = session && sidebarPages.some(page => router.pathname.startsWith(page) || (router.pathname === '/' && session));
+  // Show fullscreen loading when session is loading
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-orange-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* Sidebar Navigation for authenticated users */}
-      {shouldShowSidebar && (
-        <SidebarNavigation 
-          isOpen={sidebarOpen} 
-          onClose={() => setSidebarOpen(false)} 
-        />
-      )}
 
       {/* Navigation Bar */}
-      <header className={`bg-black/95 backdrop-blur-md sticky top-0 z-50 border-b border-gray-800 ${shouldShowSidebar ? 'lg:ml-64' : ''}`}>
+      <header className="bg-black/95 backdrop-blur-md sticky top-0 z-50 border-b border-gray-800">
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <div className="flex items-center">
-              {/* Mobile sidebar toggle button */}
-              {shouldShowSidebar && (
-                <button
-                  onClick={() => setSidebarOpen(true)}
-                  className="lg:hidden mr-3 text-gray-300 hover:text-white p-2 rounded-md"
-                >
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                </button>
-              )}
-              
               <Link href="/" className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">A</span>
+                  <span className="text-white font-bold text-lg">B</span>
                 </div>
-                <span className="text-xl font-bold text-white">Ageco.ai</span>
+                <span className="text-xl font-bold text-white">Best UGC</span>
               </Link>
               
               {/* Desktop Navigation */}
               <div className="hidden md:block ml-10">
                 <div className="flex items-baseline space-x-4">
-                  <Link href="/about" className="text-gray-300 hover:text-orange-400 hover:bg-gray-900 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200">
-                    How It Works
-                  </Link>
-                  <Link href="/pricing" className="text-gray-300 hover:text-orange-400 hover:bg-gray-900 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200">
-                    Pricing
-                  </Link>
-                  <Link href="/image-ads" className="text-gray-300 hover:text-orange-400 hover:bg-gray-900 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200">
-                    Image Ads
-                    <span className="ml-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full">Soon</span>
-                  </Link>
+                  {session ? (
+                    /* Authenticated user navigation */
+                    <>
+                      <Link href="/dashboard" className={`${router.pathname === '/dashboard' ? 'text-orange-400 bg-gray-900' : 'text-gray-300 hover:text-orange-400 hover:bg-gray-900'} px-3 py-2 rounded-md text-sm font-medium transition-all duration-200`}>
+                        Dashboard
+                      </Link>
+                      <Link href="/creations" className={`${router.pathname === '/creations' ? 'text-orange-400 bg-gray-900' : 'text-gray-300 hover:text-orange-400 hover:bg-gray-900'} px-3 py-2 rounded-md text-sm font-medium transition-all duration-200`}>
+                        My Creations
+                      </Link>
+                      <Link href="/subscription" className={`${router.pathname === '/subscription' ? 'text-orange-400 bg-gray-900' : 'text-gray-300 hover:text-orange-400 hover:bg-gray-900'} px-3 py-2 rounded-md text-sm font-medium transition-all duration-200`}>
+                        Subscription
+                      </Link>
+                      <Link href="/settings" className={`${router.pathname === '/settings' ? 'text-orange-400 bg-gray-900' : 'text-gray-300 hover:text-orange-400 hover:bg-gray-900'} px-3 py-2 rounded-md text-sm font-medium transition-all duration-200`}>
+                        Settings
+                      </Link>
+                      <Link href="/help" className={`${router.pathname === '/help' ? 'text-orange-400 bg-gray-900' : 'text-gray-300 hover:text-orange-400 hover:bg-gray-900'} px-3 py-2 rounded-md text-sm font-medium transition-all duration-200`}>
+                        Help
+                      </Link>
+                    </>
+                  ) : (
+                    /* Unauthenticated user navigation */
+                    <>
+                      <Link href="/about" className="text-gray-300 hover:text-orange-400 hover:bg-gray-900 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200">
+                        How It Works
+                      </Link>
+                      <Link href="/pricing" className="text-gray-300 hover:text-orange-400 hover:bg-gray-900 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200">
+                        Pricing
+                      </Link>
+                      <Link href="/image-ads" className="text-gray-300 hover:text-orange-400 hover:bg-gray-900 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200">
+                        Image Ads
+                        <span className="ml-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xs font-semibold px-2 py-0.5 rounded-full">Soon</span>
+                      </Link>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
 
             {/* Right Side */}
             <div className="hidden md:flex items-center gap-4">
-              {status === 'loading' ? (
-                <div className="w-24 h-8 bg-gray-800 rounded-md animate-pulse" />
-              ) : session ? (
+              {session ? (
                 <div className="flex items-center gap-4">
                   {/* Credits Display */}
                   <div className="flex items-center gap-2 bg-gray-900 px-3 py-1.5 rounded-lg border border-gray-700">
@@ -102,9 +119,9 @@ export const Layout = ({ children }: { children: ReactNode }) => {
                     <span className="text-white text-xs font-semibold">{user.plan || 'FREE'}</span>
                   </div>
 
-                  {/* Dashboard Link */}
-                  <Link href="/dashboard" className="text-gray-300 hover:text-orange-400 hover:bg-gray-900 px-3 py-2 rounded-md text-sm font-medium transition-all duration-200">
-                    Dashboard
+                  {/* Create Video Button */}
+                  <Link href="/ad/create" className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-200">
+                    Create Video
                   </Link>
 
                   {/* User Menu */}
@@ -167,28 +184,44 @@ export const Layout = ({ children }: { children: ReactNode }) => {
           {mobileMenuOpen && (
             <div className="md:hidden border-t border-gray-800">
               <div className="px-2 pt-2 pb-3 space-y-1">
-                <Link href="/about" className="block text-gray-300 hover:text-orange-400 hover:bg-gray-900 px-3 py-2 rounded-md text-base font-medium">
-                  How It Works
-                </Link>
-                <Link href="/pricing" className="block text-gray-300 hover:text-orange-400 hover:bg-gray-900 px-3 py-2 rounded-md text-base font-medium">
-                  Pricing
-                </Link>
                 {session ? (
+                  /* Authenticated user mobile menu */
                   <>
-                    <Link href="/dashboard" className="block text-gray-300 hover:text-orange-400 hover:bg-gray-900 px-3 py-2 rounded-md text-base font-medium">
+                    <Link href="/dashboard" className={`block ${router.pathname === '/dashboard' ? 'text-orange-400 bg-gray-900' : 'text-gray-300 hover:text-orange-400 hover:bg-gray-900'} px-3 py-2 rounded-md text-base font-medium`}>
                       Dashboard
                     </Link>
-                    <Link href="/settings" className="block text-gray-300 hover:text-orange-400 hover:bg-gray-900 px-3 py-2 rounded-md text-base font-medium">
+                    <Link href="/creations" className={`block ${router.pathname === '/creations' ? 'text-orange-400 bg-gray-900' : 'text-gray-300 hover:text-orange-400 hover:bg-gray-900'} px-3 py-2 rounded-md text-base font-medium`}>
+                      My Creations
+                    </Link>
+                    <Link href="/subscription" className={`block ${router.pathname === '/subscription' ? 'text-orange-400 bg-gray-900' : 'text-gray-300 hover:text-orange-400 hover:bg-gray-900'} px-3 py-2 rounded-md text-base font-medium`}>
+                      Subscription
+                    </Link>
+                    <Link href="/settings" className={`block ${router.pathname === '/settings' ? 'text-orange-400 bg-gray-900' : 'text-gray-300 hover:text-orange-400 hover:bg-gray-900'} px-3 py-2 rounded-md text-base font-medium`}>
                       Settings
+                    </Link>
+                    <Link href="/help" className={`block ${router.pathname === '/help' ? 'text-orange-400 bg-gray-900' : 'text-gray-300 hover:text-orange-400 hover:bg-gray-900'} px-3 py-2 rounded-md text-base font-medium`}>
+                      Help
                     </Link>
                     <button onClick={() => signOut()} className="block w-full text-left text-gray-300 hover:text-red-400 hover:bg-gray-900 px-3 py-2 rounded-md text-base font-medium">
                       Sign Out
                     </button>
                   </>
                 ) : (
-                  <button onClick={() => signIn()} className="block w-full text-left bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 py-2 rounded-md text-base font-medium">
-                    Get Started
-                  </button>
+                  /* Unauthenticated user mobile menu */
+                  <>
+                    <Link href="/about" className="block text-gray-300 hover:text-orange-400 hover:bg-gray-900 px-3 py-2 rounded-md text-base font-medium">
+                      How It Works
+                    </Link>
+                    <Link href="/pricing" className="block text-gray-300 hover:text-orange-400 hover:bg-gray-900 px-3 py-2 rounded-md text-base font-medium">
+                      Pricing
+                    </Link>
+                    <Link href="/image-ads" className="block text-gray-300 hover:text-orange-400 hover:bg-gray-900 px-3 py-2 rounded-md text-base font-medium">
+                      Image Ads
+                    </Link>
+                    <button onClick={() => signIn()} className="block w-full text-left bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 py-2 rounded-md text-base font-medium">
+                      Get Started
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -197,21 +230,21 @@ export const Layout = ({ children }: { children: ReactNode }) => {
       </header>
 
       {/* Page Content */}
-      <main className={`min-h-screen ${shouldShowSidebar ? 'lg:ml-64' : ''}`}>
+      <main>
         {children}
       </main>
 
       {/* Footer */}
-      <footer className={`bg-gray-900 border-t border-gray-800 ${shouldShowSidebar ? 'lg:ml-64' : ''}`}>
+      <footer className="bg-gray-900 border-t border-gray-800">
         <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             {/* Brand */}
             <div className="col-span-1 md:col-span-2">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">A</span>
+                  <span className="text-white font-bold text-lg">B</span>
                 </div>
-                <span className="text-xl font-bold text-white">Ageco.ai</span>
+                <span className="text-xl font-bold text-white">Best UGC</span>
               </div>
               <p className="text-gray-300 text-sm leading-relaxed mb-4">
                 Create high-converting AI video ads in minutes. Transform your product links into 
@@ -242,14 +275,14 @@ export const Layout = ({ children }: { children: ReactNode }) => {
               <h3 className="text-white font-semibold mb-4">Support</h3>
               <ul className="space-y-2">
                 <li><Link href="/help" className="text-gray-300 hover:text-orange-400 text-sm transition-colors">Help Center</Link></li>
-                <li><a href="mailto:support@ageco.ai" className="text-gray-300 hover:text-orange-400 text-sm transition-colors">Contact</a></li>
+                <li><a href="mailto:david@drift.as" className="text-gray-300 hover:text-orange-400 text-sm transition-colors">Contact</a></li>
                 <li><Link href="/settings" className="text-gray-300 hover:text-orange-400 text-sm transition-colors">Account</Link></li>
               </ul>
             </div>
           </div>
 
           <div className="mt-8 pt-8 border-t border-gray-800 flex flex-col sm:flex-row justify-between items-center">
-            <p className="text-gray-400 text-sm">© {new Date().getFullYear()} Ageco.ai. All rights reserved.</p>
+            <p className="text-gray-400 text-sm">© {new Date().getFullYear()} Best UGC. All rights reserved.</p>
             <div className="flex items-center gap-6 mt-4 sm:mt-0">
               <Link href="/privacy" className="text-gray-400 hover:text-orange-400 text-sm transition-colors">Privacy</Link>
               <Link href="/terms" className="text-gray-400 hover:text-orange-400 text-sm transition-colors">Terms</Link>

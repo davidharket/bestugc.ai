@@ -41,6 +41,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         description: adData.description,
         selectedImages: JSON.stringify(adData.selectedImages || []),
         selectedVideos: JSON.stringify(adData.selectedVideos || []),
+        selectedBRoll: JSON.stringify(adData.selectedBRoll || []),
+        orderedImages: JSON.stringify(adData.orderedImages || []),
+        orderedVideos: JSON.stringify(adData.orderedVideos || []),
+        orderedBRoll: JSON.stringify(adData.orderedBRoll || []),
         showPromo: adData.showPromo,
         originalPrice: adData.originalPrice,
         promoPrice: adData.promoPrice,
@@ -53,6 +57,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         avatarId: adData.avatarId?.toString(),
         templateId: adData.templateId,
         syncLabsJobId: adData.syncLabsJobId,
+        backgroundMusicUrl: adData.backgroundMusicUrl,
+        backgroundMusicVolume: adData.backgroundMusicVolume,
+        enableDualFormat: adData.enableDualFormat,
       },
     });
 

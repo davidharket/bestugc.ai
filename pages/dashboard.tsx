@@ -6,6 +6,7 @@ import { useAdCreation } from '../components/AdCreationContext'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
+import { refreshSessionGlobally } from '../lib/session-refresh'
 
 export default function Dashboard() {
   const { data: session, status } = useSession()
@@ -27,6 +28,7 @@ export default function Dashboard() {
 
       if (payment_success === 'true' && session_id) {
         toast.success('Payment successful! Your account has been updated.');
+        refreshSessionGlobally(); // Refresh session to show updated credits/plan
         shouldClearQuery = true;
       } else if (payment_canceled === 'true') {
         const message = Array.isArray(error_message) ? error_message[0] : error_message;
@@ -76,11 +78,6 @@ export default function Dashboard() {
     return () => clearInterval(interval)
   }, [status])
 
-  if (status === 'loading') return (
-    <div className="min-h-screen bg-black flex items-center justify-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-orange-500"></div>
-    </div>
-  )
 
   if (status === 'unauthenticated' || !session?.user) {
     signIn()
@@ -130,8 +127,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">
@@ -209,7 +205,7 @@ export default function Dashboard() {
                       value={productUrl}
                       onChange={e => setProductUrl(e.target.value)}
                       className="flex-1 bg-black border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-orange-500 focus:outline-none transition-colors"
-                      placeholder="https://example.com/product"
+                      placeholder="https://yourstore.com/product-page"
                     />
                     <button 
                       className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -360,6 +356,7 @@ export default function Dashboard() {
               </Link>
             </div>
 
+
             {/* Help & Support */}
             <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
               <h3 className="text-lg font-semibold text-white mb-4">Need Help?</h3>
@@ -370,7 +367,7 @@ export default function Dashboard() {
                 <Link href="/about" className="block text-orange-400 hover:text-orange-300 text-sm">
                   🎯 How It Works
                 </Link>
-                <a href="mailto:support@ageco.ai" className="block text-orange-400 hover:text-orange-300 text-sm">
+                <a href="mailto:david@drift.as" className="block text-orange-400 hover:text-orange-300 text-sm">
                   💬 Contact Support
                 </a>
               </div>
@@ -378,6 +375,5 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-    </div>
   )
 }

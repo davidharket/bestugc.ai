@@ -2,6 +2,11 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 
 // The AdCreationData interface remains the same
+export interface OrderedAsset {
+  url: string;
+  order: number;
+}
+
 export interface AdCreationData {
   productUrl?: string;
   summary?: string;
@@ -10,6 +15,10 @@ export interface AdCreationData {
   description?: string;
   selectedImages?: string[];
   selectedVideos?: string[];
+  selectedBRoll?: string[];
+  orderedImages?: OrderedAsset[];
+  orderedVideos?: OrderedAsset[];
+  orderedBRoll?: OrderedAsset[];
   showPromo?: boolean;
   originalPrice?: string;
   promoPrice?: string;
@@ -28,8 +37,15 @@ export interface AdCreationData {
   subtitleAnimation?: 'fade' | 'slide' | 'typewriter' | 'bounce';
   subtitlePosition?: 'bottom' | 'top' | 'center';
   enableSubtitles?: boolean;
+  useCapsLock?: boolean;
   audioUrl?: string;
   audioDuration?: number;
+  wordTimings?: Array<{ word: string; startTime: number; endTime: number; }>;
+  backgroundMusicUrl?: string;
+  backgroundMusicVolume?: number;
+  // Dual format support
+  enableDualFormat?: boolean;
+  currentPreviewFormat?: '9:16' | '4:5';
 }
 
 interface AdCreationContextType {

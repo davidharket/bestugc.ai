@@ -1,6 +1,7 @@
 // pages/pricing.tsx
-import { Layout } from '../components/Layout';
 import { useState } from 'react';
+import { useSession, signIn } from 'next-auth/react';
+import { useRouter } from 'next/router';
 
 interface PricingTierProps {
   title: string;
@@ -12,9 +13,10 @@ interface PricingTierProps {
   isPopular?: boolean;
   credits: number;
   color: string;
+  onClick: () => void;
 }
 
-const PricingTier = ({ title, price, originalPrice, description, features, ctaText, isPopular, credits, color }: PricingTierProps) => (
+const PricingTier = ({ title, price, originalPrice, description, features, ctaText, isPopular, credits, color, onClick }: PricingTierProps) => (
   <div className={`relative border-2 rounded-2xl p-8 transition-all duration-300 hover:scale-105 ${
     isPopular 
       ? 'border-orange-500 bg-gradient-to-b from-orange-500/10 to-orange-600/5 shadow-lg shadow-orange-500/25' 
@@ -63,13 +65,15 @@ const PricingTier = ({ title, price, originalPrice, description, features, ctaTe
       ))}
     </ul>
     
-    <button className={`w-full py-4 px-6 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 ${
-      isPopular 
-        ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg hover:shadow-xl' 
-        : 'bg-gray-800 text-white hover:bg-gray-700 border-2 border-gray-700 hover:border-orange-500'
-    }`}>
-      {ctaText}
-    </button>
+    <button 
+      onClick={onClick}
+      className={`w-full py-4 px-6 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 ${
+        isPopular 
+          ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg hover:shadow-xl' 
+          : 'bg-gray-800 text-white hover:bg-gray-700 border-2 border-gray-700 hover:border-orange-500'
+      }`}>
+        {ctaText}
+      </button>
   </div>
 );
 
@@ -84,7 +88,7 @@ const faqData = [
   },
   {
     question: "What's included in the free trial?",
-    answer: "New users get 30 free credits (3 video ads) to test our platform. No credit card required for the trial."
+    answer: "New users get 20 free credits (2 video ads) to test our platform. No credit card required for the trial."
   },
   {
     question: "Do you offer refunds?",
@@ -101,8 +105,18 @@ const faqData = [
 ];
 
 export default function PricingPage() {
+  const { data: session } = useSession();
+  const router = useRouter();
   const [selectedTab, setSelectedTab] = useState<'monthly' | 'yearly'>('monthly');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  const handlePlanClick = (planTitle: string) => {
+    if (!session) {
+      signIn('google', { callbackUrl: '/subscription' });
+    } else {
+      router.push('/subscription');
+    }
+  };
 
   const monthlyTiers = [
     {
@@ -170,8 +184,7 @@ export default function PricingPage() {
   const currentTiers = selectedTab === 'monthly' ? monthlyTiers : yearlyTiers;
 
   return (
-    <Layout>
-      <div className="bg-black text-white">
+    <div className="bg-black text-white">
         {/* Hero Section */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
           <div className="text-center">
@@ -187,7 +200,7 @@ export default function PricingPage() {
             </h1>
             
             <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-8 leading-relaxed">
-              Start free with 30 credits, then choose a plan that scales with your business. 
+              Start free with 20 credits, then choose a plan that scales with your business. 
               No hidden fees, no long-term contracts, cancel anytime.
             </p>
 
@@ -220,7 +233,11 @@ export default function PricingPage() {
           {/* Pricing Tiers */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {currentTiers.map(tier => (
-              <PricingTier key={tier.title} {...tier} />
+              <PricingTier 
+                key={tier.title} 
+                {...tier} 
+                onClick={() => handlePlanClick(tier.title)}
+              />
             ))}
           </div>
 
@@ -322,8 +339,8 @@ export default function PricingPage() {
               Ready to Start Creating?
             </h2>
             <p className="text-xl text-orange-100 mb-8 leading-relaxed">
-              Join thousands of businesses already using AI to create high-converting video ads. 
-              Start with 30 free credits—no credit card required.
+              Join smart businesses maximizing their ad spend ROI with AI-optimized video ads for social media. 
+              Start with 20 free credits—no credit card required.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
@@ -334,12 +351,11 @@ export default function PricingPage() {
                 Start Free Trial
               </a>
               <div className="text-orange-100 text-sm">
-                ✨ 30 free credits • No credit card • 2 minutes setup
+                ✨ 20 free credits • No credit card • 2 minutes setup
               </div>
             </div>
           </div>
         </section>
-      </div>
-    </Layout>
+    </div>
   );
 }

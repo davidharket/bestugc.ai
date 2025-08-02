@@ -11,6 +11,7 @@ import { avatars } from './avatars';
 import { COMPOSITION_FPS } from '../remotion/constants';
 import { bundle } from '@remotion/bundler';
 import { renderMedia, selectComposition } from '@remotion/renderer';
+import { getProductionGPUConfig, getGPUWebpackConfig, createPerformanceMonitor } from './gpu-config';
 
 const prisma = new PrismaClient();
 const INTERNAL_API_BASE_URL = '***REMOVED***';
@@ -35,6 +36,8 @@ export async function performRender(jobData: { adId: string; templateId: string;
     description: adRecord.description ?? undefined,
     selectedImages: JSON.parse(adRecord.selectedImages || '[]'),
     selectedVideos: JSON.parse(adRecord.selectedVideos || '[]'),
+    orderedImages: JSON.parse(adRecord.orderedImages || '[]'),
+    orderedVideos: JSON.parse(adRecord.orderedVideos || '[]'),
     showPromo: adRecord.showPromo ?? undefined,
     originalPrice: adRecord.originalPrice ?? undefined,
     promoPrice: adRecord.promoPrice ?? undefined,
@@ -46,18 +49,31 @@ export async function performRender(jobData: { adId: string; templateId: string;
     script: adRecord.script ?? undefined,
     avatarId: adRecord.avatarId ? parseInt(adRecord.avatarId, 10) : undefined,
     templateId: adRecord.templateId ?? undefined,
+    backgroundMusicUrl: adRecord.backgroundMusicUrl ?? undefined,
+    backgroundMusicVolume: adRecord.backgroundMusicVolume ?? undefined,
   };
 
-  // STEP 2: Generate TTS Audio
-  console.log('[worker] STEP 2: Generate TTS Audio');
+  // STEP 2: Generate TTS Audio with timestamps
+  console.log('[worker] STEP 2: Generate TTS Audio with timestamps');
+  
+  const selectedGender = adData.avatarId ? 
+    (avatars.find(a => a.id === adData.avatarId)?.gender || 'female') : 
+    'female';
+  
+  console.log(`[RenderWorker] AvatarId: ${adData.avatarId}, Gender: ${selectedGender}, Type: ${typeof adData.avatarId}`);
+  
   const ttsResponse = await axios.post(`${INTERNAL_API_BASE_URL}/api/tts/elevenlabs`, {
     text: adData.script,
     language: adData.language,
+    gender: selectedGender,
+    avatarId: adData.avatarId,
+    withTimestamps: true,
   }, {
     timeout: 60000,
     headers: { 'x-test-secret': process.env.TEST_SECRET_KEY }
   });
   const audioUrl = ttsResponse.data.audioUrl as string;
+  const wordTimings = ttsResponse.data.wordTimings || [];
 
   // STEP 3: Start the Lip-Sync Job
   console.log('[worker] STEP 3: Start Lip-Sync Job');
@@ -179,55 +195,97 @@ export async function performRender(jobData: { adId: string; templateId: string;
   console.log('[worker] STEP 9: Render final video with Remotion');
   const convertToLocalUrl = (url: string) => url.startsWith('http') ? new URL(url).pathname : url;
   const inputProps = {
-    adData,
+    adData: {
+      ...adData,
+      wordTimings: wordTimings
+    },
     timeline: concreteTimeline,
     audioUrl: convertToLocalUrl(localLipSyncedVideoUrl),
     processedAvatarUrl: convertToLocalUrl(localLipSyncedVideoUrl),
     greenscreenAvatarUrl: convertToLocalUrl(transparentAvatarUrl),
   };
 
-  console.log('📦 Bundling Remotion project...');
-  const bundleLocation = await bundle({
-    entryPoint: path.resolve('./remotion/index.ts'),
-  });
-  console.log('✅ Bundle created.');
-
-  console.log('🔍 Selecting composition...');
-  const composition = await selectComposition({
-    serveUrl: bundleLocation,
-    id: 'Main',
-    inputProps,
-    timeoutInMilliseconds: 120000,
-  });
-  console.log('✅ Composition selected.');
-
-  composition.durationInFrames = totalDurationInFrames;
-  console.log(`⏱️  Dynamic duration calculated from timeline: ${totalDurationInFrames} frames`);
-
-  const outputFilename = `final-ad-${adId}.mp4`;
-  const outputPath = path.resolve(`./public/renders/${outputFilename}`);
+  // Initialize performance monitoring
+  const perfMonitor = createPerformanceMonitor();
   
-  console.log(`🎞️  Starting render to: ${outputPath}`);
+  console.log('📦 Bundling Remotion project with GPU optimizations...');
+  perfMonitor.logPerformance('Bundle Start');
   
-  await renderMedia({
-    composition,
-    serveUrl: bundleLocation,
-    codec: 'h264',
-    outputLocation: outputPath,
-    inputProps,
-    timeoutInMilliseconds: 1800000,
-  });
+  let bundleLocation: string | null = null;
+  try {
+    bundleLocation = await bundle({
+      entryPoint: path.resolve('./remotion/index.ts'),
+      webpackOverride: getGPUWebpackConfig(true) // Production mode
+    });
+    
+    perfMonitor.logPerformance('Bundle Complete');
+    console.log('✅ GPU-optimized bundle created.');
 
-  const finalVideoUrl = `/renders/${outputFilename}`;
-  console.log('✅ Render finished. Final video URL:', finalVideoUrl);
+    // Get production GPU configuration
+    const gpuConfig = getProductionGPUConfig();
 
-  // STEP 10: Update Database
-  console.log('[worker] STEP 10: Update database');
-  await prisma.ad.update({
-    where: { id: adId },
-    data: { finalVideoUrl, status: 'COMPLETED' },
-  });
+    console.log('🔍 Selecting composition with GPU acceleration...');
+    perfMonitor.logPerformance('Composition Selection Start');
+    
+    const composition = await selectComposition({
+      serveUrl: bundleLocation,
+      id: 'Main',
+      inputProps,
+      timeoutInMilliseconds: 180000,
+      chromiumOptions: gpuConfig.chromiumOptions,
+    });
+    
+    perfMonitor.logPerformance('Composition Selection Complete');
+    console.log('✅ GPU-accelerated composition selected.');
 
-  console.log(`[worker] ✅ Successfully rendered video for ad ${adId}: ${finalVideoUrl}`);
-  return { finalVideoUrl, adId };
+    composition.durationInFrames = totalDurationInFrames;
+    console.log(`⏱️  Dynamic duration calculated from timeline: ${totalDurationInFrames} frames`);
+
+    const outputFilename = `final-ad-${adId}.mp4`;
+    const outputPath = path.resolve(`./public/renders/${outputFilename}`);
+    
+    console.log(`🎞️  Starting GPU-accelerated render to: ${outputPath}`);
+    perfMonitor.logPerformance('Render Start');
+    
+    await renderMedia({
+      composition,
+      serveUrl: bundleLocation,
+      codec: 'h264',
+      outputLocation: outputPath,
+      inputProps,
+      timeoutInMilliseconds: 1800000,
+      chromiumOptions: gpuConfig.chromiumOptions,
+    });
+
+    perfMonitor.logPerformance('Render Complete');
+    
+    // Get final file stats
+    const stats = fs.existsSync(outputPath) ? fs.statSync(outputPath) : null;
+    const fileSizeMB = stats ? (stats.size / 1024 / 1024).toFixed(2) : 'Unknown';
+    
+    console.log(`✅ GPU-accelerated render completed in ${perfMonitor.getElapsedTime()}s, size: ${fileSizeMB}MB`);
+
+    const finalVideoUrl = `/renders/${outputFilename}`;
+    console.log('✅ Render finished. Final video URL:', finalVideoUrl);
+
+    // STEP 10: Update Database
+    console.log('[worker] STEP 10: Update database');
+    await prisma.ad.update({
+      where: { id: adId },
+      data: { finalVideoUrl, status: 'COMPLETED' },
+    });
+
+    console.log(`[worker] ✅ Successfully rendered video for ad ${adId}: ${finalVideoUrl}`);
+    return { finalVideoUrl, adId };
+  } finally {
+    if (bundleLocation) {
+      console.log(`[worker] Cleaning up bundle location: ${bundleLocation}`);
+      try {
+        fs.rmSync(bundleLocation, { recursive: true, force: true });
+        console.log(`[worker] ✅ Successfully cleaned up bundle.`);
+      } catch (err) {
+        console.error(`[worker] ⚠️ Failed to clean up bundle:`, err);
+      }
+    }
+  }
 }

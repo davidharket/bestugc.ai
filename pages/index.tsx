@@ -2,7 +2,6 @@
 import { useSession, signIn } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { Layout } from '../components/Layout';
 
 // Enhanced showcase videos with variety
 const showcaseVideos = [
@@ -32,8 +31,8 @@ const features = [
   },
   {
     icon: '🎯',
-    title: 'Conversion Optimized',
-    description: 'Templates and scripts designed by marketing experts to maximize engagement and drive sales.'
+    title: 'ROI Optimized',
+    description: 'Templates and scripts engineered to maximize return on ad spend across social media platforms.'
   },
   {
     icon: '📱',
@@ -42,34 +41,12 @@ const features = [
   },
   {
     icon: '💰',
-    title: 'Cost Effective',
-    description: 'Replace expensive UGC creators and production teams. Create unlimited variations for testing.'
+    title: 'Maximize Ad Spend',
+    description: 'Replace expensive UGC creators and production teams. Create unlimited variations to find your highest-ROI creative.'
   }
 ];
 
-const testimonials = [
-  {
-    name: "Sarah Chen",
-    role: "E-commerce Manager",
-    company: "Nordic Beauty",
-    content: "We went from spending €5000/month on UGC to creating unlimited video ads for a fraction of the cost. Our ROAS improved by 340%.",
-    avatar: "👩‍💼"
-  },
-  {
-    name: "Marcus Eriksson",
-    role: "Marketing Director", 
-    company: "TechStart AS",
-    content: "The quality is incredible. Our customers can't tell these aren't real influencers. We're scaling our ad creative like never before.",
-    avatar: "👨‍💻"
-  },
-  {
-    name: "Lisa Andersen",
-    role: "Founder",
-    company: "Wellness Co",
-    content: "Game changer for our Shopify store. We can test 10 different ad variations in the time it used to take us to create one.",
-    avatar: "👩‍🚀"
-  }
-];
+// Testimonials removed - will add real customer testimonials later
 
 export default function LandingPage() {
   const { data: session, status } = useSession();
@@ -90,16 +67,9 @@ export default function LandingPage() {
     return () => clearInterval(interval);
   }, []);
 
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-orange-500"></div>
-      </div>
-    );
-  }
 
   return (
-    <Layout>
+    <>
       {/* Hero Section */}
       <div className="bg-black text-white">
         <div className="max-w-7xl mx-auto py-20 px-4 sm:px-6 lg:px-8">
@@ -119,8 +89,8 @@ export default function LandingPage() {
               </h1>
               
               <p className="text-xl text-gray-300 mb-8 leading-relaxed">
-                Transform your product link into dozens of high-converting video ads in minutes, not weeks. 
-                Our AI creates authentic-looking user-generated content that drives real results.
+                Transform your product link into high-ROI video ads optimized for social media conversions. 
+                Our AI creates authentic-looking user-generated content that maximizes your advertising spend.
               </p>
 
               {/* Key Benefits */}
@@ -161,14 +131,14 @@ export default function LandingPage() {
                   <div className="absolute inset-0 bg-gradient-to-r from-orange-600 to-orange-700 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 </button>
                 
-                <button className="px-8 py-4 border-2 border-orange-500 text-orange-400 font-semibold rounded-xl hover:bg-orange-500/10 transition-all duration-300">
-                  Watch Demo
-                </button>
+                <a href="/about" className="px-8 py-4 border-2 border-orange-500 text-orange-400 font-semibold rounded-xl hover:bg-orange-500/10 transition-all duration-300 inline-block text-center">
+                  How it works
+                </a>
               </div>
 
               {/* Social Proof */}
               <div className="mt-8 pt-8 border-t border-gray-800">
-                <p className="text-sm text-gray-400 mb-3">Trusted by 1000+ businesses</p>
+                <p className="text-sm text-gray-400 mb-3">Trusted by growing businesses</p>
                 <div className="flex items-center gap-6">
                   <div className="flex -space-x-2">
                     {['👩‍💼', '👨‍💻', '👩‍🚀', '👨‍🎨', '👩‍🔬'].map((emoji, i) => (
@@ -310,11 +280,11 @@ export default function LandingPage() {
             <h2 className="text-4xl font-extrabold text-white mb-4">
               Everything You Need to{' '}
               <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
-                Scale Your Ads
+                Maximize Your ROI
               </span>
             </h2>
             <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              Professional features that rival expensive production teams, all powered by cutting-edge AI.
+              Professional features optimized for social media conversions, designed to get the most from every advertising dollar.
             </p>
           </div>
 
@@ -332,42 +302,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="bg-gray-900 py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-extrabold text-white mb-4">
-              Loved by{' '}
-              <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
-                Businesses Worldwide
-              </span>
-            </h2>
-            <p className="text-xl text-gray-300">See how companies are transforming their marketing with AI video ads</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <div key={index} className="bg-black border border-gray-800 rounded-xl p-6 hover:border-orange-500/50 transition-all duration-300">
-                <div className="flex items-center gap-1 mb-4">
-                  {[...Array(5)].map((_, i) => (
-                    <span key={i} className="text-orange-400">⭐</span>
-                  ))}
-                </div>
-                <p className="text-gray-300 mb-6 leading-relaxed">"{testimonial.content}"</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-orange-600 rounded-full flex items-center justify-center text-lg">
-                    {testimonial.avatar}
-                  </div>
-                  <div>
-                    <div className="text-white font-semibold">{testimonial.name}</div>
-                    <div className="text-gray-400 text-sm">{testimonial.role}, {testimonial.company}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Testimonials section removed - will add real customer testimonials later */}
 
       {/* Final CTA */}
       <section className="bg-gradient-to-r from-orange-500 to-orange-600 py-20">
@@ -376,7 +311,7 @@ export default function LandingPage() {
             Ready to Create Your First AI Video Ad?
           </h2>
           <p className="text-xl text-orange-100 mb-8 leading-relaxed">
-            Join thousands of businesses already using AI to create high-converting video ads. 
+            Join forward-thinking businesses maximizing ROI with AI-powered video ads optimized for social media conversions. 
             Start free, scale unlimited.
           </p>
           
@@ -388,11 +323,11 @@ export default function LandingPage() {
               Get Started - It's Free
             </button>
             <div className="text-orange-100 text-sm">
-              ✨ No credit card required • 30 free credits
+              ✨ No credit card required • 20 free credits
             </div>
           </div>
         </div>
       </section>
-    </Layout>
+    </>
   );
 }

@@ -3,6 +3,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Custom Fonts */
+@font-face {
+  font-family: 'The Bold Font';
+  src: url('/fonts/THEBOLDFONT-FREEVERSION.woff') format('woff'),
+       url('/fonts/THEBOLDFONT-FREEVERSION.ttf') format('truetype'),
+       url('/fonts/THEBOLDFONT-FREEVERSION.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Design System - Brand Colors */
 :root {
   /* Primary Brand Colors */
@@ -102,6 +113,53 @@
 
 html {
   scroll-behavior: smooth;
+}
+
+/* Live Subtitle Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInUp {
+  from { 
+    opacity: 0; 
+    transform: translateY(20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+@keyframes bounceIn {
+  0% { 
+    opacity: 0; 
+    transform: scale(0.3); 
+  }
+  50% { 
+    opacity: 1; 
+    transform: scale(1.05); 
+  }
+  70% { 
+    transform: scale(0.9); 
+  }
+  100% { 
+    opacity: 1; 
+    transform: scale(1); 
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.animate-slideInUp {
+  animation: slideInUp 0.6s ease-out;
+}
+
+.animate-bounceIn {
+  animation: bounceIn 0.8s ease-out;
 }
 
 body {

@@ -13,10 +13,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { productDescription, productCategory } = req.body;
+  const { productDescription, productCategory, isAiGenerated } = req.body;
 
   if (!productDescription || typeof productDescription !== 'string') {
     return res.status(400).json({ error: 'Missing or invalid productDescription' });
+  }
+
+  // Input validation to prevent API cost abuse (only for user input, not AI-generated content)
+  if (!isAiGenerated && productDescription.length > 1000) {
+    return res.status(400).json({ error: 'Product description must be 1000 characters or less' });
+  }
+  if (productCategory && productCategory.length > 100) {
+    return res.status(400).json({ error: 'Product category must be 100 characters or less' });
   }
 
   let userContent = `Product Description: ${productDescription}`;

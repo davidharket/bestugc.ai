@@ -4,6 +4,8 @@ import { useAdCreation } from '../../components/AdCreationContext';
 // This is the correct import from our shared library
 import { avatars } from '../../lib/avatars';
 import axios from 'axios';
+import toast from 'react-hot-toast';
+import TTSCacheService from '../../lib/tts-cache-service';
 
 const genderOptions = ['male', 'female'];
 const ageOptions = ['adult', 'senior'];
@@ -19,7 +21,10 @@ export default function AvatarAd() {
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
 
   useEffect(() => {
-    setAdData({ avatarId: selectedAvatar === null ? undefined : selectedAvatar });
+    setAdData({ 
+      avatarId: selectedAvatar === null ? undefined : selectedAvatar,
+      audioUrl: '' // Clear audioUrl to force fresh TTS generation with correct gender
+    });
   }, [selectedAvatar]);
 
   // Generate audio when avatar is selected
@@ -34,15 +39,33 @@ export default function AvatarAd() {
     
     setIsGeneratingAudio(true);
     try {
-      const response = await axios.post('/api/tts/elevenlabs', {
-        text: adData.selectedScript,
-        language: adData.language,
-        voiceId: 'auto', // Let the system choose
+      const selectedGender = adData.avatarId ? 
+        (avatars.find(a => a.id === adData.avatarId)?.gender || 'female') : 
+        'female';
+      
+      console.log(`[Avatar] AvatarId: ${adData.avatarId}, Gender: ${selectedGender}, Type: ${typeof adData.avatarId}`);
+      
+      // Use cached TTS service instead of direct API call
+      const result = await TTSCacheService.getTTS(adData.selectedScript, adData.language, selectedGender, adData.avatarId);
+      
+      // Store the audio URL and word timings in the ad data for later use
+      setAdData({ 
+        audioUrl: result.audioUrl,
+        wordTimings: result.wordTimings 
       });
-      // Store the audio URL in the ad data for later use
-      setAdData({ audioUrl: response.data.audioUrl });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating audio:', error);
+      if (error.response?.status === 429) {
+        const rateLimitInfo = error.response?.data?.rateLimitInfo;
+        const resetTime = rateLimitInfo?.resetTime ? new Date(rateLimitInfo.resetTime) : null;
+        const resetTimeString = resetTime ? resetTime.toLocaleTimeString() : 'later';
+        toast.error(
+          `Rate limit exceeded for audio generation. You can generate more audio after ${resetTimeString}.`,
+          { duration: 8000 }
+        );
+      } else {
+        toast.error('Failed to generate audio. Please try again.');
+      }
     } finally {
       setIsGeneratingAudio(false);
     }

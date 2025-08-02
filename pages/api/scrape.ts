@@ -70,7 +70,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 if (processedUrls.has(absoluteSrc)) continue;
                 processedUrls.add(absoluteSrc);
 
-                const imageResponse = await axios.get(absoluteSrc, { responseType: 'arraybuffer', timeout: 15000 });
+                const imageResponse = await axios.get(absoluteSrc, { responseType: 'arraybuffer', timeout: 30000 });
                 if (imageResponse.headers['content-length'] && parseInt(imageResponse.headers['content-length']) < 20000) continue;
 
                 const filename = `${crypto.randomBytes(6).toString('hex')}${getFileExtension(absoluteSrc)}`;

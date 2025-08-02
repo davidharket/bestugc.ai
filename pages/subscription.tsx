@@ -5,6 +5,7 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
+import { updateSubscription } from '../lib/credit-operations'
 
 const plans = [
   {
@@ -13,6 +14,7 @@ const plans = [
     price: '499kr',
     priceNum: 499,
     credits: 100,
+    savings: '0% savings',
     features: [
       '100 Credits per month',
       'Standard AI Avatars',
@@ -30,6 +32,7 @@ const plans = [
     price: '999kr',
     priceNum: 999,
     credits: 250,
+    savings: '20% savings',
     features: [
       '250 Credits per month',
       'Premium AI Avatars',
@@ -48,6 +51,7 @@ const plans = [
     price: '1499kr',
     priceNum: 1499,
     credits: 400,
+    savings: '25% savings',
     features: [
       '400 Credits per month',
       'All Premium Features',
@@ -64,29 +68,29 @@ const plans = [
 
 const creditPacks = [
   {
-    id: 'TOPUP_50',
-    name: '50 Credits',
-    price: '199kr',
-    priceNum: 199,
-    credits: 50,
+    id: 'TOPUP_10',
+    name: '10 Credits',
+    price: '49kr',
+    priceNum: 49,
+    credits: 10,
     bonus: null
   },
   {
-    id: 'TOPUP_100',
-    name: '100 Credits',
-    price: '349kr',
-    priceNum: 349,
-    credits: 100,
-    bonus: '12% savings',
+    id: 'TOPUP_20',
+    name: '20 Credits',
+    price: '89kr',
+    priceNum: 89,
+    credits: 20,
+    bonus: '10% savings',
     popular: true
   },
   {
-    id: 'TOPUP_200',
-    name: '200 Credits',
-    price: '599kr',
-    priceNum: 599,
-    credits: 200,
-    bonus: '25% savings'
+    id: 'TOPUP_30',
+    name: '30 Credits',
+    price: '119kr',
+    priceNum: 119,
+    credits: 30,
+    bonus: '20% savings'
   }
 ];
 
@@ -118,15 +122,18 @@ export default function Subscription() {
     setLoadingItem(itemId)
     
     try {
-      const { data } = await axios.post('/api/stripe/checkout-sessions', {
-        itemType,
-        itemId,
+      await updateSubscription(async () => {
+        const { data } = await axios.post('/api/stripe/checkout-sessions', {
+          itemType,
+          itemId,
+        })
+        if (data.url) {
+          window.location.href = data.url
+        } else {
+          toast.error('Could not initiate payment. Please try again.')
+        }
+        return data
       })
-      if (data.url) {
-        window.location.href = data.url
-      } else {
-        toast.error('Could not initiate payment. Please try again.')
-      }
     } catch (error: any) {
       console.error("Error redirecting to checkout:", error)
       toast.error(error.response?.data?.error || 'Failed to start payment process.')
@@ -255,6 +262,13 @@ export default function Subscription() {
                   <div className={`inline-flex items-center px-3 py-1 rounded-full bg-gradient-to-r ${plan.color} text-white text-sm font-medium`}>
                     {plan.credits} Credits Included
                   </div>
+                  {plan.savings && plan.savings !== '0% savings' && (
+                    <div className="mt-2">
+                      <span className="inline-flex items-center px-2 py-1 bg-green-900/50 text-green-400 text-xs font-medium rounded-full">
+                        {plan.savings}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <ul className="space-y-3 mb-8">
@@ -383,7 +397,7 @@ export default function Subscription() {
             </div>
             <div>
               <h3 className="text-lg font-semibold text-white mb-2">Is there a free trial?</h3>
-              <p className="text-gray-400 text-sm">Yes! New users get 30 free credits to create 3 video ads and test our platform.</p>
+              <p className="text-gray-400 text-sm">Yes! New users get 20 free credits to create 2 video ads and test our platform.</p>
             </div>
           </div>
         </div>

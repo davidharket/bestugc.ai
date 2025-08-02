@@ -69,8 +69,31 @@ export function generateConcreteTimeline(
 
   const roundingError = totalDurationInFrames - accumulatedFrames;
   if (roundingError !== 0 && concreteTimeline.length > 0) {
-    concreteTimeline[concreteTimeline.length - 1].duration += roundingError;
+    const lastScene = concreteTimeline[concreteTimeline.length - 1];
+    const adjustedDuration = lastScene.duration + roundingError;
+    
+    // Ensure the duration never goes negative
+    if (adjustedDuration <= 0) {
+      // If the adjustment would make it negative, distribute the error across all scenes
+      const errorPerScene = Math.floor(roundingError / concreteTimeline.length);
+      const remainingError = roundingError - (errorPerScene * concreteTimeline.length);
+      
+      // Apply the distributed error to each scene, ensuring no scene goes negative
+      concreteTimeline.forEach((scene, index) => {
+        const adjustment = errorPerScene + (index === concreteTimeline.length - 1 ? remainingError : 0);
+        scene.duration = Math.max(1, scene.duration + adjustment); // Minimum 1 frame
+      });
+    } else {
+      lastScene.duration = adjustedDuration;
+    }
   }
+
+  // Final safety check - ensure all durations are positive
+  concreteTimeline.forEach((scene) => {
+    if (scene.duration <= 0) {
+      scene.duration = 1; // Minimum 1 frame
+    }
+  });
 
   return concreteTimeline;
 }

@@ -9,7 +9,16 @@ export type LayoutType =
   | 'avatar-with-corner-asset'
   | 'split-screen-top-asset'
   | 'cutout-center-over-asset'
-  | 'buildup-collage';
+  | 'buildup-collage'
+  | 'small-cutout-bottom-left'
+  | 'small-cutout-bottom-right'
+  | 'small-cutout-center'
+  | 'small-cutout-bottom-left-no-padding'
+  | 'small-cutout-bottom-right-no-padding'
+  | 'small-cutout-center-tilted-left'
+  | 'small-cutout-center-tilted-right'
+  | 'small-cutout-top-left'
+  | 'small-cutout-top-right';
 
 // The interface is defined once and EXPORTED.
 export interface WeightedScene {
@@ -28,64 +37,71 @@ export interface VideoTemplate {
 
 const FPS = 24; // Match SyncLabs video frame rate for accurate timeline calculation
 
+// Helper function to generate unique asset indices for a template
+function generateAssetIndices(timeline: Omit<WeightedScene, 'assetIndices'>[]): WeightedScene[] {
+  let assetCounter = 0;
+  return timeline.map(scene => ({
+    ...scene,
+    assetIndices: [assetCounter++]
+  }));
+}
+
 // The official library of all available video templates, using weights.
 export const TEMPLATE_LIBRARY: VideoTemplate[] = [
   {
-    id: 'fast-paced-hook',
-    name: 'The Quick Hook',
-    description: 'Rapid cuts to grab attention instantly. Ideal for TikTok, Reels, and Shorts.',
-    timeline: [
-      { layout: 'fullscreen-avatar', durationWeight: 2 },
-      { layout: 'cutout-left-over-asset', durationWeight: 3, assetIndices: [0] },
-      { layout: 'avatar-with-corner-asset', durationWeight: 3, assetIndices: [1] },
-      { layout: 'cutout-right-over-asset', durationWeight: 2, assetIndices: [2] },
-    ],
+    id: 'edge-showcase',
+    name: 'Edge Showcase',
+    description: 'Avatar positioned at screen edges for maximum product visibility.',
+    timeline: generateAssetIndices([
+      { layout: 'small-cutout-bottom-left-no-padding', durationWeight: 4 },
+      { layout: 'small-cutout-bottom-right-no-padding', durationWeight: 4 },
+      { layout: 'small-cutout-top-left', durationWeight: 3 },
+      { layout: 'small-cutout-bottom-left-no-padding', durationWeight: 3 },
+    ]),
   },
   {
-    id: 'brand-storyteller',
-    name: 'The Storyteller',
-    description: 'A slightly slower pace to build a connection and tell your brand\'s story.',
-    timeline: [
-      { layout: 'fullscreen-avatar', durationWeight: 3 },
-      { layout: 'avatar-with-corner-asset', durationWeight: 4, assetIndices: [0] },
-      { layout: 'cutout-center-over-asset', durationWeight: 4, assetIndices: [1] },
-      { layout: 'fullscreen-avatar', durationWeight: 2 },
-    ],
+    id: 'dynamic-tilted',
+    name: 'Dynamic & Tilted',
+    description: 'Energetic tilted avatars creating visual interest and movement.',
+    timeline: generateAssetIndices([
+      { layout: 'small-cutout-center-tilted-left', durationWeight: 4 },
+      { layout: 'small-cutout-center-tilted-right', durationWeight: 4 },
+      { layout: 'small-cutout-bottom-left', durationWeight: 3 },
+      { layout: 'small-cutout-center-tilted-left', durationWeight: 3 },
+    ]),
   },
   {
-    id: 'product-is-hero',
-    name: 'Product Is The Hero',
-    description: 'Maximum screen time for your product images and videos. Great for demos.',
-    timeline: [
-      { layout: 'avatar-with-corner-asset', durationWeight: 4, assetIndices: [0] },
-      { layout: 'cutout-left-over-asset', durationWeight: 3, assetIndices: [1] },
-      { layout: 'cutout-right-over-asset', durationWeight: 4, assetIndices: [2] },
-      { layout: 'fullscreen-avatar', durationWeight: 2 },
-    ],
+    id: 'corner-complete',
+    name: 'Corner Complete',
+    description: 'Full corner coverage with top and bottom positioning.',
+    timeline: generateAssetIndices([
+      { layout: 'small-cutout-top-left', durationWeight: 3 },
+      { layout: 'small-cutout-bottom-right', durationWeight: 4 },
+      { layout: 'small-cutout-top-right', durationWeight: 4 },
+      { layout: 'small-cutout-bottom-left', durationWeight: 3 },
+    ]),
   },
   {
-    id: 'cutout-showcase',
-    name: 'Avatar Showcase',
-    description: 'Dynamic cutout avatar moving across different product backgrounds.',
-    timeline: [
-      { layout: 'fullscreen-avatar', durationWeight: 2 },
-      { layout: 'cutout-left-over-asset', durationWeight: 3, assetIndices: [0] },
-      { layout: 'cutout-center-over-asset', durationWeight: 3, assetIndices: [1] },
-      { layout: 'cutout-right-over-asset', durationWeight: 3, assetIndices: [2] },
-      { layout: 'cutout-left-over-asset', durationWeight: 2, assetIndices: [3] },
-    ],
+    id: 'mixed-positions',
+    name: 'Mixed Positions',
+    description: 'Varied avatar positions combining padding and no-padding styles.',
+    timeline: generateAssetIndices([
+      { layout: 'small-cutout-center-tilted-right', durationWeight: 4 },
+      { layout: 'small-cutout-bottom-right-no-padding', durationWeight: 3 },
+      { layout: 'small-cutout-top-left', durationWeight: 4 },
+      { layout: 'small-cutout-center-tilted-left', durationWeight: 3 },
+    ]),
   },
   {
-    id: 'avatar-focus',
-    name: 'Avatar Focus',
-    description: 'Maximum avatar presence with minimal asset-only scenes.',
-    timeline: [
-      { layout: 'fullscreen-avatar', durationWeight: 3 },
-      { layout: 'cutout-center-over-asset', durationWeight: 4, assetIndices: [0] },
-      { layout: 'avatar-with-corner-asset', durationWeight: 4, assetIndices: [1] },
-      { layout: 'cutout-right-over-asset', durationWeight: 3, assetIndices: [2] },
-      { layout: 'fullscreen-avatar', durationWeight: 2 },
-    ],
+    id: 'classic-presenter',
+    name: 'Classic Presenter',
+    description: 'Traditional bottom positioning with balanced padding.',
+    timeline: generateAssetIndices([
+      { layout: 'small-cutout-bottom-left', durationWeight: 4 },
+      { layout: 'small-cutout-center', durationWeight: 4 },
+      { layout: 'small-cutout-bottom-right', durationWeight: 4 },
+      { layout: 'small-cutout-bottom-left', durationWeight: 3 },
+    ]),
   },
 ];
 

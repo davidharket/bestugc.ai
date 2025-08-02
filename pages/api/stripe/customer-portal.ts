@@ -38,9 +38,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const returnUrl = `${process.env.NEXTAUTH_URL}/dashboard`; // URL to return to after portal session
 
+    let configuration;
+    try {
+      const configurations = await stripe.billingPortal.configurations.list({ limit: 1 });
+      configuration = configurations.data[0]?.id;
+    } catch (error) {
+      console.log('No existing configuration found, will create default');
+    }
+
+    if (!configuration) {
+      const newConfig = await stripe.billingPortal.configurations.create({
+        business_profile: {
+          headline: 'Manage your Best UGC subscription',
+        },
+        features: {
+          payment_method_update: { enabled: true },
+          subscription_cancel: { 
+            enabled: true,
+            mode: 'at_period_end'
+          },
+          subscription_pause: { enabled: false },
+        },
+      });
+      configuration = newConfig.id;
+    }
+
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: user.stripeCustomerId,
       return_url: returnUrl,
+      configuration: configuration,
     });
 
     if (!portalSession.url) {

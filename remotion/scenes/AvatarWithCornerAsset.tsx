@@ -1,5 +1,6 @@
 // remotion/scenes/AvatarWithCornerAsset.tsx
-import { AbsoluteFill, Img, Video } from 'remotion';
+import { AbsoluteFill, Img, Video, useCurrentFrame, useVideoConfig, getInputProps } from 'remotion';
+import { LoopingVideo } from '../components/LoopingVideo';
 import React from 'react';
 import { COMPOSITION_FPS } from '../constants';
 
@@ -12,9 +13,26 @@ export const AvatarWithCornerAsset: React.FC<{
   videoSrc: string;
   assetSrc: string;
   startFrom?: number; // In seconds
-}> = ({ videoSrc, assetSrc, startFrom = 0 }) => {
-  // Convert seconds to frames for Video startFrom parameter
-  const startFromFrames = Math.round(startFrom * COMPOSITION_FPS);
+  assetVideoDurationInFrames?: number;
+}> = ({ videoSrc, assetSrc, startFrom = 0, assetVideoDurationInFrames = 300 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const inputProps = getInputProps();
+  
+  // Check if we're in preview mode
+  const isPreviewMode = (inputProps as any)?.adData?.previewMode === true;
+  
+  let videoStartFrame: number;
+  
+  if (isPreviewMode) {
+    // PREVIEW MODE: Use simpler logic without custom looping
+    // Just start from the beginning of the scene for preview
+    videoStartFrame = 0;
+  } else {
+    // FINAL RENDER: Use original timing logic for proper lip-sync
+    // Use the timeline position passed from Main.tsx for proper sync with processed avatar
+    videoStartFrame = Math.round(startFrom * COMPOSITION_FPS);
+  }
 
   if (!videoSrc) {
     console.warn('[AvatarWithCornerAsset] No videoSrc provided');
@@ -32,8 +50,10 @@ export const AvatarWithCornerAsset: React.FC<{
       <Video
         src={videoSrc}
         className="w-full h-full object-cover"
-        startFrom={startFromFrames} // Use frames instead of seconds
+        startFrom={videoStartFrame}
         muted={true}
+        playsInline={true}
+        preload="metadata"
       />
 
       {/* --- FIX #3: Restyle the corner asset to be a padded square --- */}
@@ -52,12 +72,14 @@ export const AvatarWithCornerAsset: React.FC<{
       >
         {/* The content inside will be cropped by the square container */}
         {isVideo(assetSrc) ? (
-          <Video
+          <LoopingVideo
             src={assetSrc}
             // Style the video to cover the square area
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            videoDurationInFrames={assetVideoDurationInFrames}
             muted
-            loop
+            playsInline={true}
+            preload="metadata"
           />
         ) : (
           <Img

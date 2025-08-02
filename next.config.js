@@ -5,8 +5,23 @@ const nextConfig = {
   // Increase API timeout for long-running operations
   experimental: {
     serverActions: {
-      bodySizeLimit: '10mb',
+      bodySizeLimit: '100mb',
     },
+  },
+  
+  // Configure API routes
+  async headers() {
+    return [
+      {
+        source: '/api/upload-temp',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+        ],
+      },
+    ];
   },
   
   // ✅ Add rewrites to handle video files properly

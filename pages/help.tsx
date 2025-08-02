@@ -9,7 +9,7 @@ const HelpPageLayout: React.FC<{ title: string; children: React.ReactNode }> = (
   return (
     <>
       <Head>
-        <title>{title} - Ageco.ai Help</title>
+        <title>{title} - Best UGC Help</title>
       </Head>
       <div className="min-h-screen bg-black text-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -171,7 +171,7 @@ export default function HelpPage() {
           Can't find what you're looking for? Our support team is here to help.
         </p>
         <a
-          href="mailto:support@ageco.ai"
+          href="mailto:david@drift.as"
           className="btn-primary inline-flex items-center"
         >
           <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

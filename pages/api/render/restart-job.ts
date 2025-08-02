@@ -25,32 +25,55 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const existingAd = await prisma.ad.findUnique({
-      where: { id: adId, userId: session.user.id },
+    // Use a transaction to ensure credit deduction and job creation are atomic
+    const result = await prisma.$transaction(async (tx) => {
+      const existingAd = await tx.ad.findUnique({
+        where: { id: adId, userId: session.user!.id },
+      });
+
+      if (!existingAd) {
+        throw new Error('Ad not found');
+      }
+
+      // Check if user has enough credits and deduct 10 credits for video restart
+      const user = await tx.user.findUnique({
+        where: { id: session.user!.id },
+        select: { credits: true }
+      });
+
+      if (!user || user.credits < 10) {
+        throw new Error('Insufficient credits. You need at least 10 credits to restart video rendering.');
+      }
+
+      // Deduct 10 credits from user's balance
+      const updatedUser = await tx.user.update({
+        where: { id: session.user!.id },
+        data: { credits: { decrement: 10 } }
+      });
+      
+      // ✅ This is the main logic change. Instead of inngest.send, we add to the queue.
+      const job = await renderQueue.add('render-video-job', {
+          adId: existingAd.id,
+          templateId: existingAd.templateId,
+      });
+
+      // Reset the ad status and link it to the new BullMQ job ID
+      await tx.ad.update({
+        where: { id: adId },
+        data: {
+          status: 'QUEUED', // Set status to QUEUED
+          finalVideoUrl: null,
+          updatedAt: new Date(),
+          inngestRunId: job.id, // We reuse this field for the BullMQ job ID
+        },
+      });
+
+      return { job, existingAd, updatedCredits: updatedUser.credits };
     });
 
-    if (!existingAd) {
-      return res.status(404).json({ message: 'Ad not found' });
-    }
-    
-    // ✅ This is the main logic change. Instead of inngest.send, we add to the queue.
-    const job = await renderQueue.add('render-video-job', {
-        adId: existingAd.id,
-        templateId: existingAd.templateId,
-    });
+    const { job, existingAd } = result;
 
-    // Reset the ad status and link it to the new BullMQ job ID
-    await prisma.ad.update({
-      where: { id: adId },
-      data: {
-        status: 'QUEUED', // Set status to QUEUED
-        finalVideoUrl: null,
-        updatedAt: new Date(),
-        inngestRunId: job.id, // We reuse this field for the BullMQ job ID
-      },
-    });
-
-    console.log(`[API /restart-job] Job ${job.id} added to the render queue for Ad ID: ${adId}`);
+    console.log(`[API /restart-job] Job ${job.id} added to the render queue for Ad ID: ${adId}. 10 credits deducted from user ${session.user!.id}`);
 
     return res.status(202).json({
       message: 'Video rendering job restarted.',
@@ -60,6 +83,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   } catch (error: any) {
     console.error('Failed to restart render job:', error);
+    
+    // Check if it's a credit-related or not found error
+    if (error.message?.includes('Insufficient credits')) {
+      return res.status(400).json({ message: error.message });
+    }
+    if (error.message?.includes('Ad not found')) {
+      return res.status(404).json({ message: error.message });
+    }
+    
     return res.status(500).json({ message: 'Failed to restart render job', details: error.message });
   }
 }

@@ -1,5 +1,4 @@
 // pages/about.tsx
-import { Layout } from '../components/Layout';
 
 const features = [
   { 
@@ -68,25 +67,23 @@ const steps = [
 ];
 
 const stats = [
-  { number: '10,000+', label: 'Videos Created', icon: '🎬' },
-  { number: '500+', label: 'Happy Businesses', icon: '🏢' },
+  { number: '200+', label: 'Videos Created', icon: '🎬' },
   { number: '90%', label: 'Time Saved', icon: '⏱️' },
-  { number: '340%', label: 'Average ROAS Boost', icon: '📈' }
+  { number: '340%', label: 'Target ROAS Boost', icon: '📈' }
 ];
 
 export default function AboutPage() {
   return (
-    <Layout>
-      <div className="bg-black text-white">
+    <div className="bg-black text-white">
         {/* Hero Section */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
           <div className="text-center">
             <div className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-orange-500/20 to-orange-600/20 border border-orange-500/30 mb-8">
-              <span className="text-orange-400 text-sm font-medium">✨ How Ageco.ai Works</span>
+              <span className="text-orange-400 text-sm font-medium">✨ How Best UGC Works</span>
             </div>
             
             <h1 className="text-5xl font-extrabold text-white mb-6 leading-tight">
-              Transform Your Products into{' '}
+              Transform Your Products into{' '}<br />
               <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
                 High-Converting Video Ads
               </span>
@@ -102,7 +99,7 @@ export default function AboutPage() {
         {/* Stats Section */}
         <section className="bg-gray-900 py-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {stats.map((stat, index) => (
                 <div key={index} className="text-center">
                   <div className="text-4xl mb-2">{stat.icon}</div>
@@ -219,7 +216,7 @@ export default function AboutPage() {
                 <h2 className="text-4xl font-extrabold text-white mb-6">
                   Why Choose{' '}
                   <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
-                    Ageco.ai?
+                    Best UGC?
                   </span>
                 </h2>
                 
@@ -250,7 +247,7 @@ export default function AboutPage() {
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold text-white mb-1">Proven Conversion Rates</h3>
-                      <p className="text-gray-300">Our AI uses data from thousands of high-performing ads to create content that actually converts.</p>
+                      <p className="text-gray-300">Our AI uses proven conversion patterns to create content optimized for maximum ROI on social media platforms.</p>
                     </div>
                   </div>
                   
@@ -304,7 +301,7 @@ export default function AboutPage() {
               Ready to Transform Your Marketing?
             </h2>
             <p className="text-xl text-orange-100 mb-8 leading-relaxed">
-              Join thousands of businesses already using AI to create high-converting video ads. 
+              Join smart businesses using AI to create high-ROI video ads optimized for social media conversions. 
               Start free and see the difference authentic-looking UGC can make.
             </p>
             
@@ -316,12 +313,11 @@ export default function AboutPage() {
                 Start Creating Videos - Free
               </a>
               <div className="text-orange-100 text-sm">
-                ✨ No credit card required • 30 free credits • 2 minutes setup
+                ✨ No credit card required • 20 free credits • 2 minutes setup
               </div>
             </div>
           </div>
         </section>
-      </div>
-    </Layout>
+    </div>
   );
 }

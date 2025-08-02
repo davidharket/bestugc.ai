@@ -1,6 +1,6 @@
 // pages/creations.tsx
 import { useSession, signIn } from 'next-auth/react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
@@ -13,19 +13,33 @@ interface Ad {
   updatedAt: string
   status: string
   finalVideoUrl?: string
+  finalVideoUrl4x5?: string
   brandName?: string
   productUrl?: string
   format?: string
   duration?: number
   language?: string
   isWatermarked?: boolean
+  enableDualFormat?: boolean
 }
 
-function AdCard({ ad, onDelete, onCancel }: { 
+function AdCard({ ad, onDelete, onCancel, userPlan }: { 
   ad: Ad; 
   onDelete: (adId: string) => void; 
-  onCancel: (adId: string) => void; 
+  onCancel: (adId: string) => void;
+  userPlan?: string;
 }) {
+  const [isMuted, setIsMuted] = useState(true); // Start muted for free users
+  const [currentFormat, setCurrentFormat] = useState<'9:16' | '4:5'>('9:16'); // Format toggle for dual format videos
+  const videoRef = useRef<HTMLVideoElement>(null);
+  
+  const toggleMute = () => {
+    if (videoRef.current) {
+      const newMutedState = !isMuted;
+      videoRef.current.muted = newMutedState;
+      setIsMuted(newMutedState);
+    }
+  };
   const getVideoUrl = (finalVideoUrl: string | undefined) => {
     if (!finalVideoUrl) return '';
     
@@ -64,17 +78,54 @@ function AdCard({ ad, onDelete, onCancel }: {
           </div>
         );
       case 'COMPLETED':
-        const videoUrl = getVideoUrl(ad.finalVideoUrl);
+        const hasDualFormat = ad.enableDualFormat && ad.finalVideoUrl4x5;
+        const currentVideoUrl = currentFormat === '4:5' && ad.finalVideoUrl4x5 
+          ? getVideoUrl(ad.finalVideoUrl4x5) 
+          : getVideoUrl(ad.finalVideoUrl);
+        
         return (
           <div className="relative group">
+            {/* Format Toggle for Dual Format Videos */}
+            {hasDualFormat && (
+              <div className="absolute top-2 left-2 z-20 bg-black/70 backdrop-blur-sm rounded-lg p-1">
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setCurrentFormat('9:16')}
+                    className={`px-2 py-1 text-xs rounded transition-colors ${
+                      currentFormat === '9:16'
+                        ? 'bg-orange-600 text-white'
+                        : 'text-gray-300 hover:text-white hover:bg-gray-700'
+                    }`}
+                  >
+                    9:16
+                  </button>
+                  <button
+                    onClick={() => setCurrentFormat('4:5')}
+                    className={`px-2 py-1 text-xs rounded transition-colors ${
+                      currentFormat === '4:5'
+                        ? 'bg-orange-600 text-white'
+                        : 'text-gray-300 hover:text-white hover:bg-gray-700'
+                    }`}
+                  >
+                    4:5
+                  </button>
+                </div>
+              </div>
+            )}
             <video
-              key={videoUrl} // Force re-render when URL changes
-              src={videoUrl}
+              ref={videoRef}
+              key={currentVideoUrl} // Force re-render when URL changes
+              src={currentVideoUrl}
               className="w-full max-w-full h-auto rounded-lg bg-gray-800 video-player"
               playsInline
-              controls
+              controls={userPlan !== 'FREE'} // Only show controls for paid users
+              autoPlay={userPlan === 'FREE'} // Auto-play for free users since they can't control it
+              loop={userPlan === 'FREE'} // Loop for free users
+              muted={userPlan === 'FREE' ? isMuted : false} // Control mute state for free users
+              controlsList={userPlan === 'FREE' ? 'nodownload nofullscreen noremoteplayback' : undefined}
               preload="metadata"
               crossOrigin="anonymous"
+              onContextMenu={userPlan === 'FREE' ? (e) => e.preventDefault() : undefined} // Disable right-click for free users
               style={{
                 WebkitAppearance: 'none',
                 aspectRatio: 'auto',
@@ -85,17 +136,17 @@ function AdCard({ ad, onDelete, onCancel }: {
                 video.currentTime = 0.1;
               }}
               onError={(e) => {
-                console.error('Video failed to load:', videoUrl);
+                console.error('Video failed to load:', currentVideoUrl);
                 console.error('Error details:', e);
               }}
               onLoadStart={() => {
-                console.log('Video started loading:', videoUrl);
+                console.log('Video started loading:', currentVideoUrl);
               }}
               onCanPlay={() => {
-                console.log('Video can play:', videoUrl);
+                console.log('Video can play:', currentVideoUrl);
               }}
               onLoadedData={() => {
-                console.log('Video data loaded:', videoUrl);
+                console.log('Video data loaded:', currentVideoUrl);
               }}
               onPlay={(e) => {
                 // Hide overlay when playing
@@ -108,7 +159,33 @@ function AdCard({ ad, onDelete, onCancel }: {
                 if (overlay) overlay.style.display = 'flex';
               }}
             />
-            {/* Smart overlay - only shows when paused and doesn't block controls */}
+            
+            {/* Watermark overlay for free users - always visible */}
+            {userPlan === 'FREE' && (
+              <div className="absolute top-4 right-4 bg-black/70 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-medium border border-purple-500/50 pointer-events-none z-10">
+                🎬 Upgrade for Controls
+              </div>
+            )}
+            
+            
+            {/* Upgrade overlay for free users when video is clicked */}
+            {userPlan === 'FREE' && (
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px] rounded-lg flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-300 cursor-pointer z-20"
+                   onClick={() => window.open('/subscription', '_blank')}>
+                <div className="bg-gradient-to-r from-purple-500/90 to-pink-600/90 backdrop-blur-sm text-white rounded-xl p-6 shadow-2xl transform hover:scale-105 transition-transform duration-200 text-center max-w-sm mx-4">
+                  <div className="bg-purple-500/20 rounded-full p-3 mx-auto mb-3 w-12 h-12 flex items-center justify-center">
+                    <svg className="w-6 h-6 text-purple-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <h3 className="font-semibold mb-2">Upgrade for Full Control</h3>
+                  <p className="text-sm text-purple-100 mb-3">Get video controls, downloads & no watermark</p>
+                  <div className="text-xs text-purple-200">Click to view pricing</div>
+                </div>
+              </div>
+            )}
+            
+            {/* Play overlay - shows when paused and doesn't block controls */}
             <div className="video-overlay absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
               <div className="bg-orange-500/90 backdrop-blur-sm text-white rounded-full p-3 shadow-2xl transform group-hover:scale-110 transition-transform duration-200">
                 <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
@@ -143,6 +220,35 @@ function AdCard({ ad, onDelete, onCancel }: {
       {/* Video/Status Display */}
       <div className="mb-4">{renderStatus()}</div>
       
+      {/* Audio Control for Free Users */}
+      {userPlan === 'FREE' && ad.status === 'COMPLETED' && (
+        <div className="mb-4 flex items-center justify-between">
+          <span className="text-sm text-gray-400">Audio Control:</span>
+          <button
+            onClick={toggleMute}
+            className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-3 py-2 rounded-lg transition-colors duration-200 text-sm"
+            title={isMuted ? 'Unmute video' : 'Mute video'}
+          >
+            {isMuted ? (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                </svg>
+                Unmute
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                </svg>
+                Mute
+              </>
+            )}
+          </button>
+        </div>
+      )}
+      
       {/* Ad Info */}
       <div className="space-y-2 mb-4">
         <h3 className="font-semibold text-white truncate" title={ad.brandName || 'Ad'}>
@@ -151,7 +257,11 @@ function AdCard({ ad, onDelete, onCancel }: {
         
         <div className="flex items-center gap-4 text-xs text-gray-400">
           <span>{new Date(ad.createdAt).toLocaleDateString()}</span>
-          {ad.format && <span>{ad.format}</span>}
+          {ad.enableDualFormat && ad.finalVideoUrl4x5 ? (
+            <span className="bg-orange-900/50 text-orange-400 px-2 py-0.5 rounded">9:16 + 4:5</span>
+          ) : ad.format ? (
+            <span>{ad.format}</span>
+          ) : null}
           {ad.duration && <span>{ad.duration}s</span>}
           {ad.language && <span>{ad.language.toUpperCase()}</span>}
         </div>
@@ -187,13 +297,24 @@ function AdCard({ ad, onDelete, onCancel }: {
         {/* Conditional buttons based on status */}
         {ad.status === 'COMPLETED' && ad.finalVideoUrl ? (
           <>
-            <a
-              href={getVideoUrl(ad.finalVideoUrl)}
-              download
-              className="bg-gradient-to-r from-orange-500 to-orange-600 text-white text-center px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm font-medium"
-            >
-              📥 Download
-            </a>
+            {userPlan === 'FREE' ? (
+              <Link
+                href="/subscription"
+                className="bg-gradient-to-r from-purple-500 to-pink-600 text-white text-center px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm font-medium group relative overflow-hidden"
+                title="Upgrade to any paid plan to download your videos. Your existing videos won't count against new credits!"
+              >
+                <span className="relative z-10">🔒 Upgrade to Download</span>
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-700 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
+              </Link>
+            ) : (
+              <a
+                href={getVideoUrl(ad.finalVideoUrl)}
+                download
+                className="bg-gradient-to-r from-orange-500 to-orange-600 text-white text-center px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm font-medium"
+              >
+                📥 Download
+              </a>
+            )}
             <button
               onClick={() => onDelete(ad.id)}
               className="bg-gray-800 text-gray-300 hover:bg-red-600 hover:text-white px-3 py-2 rounded-lg transition-all duration-200 text-sm"
@@ -389,6 +510,39 @@ export default function MyCreations() {
 
         </div>
 
+        {/* Free User Upgrade Banner */}
+        {session?.user?.plan === 'FREE' && stats.completed > 0 && (
+          <div className="bg-gradient-to-r from-purple-900/50 to-pink-900/50 border border-purple-500/50 rounded-xl p-6 mb-8">
+            <div className="flex items-start gap-4">
+              <div className="bg-purple-500/20 rounded-lg p-3 flex-shrink-0">
+                <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-semibold text-white mb-2">Unlock Video Downloads</h3>
+                <p className="text-gray-300 mb-4">
+                  Upgrade to download your completed videos. <strong className="text-purple-400">Your existing {stats.completed} video{stats.completed === 1 ? '' : 's'} won't count against your new credits</strong> - they're yours to keep forever once you upgrade!
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Link
+                    href="/subscription"
+                    className="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-200 text-center"
+                  >
+                    View Pricing Plans
+                  </Link>
+                  <Link
+                    href="/subscription"
+                    className="bg-gray-800 text-gray-300 hover:bg-gray-700 px-6 py-3 rounded-lg font-medium transition-all duration-200 text-center border border-gray-600"
+                  >
+                    Buy Credits Only
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Content */}
         {loading && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -443,7 +597,8 @@ export default function MyCreations() {
                 key={ad.id} 
                 ad={ad} 
                 onDelete={handleDeleteAd} 
-                onCancel={handleCancelAd} 
+                onCancel={handleCancelAd}
+                userPlan={session?.user?.plan || undefined}
               />
             ))}
           </div>

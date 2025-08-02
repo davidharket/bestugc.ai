@@ -53,7 +53,7 @@ export const BuildupCollageScene: React.FC<{
           >
             <div className="rounded-lg overflow-hidden border-4 border-white shadow-2xl w-full h-full">
               {isVideo(src) ? (
-                <Video src={src} className="w-full h-full object-cover" muted loop />
+                <Video src={src} className="w-full h-full object-cover" muted />
               ) : (
                 <Img src={src} className="w-full h-full object-cover" />
               )}

@@ -20,7 +20,7 @@ interface ScenePreviewProps {
 const ScenePreview: React.FC<ScenePreviewProps> = ({ layout, asset, avatarSrc, isActive }) => {
   const handleAssetLoad = (src: string) => {
     // Handle asset loading completion
-    console.log('Asset loaded:', src);
+    // Asset load debug removed for production
   };
 
   const isVideo = (src: string) => {
