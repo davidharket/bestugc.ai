@@ -93,6 +93,8 @@ model Ad {
   backgroundMusicVolume Int?
   enableDualFormat Boolean? @default(false)
   finalVideoUrl4x5 String?
+  lipsyncedAvatarUrl String?     // Original lipsynced avatar from SyncLabs (with background)
+  lipsyncedAvatarNoBgUrl String? // Background-removed version of lipsynced avatar
 }
 
 model Creation {

@@ -99,6 +99,7 @@ function getLanguageName(languageCode?: string): string {
     nn: 'Norwegian',
     da: 'Danish',
     sv: 'Swedish',
+    nl: 'Dutch',
     en: 'English',
   }
   return languageMap[languageCode || 'en'] || 'English'

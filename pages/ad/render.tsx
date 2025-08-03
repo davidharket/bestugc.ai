@@ -164,7 +164,12 @@ export default function RenderAdPage() {
       toast.loading('Starting render job...', { id: toastId });
       await spendCredits(() => axios.post('/api/render/start-job', { adId, templateId: adData.templateId }));
       toast.success('Your video is in the queue!', { id: toastId, duration: 4000 });
-      setTimeout(() => { resetAdData(); router.push('/creations'); }, 2000);
+      
+      // Wait a bit longer for session refresh to complete before navigating
+      setTimeout(() => { 
+        resetAdData(); 
+        router.push('/creations'); 
+      }, 3000);
     } catch (e: any) {
       toast.error(e.response?.data?.message || 'Failed to start render.', { id: toastId });
       setIsRendering(false);

@@ -12,15 +12,28 @@ export const Layout = ({ children }: { children: ReactNode }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [creditsPopupOpen, setCreditsPopupOpen] = useState(false);
 
-  // Listen for global session refresh events
+  // Listen for global session refresh events and route changes
   useEffect(() => {
     const handleSessionRefresh = () => {
       refreshUserData();
     };
 
+    const handleRouteChange = (url: string) => {
+      // Refresh credits when navigating to key pages where credits matter
+      const creditPages = ['/dashboard', '/creations', '/subscription', '/settings'];
+      if (creditPages.some(page => url.includes(page))) {
+        refreshUserData();
+      }
+    };
+
     window.addEventListener('session-refresh', handleSessionRefresh);
-    return () => window.removeEventListener('session-refresh', handleSessionRefresh);
-  }, [refreshUserData]);
+    router.events.on('routeChangeComplete', handleRouteChange);
+    
+    return () => {
+      window.removeEventListener('session-refresh', handleSessionRefresh);
+      router.events.off('routeChangeComplete', handleRouteChange);
+    };
+  }, [refreshUserData, router.events]);
 
   interface UserSession {
     name?: string | null;

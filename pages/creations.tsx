@@ -5,6 +5,7 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
+import { useRefreshableSession } from '../lib/session-refresh'
 
 interface Ad {
   id: string
@@ -21,6 +22,8 @@ interface Ad {
   language?: string
   isWatermarked?: boolean
   enableDualFormat?: boolean
+  lipsyncedAvatarUrl?: string
+  lipsyncedAvatarNoBgUrl?: string
 }
 
 function AdCard({ ad, onDelete, onCancel, userPlan }: { 
@@ -293,69 +296,119 @@ function AdCard({ ad, onDelete, onCancel, userPlan }: {
       </div>
 
       {/* Action Buttons */}
-      <div className="grid grid-cols-2 gap-2">
-        {/* Conditional buttons based on status */}
-        {ad.status === 'COMPLETED' && ad.finalVideoUrl ? (
-          <>
-            {userPlan === 'FREE' ? (
-              <Link
-                href="/subscription"
-                className="bg-gradient-to-r from-purple-500 to-pink-600 text-white text-center px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm font-medium group relative overflow-hidden"
-                title="Upgrade to any paid plan to download your videos. Your existing videos won't count against new credits!"
-              >
-                <span className="relative z-10">🔒 Upgrade to Download</span>
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-700 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
-              </Link>
-            ) : (
-              <a
-                href={getVideoUrl(ad.finalVideoUrl)}
-                download
-                className="bg-gradient-to-r from-orange-500 to-orange-600 text-white text-center px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm font-medium"
-              >
-                📥 Download
-              </a>
-            )}
-            <button
-              onClick={() => onDelete(ad.id)}
-              className="bg-gray-800 text-gray-300 hover:bg-red-600 hover:text-white px-3 py-2 rounded-lg transition-all duration-200 text-sm"
-            >
-              🗑️ Delete
-            </button>
-          </>
-        ) : canCancel ? (
-          <>
-            <button
-              onClick={() => onCancel(ad.id)}
-              className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded-lg transition-all duration-200 text-sm"
-            >
-              ⏹️ Cancel
-            </button>
-            <button
-              onClick={() => onDelete(ad.id)}
-              className="bg-gray-800 text-gray-300 hover:bg-red-600 hover:text-white px-3 py-2 rounded-lg transition-all duration-200 text-sm"
-            >
-              🗑️ Delete
-            </button>
-          </>
-        ) : (
-          <>
-            {/* For failed/other states, show only delete button */}
-            <div></div>
-            <button
-              onClick={() => onDelete(ad.id)}
-              className="bg-gray-800 text-gray-300 hover:bg-red-600 hover:text-white px-3 py-2 rounded-lg transition-all duration-200 text-sm"
-            >
-              🗑️ Delete
-            </button>
-          </>
+      <div className="space-y-3">
+        {/* Avatar Downloads - Show if either version exists */}
+        {ad.status === 'COMPLETED' && (ad.lipsyncedAvatarUrl || ad.lipsyncedAvatarNoBgUrl) && (
+          <div className="space-y-2">
+            <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wider">Avatar Downloads</h4>
+            <div className="grid grid-cols-1 gap-2">
+              {ad.lipsyncedAvatarUrl && (
+                userPlan === 'FREE' ? (
+                  <Link
+                    href="/subscription"
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 text-white text-center px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm font-medium"
+                    title="Upgrade to download avatar with background"
+                  >
+                    🔒 Avatar with Background
+                  </Link>
+                ) : (
+                  <a
+                    href={getVideoUrl(ad.lipsyncedAvatarUrl)}
+                    download
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 text-white text-center px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm font-medium"
+                  >
+                    🎭 Avatar with Background
+                  </a>
+                )
+              )}
+              {ad.lipsyncedAvatarNoBgUrl && (
+                userPlan === 'FREE' ? (
+                  <Link
+                    href="/subscription"
+                    className="bg-gradient-to-r from-green-500 to-green-600 text-white text-center px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm font-medium"
+                    title="Upgrade to download avatar without background"
+                  >
+                    🔒 Avatar No Background
+                  </Link>
+                ) : (
+                  <a
+                    href={getVideoUrl(ad.lipsyncedAvatarNoBgUrl)}
+                    download
+                    className="bg-gradient-to-r from-green-500 to-green-600 text-white text-center px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm font-medium"
+                  >
+                    ✂️ Avatar No Background
+                  </a>
+                )
+              )}
+            </div>
+          </div>
         )}
+        
+        {/* Main Action Buttons */}
+        <div className="grid grid-cols-2 gap-2">
+          {/* Conditional buttons based on status */}
+          {ad.status === 'COMPLETED' && ad.finalVideoUrl ? (
+            <>
+              {userPlan === 'FREE' ? (
+                <Link
+                  href="/subscription"
+                  className="bg-gradient-to-r from-purple-500 to-pink-600 text-white text-center px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm font-medium group relative overflow-hidden"
+                  title="Upgrade to any paid plan to download your videos. Your existing videos won't count against new credits!"
+                >
+                  <span className="relative z-10">🔒 Full Video</span>
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-700 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
+                </Link>
+              ) : (
+                <a
+                  href={getVideoUrl(ad.finalVideoUrl)}
+                  download
+                  className="bg-gradient-to-r from-orange-500 to-orange-600 text-white text-center px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm font-medium"
+                >
+                  📥 Full Video
+                </a>
+              )}
+              <button
+                onClick={() => onDelete(ad.id)}
+                className="bg-gray-800 text-gray-300 hover:bg-red-600 hover:text-white px-3 py-2 rounded-lg transition-all duration-200 text-sm"
+              >
+                🗑️ Delete
+              </button>
+            </>
+          ) : canCancel ? (
+            <>
+              <button
+                onClick={() => onCancel(ad.id)}
+                className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded-lg transition-all duration-200 text-sm"
+              >
+                ⏹️ Cancel
+              </button>
+              <button
+                onClick={() => onDelete(ad.id)}
+                className="bg-gray-800 text-gray-300 hover:bg-red-600 hover:text-white px-3 py-2 rounded-lg transition-all duration-200 text-sm"
+              >
+                🗑️ Delete
+              </button>
+            </>
+          ) : (
+            <>
+              {/* For failed/other states, show only delete button */}
+              <div></div>
+              <button
+                onClick={() => onDelete(ad.id)}
+                className="bg-gray-800 text-gray-300 hover:bg-red-600 hover:text-white px-3 py-2 rounded-lg transition-all duration-200 text-sm"
+              >
+                🗑️ Delete
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   )
 }
 
 export default function MyCreations() {
-  const { data: session, status } = useSession()
+  const { data: session, status, refreshUserData } = useRefreshableSession()
   const router = useRouter()
   const [ads, setAds] = useState<Ad[]>([])
   const [loading, setLoading] = useState(true)

@@ -21,18 +21,41 @@ prisma/dev.db-journal
 /dev.db*
 # Generated Assets - Should not be tracked
 public/uploads/
-public/generated_audio/
 public/renders/
-public/cutouts/
 public/synclabs/
 public/videos/
 public/temp/
 public/videos-fixed/
+logs/
+
+# Generated audio and cutouts - runtime generated
+public/generated_audio/
+public/cutouts/
+
+# Fonts and music - external assets
 public/fonts/
 public/music/
-logs/
+
+# Fixed avatars directory (deprecated)
 public/avatars-fixed/
-public/b-roll/
+
+# Avatar and B-roll directories - exclude all video files but track code
+public/avatars/*.mp4
+public/avatars/*.mov
+public/avatars/*.avi
+public/avatars/*.webm
+public/avatars/*.mkv
+public/b-roll/*.zip
+public/b-roll/*.mp4
+public/b-roll/*.mov
+public/b-roll/*.avi
+public/b-roll/*.webm
+public/b-roll/*.mkv
+b-roll/*.mp4
+b-roll/*.mov
+b-roll/*.avi
+b-roll/*.webm
+b-roll/*.mkv
 # Other
 .DS_Store
 output.txt

@@ -5,9 +5,9 @@ import axios from 'axios'
 import Spinner from '../../components/Spinner'
 
 const formatOptions = [
-  { label: 'Horizontal (16:9)', value: '16:9', disabled: true, comingSoon: true },
-  { label: 'Vertical (9:16)', value: '9:16', disabled: false },
-  { label: 'Square (4:5)', value: '4:5', disabled: false },
+  { label: '16:9', value: '16:9', disabled: true, comingSoon: true },
+  { label: '9:16', value: '9:16', disabled: false },
+  { label: '4:5', value: '4:5', disabled: false },
 ]
 const durationOptions = [15, 30, 60]
 const languageOptions = [
@@ -17,6 +17,43 @@ const languageOptions = [
   { label: 'Dutch', value: 'nl', flag: '🇳🇱' },
   { label: 'English', value: 'en', flag: '🇺🇸' },
 ]
+
+// Custom SVG components for aspect ratios
+const AspectRatioIcon = ({ ratio }: { ratio: string }) => {
+  const commonProps = {
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "2",
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  }
+
+  switch (ratio) {
+    case '16:9':
+      // Horizontal rectangle
+      return (
+        <svg className="w-10 h-6" viewBox="0 0 40 24" {...commonProps}>
+          <rect x="1" y="1" width="38" height="22" rx="5" ry="5"/>
+        </svg>
+      )
+    case '9:16':
+      // Vertical rectangle  
+      return (
+        <svg className="w-6 h-10" viewBox="0 0 24 40" {...commonProps}>
+          <rect x="1" y="1" width="22" height="38" rx="5" ry="5"/>
+        </svg>
+      )
+    case '4:5':
+      // Square-ish rectangle (slightly taller than wide)
+      return (
+        <svg className="w-7 h-8" viewBox="0 0 28 32" {...commonProps}>
+          <rect x="1" y="1" width="26" height="30" rx="5" ry="5"/>
+        </svg>
+      )
+    default:
+      return null
+  }
+}
 
 export default function FormatAd() {
   const router = useRouter()
@@ -104,7 +141,7 @@ export default function FormatAd() {
             {formatOptions.map(opt => (
               <button
                 key={opt.value}
-                className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 flex items-center gap-3 relative ${
+                className={`px-6 py-4 rounded-xl font-medium transition-all duration-200 flex flex-col items-center gap-3 relative min-w-[120px] ${
                   selectedFormats.includes(opt.value) 
                     ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25' 
                     : opt.disabled 
@@ -116,7 +153,7 @@ export default function FormatAd() {
                 disabled={opt.disabled}
               >
                 {/* Checkbox */}
-                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center absolute top-2 right-2 ${
                   selectedFormats.includes(opt.value)
                     ? 'bg-white border-white'
                     : opt.disabled
@@ -130,23 +167,14 @@ export default function FormatAd() {
                   )}
                 </div>
                 
-                {/* Icon */}
-                {opt.value === '16:9' ? (
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v1a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" clipRule="evenodd" />
-                  </svg>
-                ) : opt.value === '4:5' ? (
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2H4zm8 12H4V5h8v10z" clipRule="evenodd" />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-                  </svg>
-                )}
-                {opt.label}
+                {/* Aspect Ratio Icon */}
+                <AspectRatioIcon ratio={opt.value} />
+                
+                {/* Aspect Ratio Label */}
+                <span className="text-sm font-semibold">{opt.label}</span>
+                
                 {opt.comingSoon && (
-                  <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs px-2 py-1 rounded-full">
+                  <span className="absolute -top-2 -left-2 bg-orange-500 text-white text-xs px-2 py-1 rounded-full">
                     Coming Soon
                   </span>
                 )}
