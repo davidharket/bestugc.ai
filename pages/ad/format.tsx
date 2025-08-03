@@ -1,6 +1,7 @@
 import { useRouter } from 'next/router'
 import { useState, useEffect, useCallback } from 'react'
 import { useAdCreation } from '../../components/AdCreationContext'
+import { useSession } from 'next-auth/react'
 import axios from 'axios'
 import Spinner from '../../components/Spinner'
 
@@ -57,6 +58,7 @@ const AspectRatioIcon = ({ ratio }: { ratio: string }) => {
 
 export default function FormatAd() {
   const router = useRouter()
+  const { data: session } = useSession()
   const { adData, setAdData } = useAdCreation()
   const [selectedFormats, setSelectedFormats] = useState<string[]>(
     adData.enableDualFormat && adData.format ? 
@@ -74,14 +76,22 @@ export default function FormatAd() {
   const handleFormatToggle = (formatValue: string) => {
     if (formatValue === '16:9') return // Disabled format
     
+    const userCredits = session?.user?.credits || 0
+    
     setSelectedFormats(prev => {
       if (prev.includes(formatValue)) {
         // Remove format if already selected, but ensure at least one format remains
         const newFormats = prev.filter(f => f !== formatValue)
         return newFormats.length > 0 ? newFormats : prev
       } else {
-        // Add format
-        return [...prev, formatValue]
+        // Check if user has enough credits for multiple formats
+        if (prev.length >= 1 && userCredits < 15) {
+          // If insufficient credits, replace the existing format with the new one
+          return [formatValue]
+        } else {
+          // Add format if user has enough credits
+          return [...prev, formatValue]
+        }
       }
     })
   }
@@ -182,6 +192,45 @@ export default function FormatAd() {
             ))}
           </div>
           
+          {/* Credit Cost Info */}
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 mb-4">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+              </svg>
+              <div className="text-blue-300">
+                <div className="font-medium text-sm mb-1">Credit Cost</div>
+                <div className="text-xs">
+                  {selectedFormats.length === 1 
+                    ? "Single format: 10 credits" 
+                    : `${selectedFormats.length} formats: ${selectedFormats.length === 2 ? 15 : 15 + (selectedFormats.length - 2) * 5} credits`}
+                  {session?.user?.credits !== undefined && session?.user?.credits !== null && (
+                    <span className="ml-2 text-gray-400">
+                      (You have {session.user.credits} credits)
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Insufficient Credits Warning */}
+          {session?.user?.credits !== undefined && session.user.credits !== null && session.user.credits < 15 && selectedFormats.length === 1 && (
+            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 mb-4">
+              <div className="flex items-start gap-3">
+                <svg className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <div className="text-yellow-300">
+                  <div className="font-medium text-sm mb-1">Limited Format Selection</div>
+                  <div className="text-xs">
+                    You need at least 15 credits to generate videos in multiple formats. With {session.user.credits} credits, you can only select one format at a time.
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Multiple Format Warning */}
           {selectedFormats.length > 1 && (
             <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">

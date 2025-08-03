@@ -25,22 +25,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    // Get ad data to check format selection
+    const ad = await prisma.ad.findUnique({
+      where: { id: adId },
+      select: { enableDualFormat: true }
+    });
+
+    if (!ad) {
+      return res.status(404).json({ message: 'Ad not found' });
+    }
+
+    // Calculate credits based on format selection
+    // Single format: 10 credits, 2 formats: 15 credits, 3+ formats: 15 + 5 per additional format
+    const baseCredits = 10;
+    let totalCredits = baseCredits;
+    
+    if (ad.enableDualFormat) {
+      totalCredits = 15; // 2 formats cost 15 credits
+      // Note: Currently only 2 formats are supported (9:16 and 4:5)
+      // Future: if more than 2 formats, add 5 credits per additional format
+    }
+
     // Use a transaction to ensure credit deduction and job creation are atomic
     const result = await prisma.$transaction(async (tx) => {
-      // First, check if user has enough credits and deduct 10 credits for video creation
+      // First, check if user has enough credits and deduct credits for video creation
       const user = await tx.user.findUnique({
         where: { id: session.user!.id },
         select: { credits: true }
       });
 
-      if (!user || user.credits < 10) {
-        throw new Error('Insufficient credits. You need at least 10 credits to create a video.');
+      if (!user || user.credits < totalCredits) {
+        throw new Error(`Insufficient credits. You need at least ${totalCredits} credits to create ${ad.enableDualFormat ? 'videos in multiple formats' : 'a video'}.`);
       }
 
-      // Deduct 10 credits from user's balance
+      // Deduct credits from user's balance
       const updatedUser = await tx.user.update({
         where: { id: session.user!.id },
-        data: { credits: { decrement: 10 } }
+        data: { credits: { decrement: totalCredits } }
       });
 
       // Add a job to the BullMQ queue
@@ -60,7 +81,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { job } = result;
 
-    console.log(`[API] Job ${job.id} added to the render queue for Ad ID: ${adId}. 10 credits deducted from user ${session.user!.id}`);
+    console.log(`[API] Job ${job.id} added to the render queue for Ad ID: ${adId}. ${totalCredits} credits deducted from user ${session.user!.id}`);
 
     return res.status(202).json({
       message: 'Video rendering job accepted.',

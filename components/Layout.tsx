@@ -271,6 +271,19 @@ export const Layout = ({ children }: { children: ReactNode }) => {
                   <span className="text-gray-400 text-sm ml-2">4.9/5 rating</span>
                 </div>
               </div>
+              
+              {/* Product Hunt Badge */}
+              <div className="mt-4">
+                <a href="https://www.producthunt.com/products/bestugc-ai?embed=true&utm_source=badge-featured&utm_medium=badge&utm_source=badge-bestugc&#0045;ai" target="_blank" rel="noopener noreferrer">
+                  <img 
+                    src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1000624&theme=dark&t=1754236098746" 
+                    alt="BestUGC.AI - Cut UGC costs by 95% with AI video generation | Product Hunt" 
+                    style={{width: '250px', height: '54px'}} 
+                    width="250" 
+                    height="54" 
+                  />
+                </a>
+              </div>
             </div>
 
             {/* Product */}
