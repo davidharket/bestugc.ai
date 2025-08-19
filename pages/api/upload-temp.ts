@@ -41,7 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       keepExtensions: true,
       maxFileSize: 50 * 1024 * 1024, // 50MB limit
       multiples: true,
-      filter: ({ mimetype }) => {
+      filter: ({ mimetype }: { mimetype: string | null }) => {
         // Allow images and videos
         return !!(mimetype?.includes('image/') || mimetype?.includes('video/'));
       }

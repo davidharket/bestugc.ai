@@ -23,6 +23,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const bundleLocation = await bundle({
       entryPoint: path.resolve('./remotion/index.ts'),
+      publicDir: path.resolve("./public-minimal"), // Use full public directory to include all assets
+      enableCaching: false, // Disable caching for speed
     });
     
     const composition = await selectComposition({

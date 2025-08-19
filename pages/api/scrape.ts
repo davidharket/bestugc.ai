@@ -1,12 +1,75 @@
 // pages/api/scrape.ts
+
+// Comprehensive polyfill for Node.js compatibility - must be first
+if (typeof global !== 'undefined') {
+  // Polyfill Blob if missing
+  if (typeof global.Blob === 'undefined') {
+    global.Blob = class Blob {
+      constructor(parts: BlobPart[] = [], options: BlobPropertyBag = {}) {
+        this.size = 0;
+        this.type = options.type || '';
+        if (parts) {
+          for (const part of parts) {
+            if (typeof part === 'string') {
+              this.size += Buffer.byteLength(part, 'utf8');
+            } else if (part instanceof Buffer) {
+              this.size += part.length;
+            } else if (part instanceof ArrayBuffer) {
+              this.size += part.byteLength;
+            }
+          }
+        }
+      }
+      size: number;
+      type: string;
+      async text(): Promise<string> { return ''; }
+      async arrayBuffer(): Promise<ArrayBuffer> { return new ArrayBuffer(0); }
+      stream(): any { return {}; }
+      slice(): Blob { return new Blob(); }
+    } as any;
+  }
+
+  // Polyfill File constructor
+  if (typeof global.File === 'undefined') {
+    global.File = class File extends (global.Blob as any) {
+      constructor(fileBits: BlobPart[], fileName: string, options: FilePropertyBag = {}) {
+        super(fileBits, options);
+        this.name = fileName;
+        this.lastModified = options.lastModified || Date.now();
+        this.webkitRelativePath = '';
+      }
+      name: string;
+      lastModified: number;
+      webkitRelativePath: string;
+    } as any;
+  }
+
+  // Polyfill FormData
+  if (typeof global.FormData === 'undefined') {
+    global.FormData = class FormData {
+      private data = new Map<string, any>();
+      append(name: string, value: any): void { this.data.set(name, value); }
+      delete(name: string): void { this.data.delete(name); }
+      get(name: string): any { return this.data.get(name); }
+      getAll(name: string): any[] { return this.data.has(name) ? [this.data.get(name)] : []; }
+      has(name: string): boolean { return this.data.has(name); }
+      set(name: string, value: any): void { this.data.set(name, value); }
+      entries(): IterableIterator<[string, any]> { return this.data.entries(); }
+      keys(): IterableIterator<string> { return this.data.keys(); }
+      values(): IterableIterator<any> { return this.data.values(); }
+      [Symbol.iterator](): IterableIterator<[string, any]> { return this.data.entries(); }
+    } as any;
+  }
+}
+
 import type { NextApiRequest, NextApiResponse } from 'next';
 import axios from 'axios';
-import * as cheerio from 'cheerio';
 import fs from 'fs';
 import path from 'path';
 import { URL } from 'url';
 import crypto from 'crypto';
 import { spawn } from 'child_process';
+import * as cheerio from 'cheerio';
 
 // Helper functions (no changes)
 const reencodeVideo = (inputPath: string, outputPath: string): Promise<void> => {

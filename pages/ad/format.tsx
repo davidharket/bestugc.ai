@@ -9,14 +9,15 @@ const formatOptions = [
   { label: '16:9', value: '16:9', disabled: true, comingSoon: true },
   { label: '9:16', value: '9:16', disabled: false },
   { label: '4:5', value: '4:5', disabled: false },
+  { label: '1:1', value: '1:1', disabled: true, comingSoon: true },
 ]
 const durationOptions = [15, 30, 60]
 const languageOptions = [
-  { label: 'Norwegian', value: 'no', flag: '🇳🇴' },
-  { label: 'Danish', value: 'da', flag: '🇩🇰' },
-  { label: 'Swedish', value: 'sv', flag: '🇸🇪' },
-  { label: 'Dutch', value: 'nl', flag: '🇳🇱' },
-  { label: 'English', value: 'en', flag: '🇺🇸' },
+  { label: 'Norwegian', value: 'no', flag: '/assets/flags-new/no.png' },
+  { label: 'Danish', value: 'da', flag: '/assets/flags-new/dk.png' },
+  { label: 'Swedish', value: 'sv', flag: '/assets/flags-new/se.png' },
+  { label: 'Dutch', value: 'nl', flag: '/assets/flags-new/nl.png' },
+  { label: 'English', value: 'en', flag: '/assets/flags-new/us.png' },
 ]
 
 // Custom SVG components for aspect ratios
@@ -51,6 +52,13 @@ const AspectRatioIcon = ({ ratio }: { ratio: string }) => {
           <rect x="1" y="1" width="26" height="30" rx="5" ry="5"/>
         </svg>
       )
+    case '1:1':
+      // Perfect square
+      return (
+        <svg className="w-8 h-8" viewBox="0 0 32 32" {...commonProps}>
+          <rect x="1" y="1" width="30" height="30" rx="5" ry="5"/>
+        </svg>
+      )
     default:
       return null
   }
@@ -68,6 +76,8 @@ export default function FormatAd() {
   const [duration, setDuration] = useState(adData.duration || 15)
   const [language, setLanguage] = useState(adData.language || 'no')
   const [audience, setAudience] = useState(adData.audience || '')
+  const [userCredits, setUserCredits] = useState<number>(0)
+  const [formatSelectionOrder, setFormatSelectionOrder] = useState<string[]>([adData.format || '9:16'])
 
   const [aiAudienceSuggestions, setAiAudienceSuggestions] = useState<string[]>([])
   const [suggestionsLoading, setSuggestionsLoading] = useState(false)
@@ -76,25 +86,43 @@ export default function FormatAd() {
   const handleFormatToggle = (formatValue: string) => {
     if (formatValue === '16:9') return // Disabled format
     
-    const userCredits = session?.user?.credits || 0
-    
     setSelectedFormats(prev => {
       if (prev.includes(formatValue)) {
         // Remove format if already selected, but ensure at least one format remains
         const newFormats = prev.filter(f => f !== formatValue)
-        return newFormats.length > 0 ? newFormats : prev
+        if (newFormats.length > 0) {
+          setFormatSelectionOrder(current => current.filter(f => newFormats.includes(f)))
+          return newFormats
+        }
+        return prev
       } else {
-        // Check if user has enough credits for multiple formats
-        if (prev.length >= 1 && userCredits < 15) {
-          // If insufficient credits, replace the existing format with the new one
-          return [formatValue]
+        // Check if adding this format would require dual format (15 credits)
+        const wouldBeDualFormat = prev.length >= 1
+        if (wouldBeDualFormat && userCredits < 15) {
+          // Insufficient credits for dual format - replace oldest selected format
+          const oldestFormat = formatSelectionOrder[0]
+          const newFormats = prev.filter(f => f !== oldestFormat).concat(formatValue)
+          setFormatSelectionOrder([formatValue])
+          return newFormats
         } else {
-          // Add format if user has enough credits
+          // Add format
+          setFormatSelectionOrder(current => [...current, formatValue])
           return [...prev, formatValue]
         }
       }
     })
   }
+
+  const fetchUserCredits = useCallback(async () => {
+    if (session?.user?.id) {
+      try {
+        const response = await axios.get('/api/user/credits')
+        setUserCredits(response.data.credits || 0)
+      } catch (error) {
+        console.error('Failed to fetch user credits:', error)
+      }
+    }
+  }, [session?.user?.id])
 
   const fetchAudienceSuggestions = useCallback(async () => {
     if (adData.summary) {
@@ -132,6 +160,13 @@ export default function FormatAd() {
   }, [selectedFormats, duration, language, audience])
 
   useEffect(() => {
+    if (session?.user?.id) {
+      fetchUserCredits()
+    }
+    fetchAudienceSuggestions()
+  }, [session?.user?.id])
+
+  useEffect(() => {
     fetchAudienceSuggestions()
   }, [fetchAudienceSuggestions])
 
@@ -151,31 +186,17 @@ export default function FormatAd() {
             {formatOptions.map(opt => (
               <button
                 key={opt.value}
-                className={`px-6 py-4 rounded-xl font-medium transition-all duration-200 flex flex-col items-center gap-3 relative min-w-[120px] ${
+                className={`px-6 py-4 rounded-xl font-normal transition-all duration-200 flex flex-col items-center gap-3 relative min-w-[120px] ${
                   selectedFormats.includes(opt.value) 
-                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25' 
+                    ? 'bg-gray-900 text-white border border-orange-500' 
                     : opt.disabled 
-                      ? 'bg-gray-800 text-gray-500 border border-gray-700 cursor-not-allowed opacity-50'
-                      : 'bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 hover:border-orange-500/50'
+                      ? 'bg-gray-900 text-gray-500 border border-gray-700 cursor-not-allowed opacity-50'
+                      : 'bg-gray-900 text-gray-300 border border-gray-700 hover:border-orange-500'
                 }`}
                 onClick={() => handleFormatToggle(opt.value)}
                 type="button"
                 disabled={opt.disabled}
               >
-                {/* Checkbox */}
-                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center absolute top-2 right-2 ${
-                  selectedFormats.includes(opt.value)
-                    ? 'bg-white border-white'
-                    : opt.disabled
-                      ? 'border-gray-600'
-                      : 'border-gray-400'
-                }`}>
-                  {selectedFormats.includes(opt.value) && (
-                    <svg className="w-3 h-3 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                </div>
                 
                 {/* Aspect Ratio Icon */}
                 <AspectRatioIcon ratio={opt.value} />
@@ -192,45 +213,6 @@ export default function FormatAd() {
             ))}
           </div>
           
-          {/* Credit Cost Info */}
-          <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 mb-4">
-            <div className="flex items-start gap-3">
-              <svg className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-              </svg>
-              <div className="text-blue-300">
-                <div className="font-medium text-sm mb-1">Credit Cost</div>
-                <div className="text-xs">
-                  {selectedFormats.length === 1 
-                    ? "Single format: 10 credits" 
-                    : `${selectedFormats.length} formats: ${selectedFormats.length === 2 ? 15 : 15 + (selectedFormats.length - 2) * 5} credits`}
-                  {session?.user?.credits !== undefined && session?.user?.credits !== null && (
-                    <span className="ml-2 text-gray-400">
-                      (You have {session.user.credits} credits)
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Insufficient Credits Warning */}
-          {session?.user?.credits !== undefined && session.user.credits !== null && session.user.credits < 15 && selectedFormats.length === 1 && (
-            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 mb-4">
-              <div className="flex items-start gap-3">
-                <svg className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-                <div className="text-yellow-300">
-                  <div className="font-medium text-sm mb-1">Limited Format Selection</div>
-                  <div className="text-xs">
-                    You need at least 15 credits to generate videos in multiple formats. With {session.user.credits} credits, you can only select one format at a time.
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Multiple Format Warning */}
           {selectedFormats.length > 1 && (
             <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
@@ -239,11 +221,31 @@ export default function FormatAd() {
                   <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
                 <div className="text-amber-300">
-                  <div className="font-medium text-sm mb-1">Multiple Format Generation</div>
+                  <div className="font-medium text-sm mb-1">Multiple Format Generation - 15 Credits</div>
                   <div className="text-xs space-y-1">
                     <div>• Rendering will take approximately {selectedFormats.length}x longer (up to {selectedFormats.length * 5} minutes)</div>
                     <div>• Only one TTS audio and lipsync processing will be performed</div>
                     <div>• Both videos will appear in your creations once complete</div>
+                    <div>• <strong>Cost: 15 credits</strong> (vs 10 credits for single format)</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+
+          {/* No Credits Warning */}
+          {userCredits < 10 && (
+            <div className="bg-red-600/20 border border-red-600/40 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <svg className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <div className="text-red-300">
+                  <div className="font-medium text-sm mb-1">Insufficient Credits</div>
+                  <div className="text-xs space-y-1">
+                    <div>• You have {userCredits} credits, but need at least 10 credits to create a video</div>
+                    <div>• Please purchase more credits to continue</div>
                   </div>
                 </div>
               </div>
@@ -258,10 +260,10 @@ export default function FormatAd() {
             {durationOptions.map(opt => (
               <button
                 key={opt}
-                className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
+                className={`px-6 py-3 rounded-xl font-normal transition-all duration-200 ${
                   duration === opt 
-                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25' 
-                    : 'bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 hover:border-orange-500/50'
+                    ? 'bg-gray-900 text-white border border-orange-500' 
+                    : 'bg-gray-900 text-gray-300 border border-gray-700 hover:border-orange-500'
                 }`}
                 onClick={() => setDuration(opt)}
                 type="button"
@@ -279,15 +281,15 @@ export default function FormatAd() {
             {languageOptions.map(opt => (
               <button
                 key={opt.value}
-                className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 flex items-center gap-2 ${
+                className={`px-6 py-3 rounded-xl font-normal transition-all duration-200 flex items-center gap-2 ${
                   language === opt.value 
-                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25' 
-                    : 'bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 hover:border-orange-500/50'
+                    ? 'bg-gray-900 text-white border border-orange-500' 
+                    : 'bg-gray-900 text-gray-300 border border-gray-700 hover:border-orange-500'
                 }`}
                 onClick={() => setLanguage(opt.value)}
                 type="button"
               >
-                <span className="text-lg">{opt.flag}</span>
+                <img src={opt.flag} alt={`${opt.label} flag`} className="w-5 h-4 object-cover rounded-sm" />
                 {opt.label}
               </button>
             ))}
@@ -344,7 +346,8 @@ export default function FormatAd() {
                 {aiAudienceSuggestions.map((suggestion, i) => (
                   <button
                     key={i}
-                    className="px-3 py-2 text-sm bg-gray-800 border border-gray-600 rounded-lg text-gray-300 hover:bg-gray-700 hover:border-orange-500/50 hover:text-orange-400 transition-all duration-200"
+                    className="px-3 py-2 text-sm border border-gray-600 rounded-[10px] text-gray-300 hover:border-orange-500 transition-colors duration-200"
+                    style={{ backgroundColor: '#111827' }}
                     type="button"
                     onClick={() => setAudience(suggestion)}
                   >
@@ -376,9 +379,9 @@ export default function FormatAd() {
             Back to Asset Selection
           </button>
           <button 
-            className={`btn-primary ${!audience.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`btn-primary ${!audience.trim() || userCredits < 10 ? 'opacity-50 cursor-not-allowed' : ''}`}
             onClick={() => router.push('/ad/script')}
-            disabled={!audience.trim()}
+            disabled={!audience.trim() || userCredits < 10}
           >
             Continue to Script Generation
             <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -12,30 +12,24 @@ interface PricingTierProps {
   ctaText: string;
   isPopular?: boolean;
   credits: number;
-  color: string;
   onClick: () => void;
 }
 
-const PricingTier = ({ title, price, originalPrice, description, features, ctaText, isPopular, credits, color, onClick }: PricingTierProps) => (
-  <div className={`relative border-2 rounded-2xl p-8 transition-all duration-300 hover:scale-105 ${
+const PricingTier = ({ title, price, originalPrice, description, features, ctaText, isPopular, credits, onClick }: PricingTierProps) => (
+  <div className={`relative border-2 rounded-[20px] p-8 transition-all duration-300 hover:scale-105 ${
     isPopular 
-      ? 'border-orange-500 bg-gradient-to-b from-orange-500/10 to-orange-600/5 shadow-lg shadow-orange-500/25' 
-      : 'border-gray-800 bg-gray-900 hover:border-orange-500/50'
-  }`}>
+      ? 'border-gray-700 shadow-lg shadow-orange-500/25' 
+      : 'border-gray-700 hover:border-orange-500/50'
+  }`} style={{ backgroundColor: isPopular ? 'rgba(232, 90, 18, 0.05)' : '#111827' }}>
     {isPopular && (
       <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-        <span className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg">
+        <span className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-2 rounded-full text-sm font-semibold shadow-lg">
           Most Popular
         </span>
       </div>
     )}
     
     <div className="text-center">
-      <div className={`w-16 h-16 bg-gradient-to-r ${color} rounded-2xl flex items-center justify-center mx-auto mb-4`}>
-        <span className="text-white text-2xl">
-          {title === 'Basic' ? '🚀' : title === 'Pro' ? '⭐' : '👑'}
-        </span>
-      </div>
       
       <h3 className="text-2xl font-bold text-white mb-2">{title}</h3>
       <p className="text-gray-400 mb-6">{description}</p>
@@ -45,10 +39,10 @@ const PricingTier = ({ title, price, originalPrice, description, features, ctaTe
           <div className="text-gray-500 line-through text-lg mb-1">{originalPrice}</div>
         )}
         <div className="flex items-baseline justify-center gap-1">
-          <span className="text-4xl font-extrabold text-white">{price}</span>
+          <span className="text-4xl font-bold text-white">{price}</span>
           <span className="text-gray-400 text-lg">/mo</span>
         </div>
-        <div className={`inline-flex items-center px-3 py-1 rounded-full bg-gradient-to-r ${color} text-white text-sm font-medium mt-3`}>
+        <div className="inline-flex items-center px-3 py-1 rounded-full text-white text-sm font-medium mt-3" style={{ backgroundColor: isPopular ? '#e85a12' : '#374151' }}>
           {credits} Credits Included
         </div>
       </div>
@@ -57,8 +51,8 @@ const PricingTier = ({ title, price, originalPrice, description, features, ctaTe
     <ul className="space-y-4 mb-8">
       {features.map((feature, index) => (
         <li key={index} className="flex items-start gap-3">
-          <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
-            <span className="text-white text-xs">✓</span>
+          <div className="w-5 h-5 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <img src="/success.svg" alt="Included" className="w-4 h-4" />
           </div>
           <span className="text-gray-300">{feature}</span>
         </li>
@@ -67,11 +61,11 @@ const PricingTier = ({ title, price, originalPrice, description, features, ctaTe
     
     <button 
       onClick={onClick}
-      className={`w-full py-4 px-6 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 ${
+      className={`w-full py-4 px-6 rounded-[20px] text-lg transition-all duration-300 transform hover:scale-105 ${
         isPopular 
-          ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg hover:shadow-xl' 
-          : 'bg-gray-800 text-white hover:bg-gray-700 border-2 border-gray-700 hover:border-orange-500'
-      }`}>
+          ? 'btn-primary' 
+          : 'btn-secondary'
+      }`} style={{ fontWeight: '400' }}>
         {ctaText}
       </button>
   </div>
@@ -107,7 +101,6 @@ const faqData = [
 export default function PricingPage() {
   const { data: session } = useSession();
   const router = useRouter();
-  const [selectedTab, setSelectedTab] = useState<'monthly' | 'yearly'>('monthly');
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const handlePlanClick = (planTitle: string) => {
@@ -133,8 +126,7 @@ export default function PricingPage() {
         'Commercial License'
       ],
       ctaText: 'Start Basic Plan',
-      credits: 100,
-      color: 'from-blue-500 to-blue-600'
+      credits: 100
     },
     {
       title: 'Pro',
@@ -152,8 +144,7 @@ export default function PricingPage() {
       ],
       ctaText: 'Choose Pro Plan',
       isPopular: true,
-      credits: 250,
-      color: 'from-orange-500 to-orange-600'
+      credits: 250
     },
     {
       title: 'Premium',
@@ -170,31 +161,24 @@ export default function PricingPage() {
         'Custom Integrations'
       ],
       ctaText: 'Choose Premium',
-      credits: 400,
-      color: 'from-purple-500 to-purple-600'
+      credits: 400
     },
   ];
 
-  const yearlyTiers = monthlyTiers.map(tier => ({
-    ...tier,
-    price: `${Math.floor(parseInt(tier.price.replace('kr', '')) * 10)}kr`,
-    originalPrice: `${parseInt(tier.price.replace('kr', '')) * 12}kr`
-  }));
-
-  const currentTiers = selectedTab === 'monthly' ? monthlyTiers : yearlyTiers;
+  const currentTiers = monthlyTiers;
 
   return (
     <div className="bg-black text-white">
         {/* Hero Section */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
           <div className="text-center">
-            <div className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-orange-500/20 to-orange-600/20 border border-orange-500/30 mb-8">
-              <span className="text-orange-400 text-sm font-medium">💎 Simple, Transparent Pricing</span>
+            <div className="inline-flex items-center px-6 py-3 rounded-[20px] mb-8" style={{ backgroundColor: '#111827' }}>
+              <span className="text-orange-400 text-sm font-normal">Simple, Transparent Pricing</span>
             </div>
             
-            <h1 className="text-5xl font-extrabold text-white mb-6 leading-tight">
+            <h1 className="text-5xl font-bold text-white mb-6 leading-tight">
               Choose the Perfect Plan for{' '}
-              <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
+              <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>
                 Your Business
               </span>
             </h1>
@@ -204,30 +188,6 @@ export default function PricingPage() {
               No hidden fees, no long-term contracts, cancel anytime.
             </p>
 
-            {/* Billing Toggle */}
-            <div className="inline-flex items-center bg-gray-900 rounded-xl p-1 border border-gray-800 mb-12">
-              <button
-                onClick={() => setSelectedTab('monthly')}
-                className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
-                  selectedTab === 'monthly'
-                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                Monthly
-              </button>
-              <button
-                onClick={() => setSelectedTab('yearly')}
-                className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
-                  selectedTab === 'yearly'
-                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-              >
-                <span>Yearly</span>
-                <span className="ml-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">2 months free</span>
-              </button>
-            </div>
           </div>
 
           {/* Pricing Tiers */}
@@ -243,8 +203,8 @@ export default function PricingPage() {
 
           {/* Money Back Guarantee */}
           <div className="text-center mt-12">
-            <div className="inline-flex items-center gap-2 bg-gray-900 border border-gray-800 rounded-full px-6 py-3">
-              <span className="text-green-400 text-lg">🛡️</span>
+            <div className="inline-flex items-center gap-2 rounded-[20px] border border-gray-700 px-6 py-3" style={{ backgroundColor: '#111827' }}>
+              <img src="/shield.svg" alt="" className="w-5 h-5" />
               <span className="text-gray-300">14-day money-back guarantee</span>
             </div>
           </div>
@@ -254,9 +214,9 @@ export default function PricingPage() {
         <section className="bg-gray-900 py-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-white mb-4">
+              <h2 className="text-3xl font-semibold text-white mb-4">
                 Compare All{' '}
-                <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
+                <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>
                   Features
                 </span>
               </h2>
@@ -278,10 +238,10 @@ export default function PricingPage() {
                     ['Monthly Credits', '100', '250', '400'],
                     ['Video Quality', 'HD (1080p)', '4K', '4K'],
                     ['Avatar Library', 'Standard', 'Premium', 'All + Custom'],
-                    ['Custom Branding', '❌', '✅', '✅'],
-                    ['API Access', '❌', 'Beta', 'Full'],
+                    ['Custom Branding', <img key="basic-branding" src="/fail.svg" alt="Not included" className="w-4 h-4 mx-auto" />, <img key="pro-branding" src="/success.svg" alt="Included" className="w-4 h-4 mx-auto" />, <img key="premium-branding" src="/success.svg" alt="Included" className="w-4 h-4 mx-auto" />],
+                    ['API Access', <img key="basic-api" src="/fail.svg" alt="Not included" className="w-4 h-4 mx-auto" />, 'Beta', 'Full'],
                     ['Support', 'Email', 'Priority', '24/7 Dedicated'],
-                    ['White-label', '❌', '❌', '✅']
+                    ['White-label', <img key="basic-white" src="/fail.svg" alt="Not included" className="w-4 h-4 mx-auto" />, <img key="pro-white" src="/fail.svg" alt="Not included" className="w-4 h-4 mx-auto" />, <img key="premium-white" src="/success.svg" alt="Included" className="w-4 h-4 mx-auto" />]
                   ].map((row, index) => (
                     <tr key={index} className="border-b border-gray-800">
                       <td className="py-4 font-medium">{row[0]}</td>
@@ -300,9 +260,9 @@ export default function PricingPage() {
         <section className="bg-black py-20">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-white mb-4">
+              <h2 className="text-3xl font-semibold text-white mb-4">
                 Frequently Asked{' '}
-                <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
+                <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>
                   Questions
                 </span>
               </h2>
@@ -311,21 +271,21 @@ export default function PricingPage() {
 
             <div className="space-y-4">
               {faqData.map((faq, index) => (
-                <div key={index} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-                  <button
-                    className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-800 transition-colors"
+                <div key={index} className="rounded-[20px] border border-gray-700 overflow-hidden" style={{ backgroundColor: '#111827' }}>
+                  <button 
                     onClick={() => setOpenFaq(openFaq === index ? null : index)}
+                    className="w-full px-6 py-5 text-left flex items-center justify-between hover:bg-gray-700 transition-all duration-300 rounded-[20px]"
                   >
-                    <span className="text-white font-medium">{faq.question}</span>
-                    <span className={`text-orange-400 transform transition-transform ${openFaq === index ? 'rotate-180' : ''}`}>
-                      ▼
+                    <span className="text-white font-normal">{faq.question}</span>
+                    <span className={`text-lg transform transition-transform duration-300 ${openFaq === index ? 'rotate-45' : ''}`} style={{ color: '#e85a12' }}>
+                      +
                     </span>
                   </button>
-                  {openFaq === index && (
-                    <div className="px-6 pb-4">
+                  <div className={`overflow-hidden transition-all duration-300 ease-in-out ${openFaq === index ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'}`}>
+                    <div className="px-6 py-6">
                       <p className="text-gray-300 leading-relaxed">{faq.answer}</p>
                     </div>
-                  )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -333,12 +293,12 @@ export default function PricingPage() {
         </section>
 
         {/* CTA Section */}
-        <section className="bg-gradient-to-r from-orange-500 to-orange-600 py-20">
+        <section className="bg-black py-20">
           <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
-            <h2 className="text-4xl font-extrabold text-white mb-6">
+            <h2 className="text-4xl font-semibold text-white mb-6">
               Ready to Start Creating?
             </h2>
-            <p className="text-xl text-orange-100 mb-8 leading-relaxed">
+            <p className="text-xl text-gray-300 mb-8 leading-relaxed">
               Join smart businesses maximizing their ad spend ROI with AI-optimized video ads for social media. 
               Start with 20 free credits—no credit card required.
             </p>
@@ -346,12 +306,12 @@ export default function PricingPage() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <a
                 href="/dashboard"
-                className="px-8 py-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-900 transform hover:scale-105 transition-all duration-300 shadow-xl"
+                className="btn-secondary"
               >
                 Start Free Trial
               </a>
-              <div className="text-orange-100 text-sm">
-                ✨ 20 free credits • No credit card • 2 minutes setup
+              <div className="text-gray-300 text-sm">
+                20 free credits • No credit card • 2 minutes setup
               </div>
             </div>
           </div>

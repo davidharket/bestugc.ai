@@ -34,10 +34,12 @@ export interface AdCreationData {
   templateId?: string;
   syncLabsJobId?: string; // It's good practice to add any potential fields
   subtitleStyle?: string;
-  subtitleAnimation?: 'fade' | 'slide' | 'typewriter' | 'bounce';
+  subtitleAnimation?: 'fade' | 'slide' | 'typewriter' | 'bounce' | 'none';
   subtitlePosition?: 'bottom' | 'top' | 'center';
   enableSubtitles?: boolean;
   useCapsLock?: boolean;
+  oneWordAtATime?: boolean;
+  fontSize?: number;
   audioUrl?: string;
   audioDuration?: number;
   wordTimings?: Array<{ word: string; startTime: number; endTime: number; }>;
@@ -46,6 +48,18 @@ export interface AdCreationData {
   // Dual format support
   enableDualFormat?: boolean;
   currentPreviewFormat?: '9:16' | '4:5';
+  // Advanced font customization
+  fontWeight?: number;
+  outlineWidth?: number;
+  outlineColor?: string;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
+  shadowBlur?: number;
+  shadowColor?: string;
+  enableShadow?: boolean;
+  letterSpacing?: number;
+  textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+  textColor?: string;
 }
 
 interface AdCreationContextType {
@@ -76,18 +90,21 @@ export function AdCreationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setAdData = useCallback((data: Partial<AdCreationData>) => {
-    const newAdData = { ...adData, ...data };
-    setAdDataState(newAdData);
-    
-    // Every time data changes, save the full draft to local storage.
-    if (isClient) {
-      try {
-        window.localStorage.setItem(AD_DRAFT_STORAGE_KEY, JSON.stringify(newAdData));
-      } catch (error) {
-        console.error("Failed to save ad draft to local storage", error);
+    setAdDataState(prevAdData => {
+      const newAdData = { ...prevAdData, ...data };
+      
+      // Save to local storage whenever data changes
+      if (isClient) {
+        try {
+          window.localStorage.setItem(AD_DRAFT_STORAGE_KEY, JSON.stringify(newAdData));
+        } catch (error) {
+          console.error("Failed to save ad draft to local storage", error);
+        }
       }
-    }
-  }, [adData, isClient]);
+      
+      return newAdData;
+    });
+  }, [isClient]);
 
   const resetAdData = useCallback(() => {
     setAdDataState({});

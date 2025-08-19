@@ -40,6 +40,10 @@ export default function CreateAd() {
   const [orderedBRoll, setOrderedBRoll] = useState<OrderedAsset[]>(adData.orderedBRoll || [])
   const [uploadedImages, setUploadedImages] = useState<string[]>([])
   const [uploadedVideos, setUploadedVideos] = useState<string[]>([])
+  const [uploadingVideos, setUploadingVideos] = useState<string[]>([])
+  const [uploadingImages, setUploadingImages] = useState<string[]>([])
+  const [videoUploadProgress, setVideoUploadProgress] = useState<{[key: string]: number}>({})
+  const [imageUploadProgress, setImageUploadProgress] = useState<{[key: string]: number}>({})
   const imageInputRef = useRef<HTMLInputElement>(null)
   const videoInputRef = useRef<HTMLInputElement>(null)
 
@@ -118,10 +122,15 @@ export default function CreateAd() {
       setBrandName('')
       // Reset initialization flag for new scrape
       setAssetsInitialized(false)
-      setProgressStep('Analyzing product page...')
+      setProgressStep('Analyzing product page')
       try {
         const res = await axios.post('/api/scrape', { url: productUrl })
-        setProgressStep('Extracting product information...')
+        setProgressStep('Extracting product information')
+        
+        // Small delay to show extraction step
+        await new Promise(resolve => setTimeout(resolve, 500));
+        setProgressStep('Extract images and videos')
+        
         setScrapeResult(res.data)
         
         // Auto-fill brand name with AI-generated product name
@@ -151,8 +160,11 @@ export default function CreateAd() {
         setOrderedImages(newOrderedImages);
         setOrderedVideos(newOrderedVideos);
         
+        // Delay for media extraction to show progress
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
         // Fetch B-roll suggestions based on the scraped content
-        setProgressStep('Finding relevant B-roll videos with AI...')
+        setProgressStep('Finding relevant B-roll')
         try {
           const brollRes = await axios.post('/api/b-roll/suggest', {
             productDescription: res.data.text,
@@ -192,12 +204,14 @@ export default function CreateAd() {
       if (scrapeResult && scrapeResult.text && !error) {
         setSummaryLoading(true)
         setSummaryError(null)
-        setProgressStep('Generating AI summary...')
+        setProgressStep('Generating summary')
         try {
           const res = await axios.post('/api/summarize', { text: scrapeResult.text })
           setSummary(res.data.summary)
           setAdData({ summary: res.data.summary, productUrl: productUrl || undefined })
-          setProgressStep('Finalizing setup...')
+          
+          // Keep showing generating for a moment before completing
+          await new Promise(resolve => setTimeout(resolve, 1000));
         } catch (err: any) {
           setSummaryError(err.response?.data?.error || 'Failed to summarize product')
           setSummary('')
@@ -501,12 +515,25 @@ export default function CreateAd() {
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (files) {
+      const fileList = Array.from(files)
+      const tempImageKeys: string[] = []
+      
       try {
         const allUrls: string[] = []
         
         // Upload files one by one to avoid size limits
-        for (const file of Array.from(files)) {
+        for (const file of fileList) {
+          const tempKey = `temp-${file.name}-${Date.now()}`
+          
+          // Add image to uploading state
+          tempImageKeys.push(tempKey)
+          setUploadingImages(prev => [...prev, tempKey])
+          setImageUploadProgress(prev => ({ ...prev, [tempKey]: 0 }))
+          
           let fileToUpload = file
+          
+          // Update progress during compression
+          setImageUploadProgress(prev => ({ ...prev, [tempKey]: 20 }))
           
           // Aggressively compress images
           if (file.type.startsWith('image/')) {
@@ -526,13 +553,29 @@ export default function CreateAd() {
             }
           }
           
+          // Update progress after compression
+          setImageUploadProgress(prev => ({ ...prev, [tempKey]: 40 }))
+          
           const formData = new FormData()
           formData.append('files', fileToUpload, file.name)
+          
+          // Simulate upload progress
+          const progressInterval = setInterval(() => {
+            setImageUploadProgress(prev => {
+              const current = prev[tempKey] || 40
+              if (current < 90) {
+                return { ...prev, [tempKey]: current + Math.random() * 15 }
+              }
+              return prev
+            })
+          }, 150)
           
           const response = await fetch('/api/upload-temp', {
             method: 'POST',
             body: formData
           })
+          
+          clearInterval(progressInterval)
           
           if (!response.ok) {
             throw new Error(`Failed to upload ${file.name}`)
@@ -540,6 +583,19 @@ export default function CreateAd() {
           
           const result = await response.json()
           allUrls.push(...result.files.map((f: any) => f.url))
+          
+          // Complete the progress
+          setImageUploadProgress(prev => ({ ...prev, [tempKey]: 100 }))
+          
+          // Small delay to show completion
+          await new Promise(resolve => setTimeout(resolve, 300))
+          
+          // Remove from uploading state
+          setUploadingImages(prev => prev.filter(key => key !== tempKey))
+          setImageUploadProgress(prev => {
+            const { [tempKey]: _, ...rest } = prev
+            return rest
+          })
         }
         
         setUploadedImages(prev => Array.from(new Set([...prev, ...allUrls])))
@@ -555,18 +611,31 @@ export default function CreateAd() {
       } catch (error) {
         console.error('Error uploading images:', error)
         alert('Failed to upload images. Please try again.')
+        
+        // Clean up any remaining uploading states
+        tempImageKeys.forEach(tempKey => {
+          setUploadingImages(prev => prev.filter(key => key !== tempKey))
+          setImageUploadProgress(prev => {
+            const { [tempKey]: _, ...rest } = prev
+            return rest
+          })
+        })
       }
     }
   }
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (files) {
+      const fileList = Array.from(files)
+      const tempVideoKeys: string[] = []
+      
       try {
         const allUrls: string[] = []
         
         // Upload videos one by one and check size
-        for (const file of Array.from(files)) {
+        for (const file of fileList) {
           const fileSizeMB = file.size / (1024 * 1024)
+          const tempKey = `temp-${file.name}-${Date.now()}`
           
           // Reject videos larger than 50MB
           if (fileSizeMB > 50) {
@@ -574,20 +643,52 @@ export default function CreateAd() {
             continue
           }
           
+          // Add video to uploading state with temporary key
+          tempVideoKeys.push(tempKey)
+          setUploadingVideos(prev => [...prev, tempKey])
+          setVideoUploadProgress(prev => ({ ...prev, [tempKey]: 0 }))
+          
           const formData = new FormData()
           formData.append('files', file)
+          
+          // Simulate upload progress
+          const progressInterval = setInterval(() => {
+            setVideoUploadProgress(prev => {
+              const current = prev[tempKey] || 0
+              if (current < 90) {
+                return { ...prev, [tempKey]: current + Math.random() * 20 }
+              }
+              return prev
+            })
+          }, 200)
           
           const response = await fetch('/api/upload-temp', {
             method: 'POST',
             body: formData
           })
           
+          clearInterval(progressInterval)
+          
           if (!response.ok) {
             throw new Error(`Failed to upload ${file.name}`)
           }
           
           const result = await response.json()
-          allUrls.push(...result.files.map((f: any) => f.url))
+          const uploadedUrls = result.files.map((f: any) => f.url)
+          allUrls.push(...uploadedUrls)
+          
+          // Complete the progress
+          setVideoUploadProgress(prev => ({ ...prev, [tempKey]: 100 }))
+          
+          // Small delay to show completion
+          await new Promise(resolve => setTimeout(resolve, 500))
+          
+          // Remove from uploading state
+          setUploadingVideos(prev => prev.filter(key => key !== tempKey))
+          setVideoUploadProgress(prev => {
+            const { [tempKey]: _, ...rest } = prev
+            return rest
+          })
         }
         
         setUploadedVideos(prev => Array.from(new Set([...prev, ...allUrls])))
@@ -603,6 +704,15 @@ export default function CreateAd() {
       } catch (error) {
         console.error('Error uploading videos:', error)
         alert('Failed to upload videos. Please try again.')
+        
+        // Clean up any remaining uploading states
+        tempVideoKeys.forEach(tempKey => {
+          setUploadingVideos(prev => prev.filter(key => key !== tempKey))
+          setVideoUploadProgress(prev => {
+            const { [tempKey]: _, ...rest } = prev
+            return rest
+          })
+        })
       }
     }
   }
@@ -626,109 +736,100 @@ export default function CreateAd() {
   }, [showPromo, originalPrice, promoPrice])
 
   // Loading Screen Component
-  const LoadingScreen = () => (
-    <div className="min-h-screen bg-black text-white flex items-center justify-center">
-      <div className="max-w-md mx-auto px-4 text-center">
-        <div className="mb-8">
-          <div className="relative w-20 h-20 mx-auto mb-6">
-            <div className="absolute inset-0 border-4 border-gray-700 rounded-full"></div>
-            <div className="absolute inset-0 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+  const LoadingScreen = () => {
+    const [currentStepIndex, setCurrentStepIndex] = useState(0);
+    const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
+    
+    // Define the steps in order - mapped to actual operations
+    const steps = [
+      { key: 'analyzing', label: 'Analyzing product page', triggers: ['Analyzing'] },
+      { key: 'extracting', label: 'Extracting product information', triggers: ['Extracting'] },
+      { key: 'downloading', label: 'Extract images and videos', triggers: ['Extract'] }, // This is the media downloading step
+      { key: 'finding', label: 'Finding relevant B-roll', triggers: ['Finding'] },
+      { key: 'generating', label: 'Generating summary', triggers: ['Generating', 'Finalizing'] }
+    ];
+
+    // Handle step progression
+    useEffect(() => {
+      if (!progressStep) return;
+
+      // Find which step should be active based on progressStep
+      let targetStepIndex = -1;
+      for (let i = 0; i < steps.length; i++) {
+        if (steps[i].triggers.some(trigger => progressStep.includes(trigger))) {
+          targetStepIndex = i;
+          break;
+        }
+      }
+
+      if (targetStepIndex >= 0) {
+        // Complete previous steps immediately
+        if (targetStepIndex > currentStepIndex) {
+          const newCompleted = new Set(completedSteps);
+          for (let i = 0; i < targetStepIndex; i++) {
+            newCompleted.add(i);
+          }
+          setCompletedSteps(newCompleted);
+        }
+        setCurrentStepIndex(targetStepIndex);
+      }
+    }, [progressStep, currentStepIndex, completedSteps, steps]);
+
+    // When processing is complete, mark final step as completed
+    useEffect(() => {
+      if (!loading && !summaryLoading && progressStep === '') {
+        const newCompleted = new Set(completedSteps);
+        newCompleted.add(currentStepIndex);
+        setCompletedSteps(newCompleted);
+      }
+    }, [loading, summaryLoading, progressStep, currentStepIndex, completedSteps]);
+
+    const getStepStatus = (stepIndex: number) => {
+      if (completedSteps.has(stepIndex)) return 'completed';
+      if (stepIndex === currentStepIndex && progressStep) return 'active';
+      return 'pending';
+    };
+
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="max-w-2xl mx-auto px-4 text-center w-full">
+          
+          <div className="space-y-6">
+            {steps.map((step, index) => {
+              const status = getStepStatus(index);
+              
+              return (
+                <div key={step.key} className="flex items-center justify-between p-6 bg-gray-900 rounded-[20px] border border-gray-700 w-full">
+                  <span className="text-white font-normal">{step.label}</span>
+                  <div className="flex items-center">
+                    {status === 'active' ? (
+                      <div className="relative w-6 h-6">
+                        <div className="absolute inset-0 border-2 border-gray-900 rounded-full"></div>
+                        <div className="absolute inset-0 border-2 border-orange-500 border-t-gray-900 rounded-full animate-spin"></div>
+                      </div>
+                    ) : status === 'completed' ? (
+                      <img src="/success.svg" alt="Success" className="w-6 h-6 filter brightness-0 saturate-100" style={{filter: 'invert(48%) sepia(79%) saturate(2476%) hue-rotate(86deg) brightness(118%) contrast(119%)'}} />
+                    ) : (
+                      <div className="w-6 h-6 border-2 border-gray-600 rounded-full"></div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
           
-          <h2 className="text-2xl font-bold text-white mb-2">Processing Your Product</h2>
-          <p className="text-gray-400 mb-6">Please wait while we analyze your product page...</p>
+          {productUrl && (
+            <div className="mt-8 p-4 bg-gray-900 rounded-[20px] border border-gray-700">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-400">Processing:</span>
+                <span className="font-mono text-orange-400 break-all text-xs">{productUrl}</span>
+              </div>
+            </div>
+          )}
         </div>
-        
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-3 bg-gray-900 rounded-lg border border-gray-800">
-            <span className="text-sm text-gray-300">Analyzing product page</span>
-            <div className="flex items-center">
-              {progressStep.includes('Analyzing') ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-orange-500"></div>
-              ) : progressStep && !progressStep.includes('Analyzing') ? (
-                <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-              ) : (
-                <div className="w-4 h-4 border border-gray-600 rounded-full"></div>
-              )}
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-between p-3 bg-gray-900 rounded-lg border border-gray-800">
-            <span className="text-sm text-gray-300">Extracting product information</span>
-            <div className="flex items-center">
-              {progressStep.includes('Extracting') ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-orange-500"></div>
-              ) : progressStep && (!progressStep.includes('Analyzing') && !progressStep.includes('Extracting')) ? (
-                <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-              ) : (
-                <div className="w-4 h-4 border border-gray-600 rounded-full"></div>
-              )}
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-between p-3 bg-gray-900 rounded-lg border border-gray-800">
-            <span className="text-sm text-gray-300">Finding relevant B-roll videos with AI</span>
-            <div className="flex items-center">
-              {progressStep.includes('Finding') ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-orange-500"></div>
-              ) : progressStep && (!progressStep.includes('Analyzing') && !progressStep.includes('Extracting') && !progressStep.includes('Finding')) ? (
-                <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-              ) : (
-                <div className="w-4 h-4 border border-gray-600 rounded-full"></div>
-              )}
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-between p-3 bg-gray-900 rounded-lg border border-gray-800">
-            <span className="text-sm text-gray-300">Generating AI summary</span>
-            <div className="flex items-center">
-              {progressStep.includes('Generating') ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-orange-500"></div>
-              ) : progressStep && (progressStep.includes('Finalizing')) ? (
-                <svg className="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-              ) : (
-                <div className="w-4 h-4 border border-gray-600 rounded-full"></div>
-              )}
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-between p-3 bg-gray-900 rounded-lg border border-gray-800">
-            <span className="text-sm text-gray-300">Finalizing setup</span>
-            <div className="flex items-center">
-              {progressStep.includes('Finalizing') ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-orange-500"></div>
-              ) : (
-                <div className="w-4 h-4 border border-gray-600 rounded-full"></div>
-              )}
-            </div>
-          </div>
-        </div>
-        
-        <div className="mt-8">
-          <p className="text-gray-500 text-sm">
-            This usually takes 10-30 seconds depending on the complexity of the product page. If your page has large assets like videos, the wait will be a bit longer.
-          </p>
-        </div>
-        
-        {productUrl && (
-          <div className="mt-6 p-3 bg-gray-900 rounded-lg border border-gray-800">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-gray-400">Processing:</span>
-              <span className="font-mono text-orange-400 break-all text-xs">{productUrl}</span>
-            </div>
-          </div>
-        )}
       </div>
-    </div>
-  )
+    );
+  }
 
   // Show loading screen during scraping process
   const isProcessing = (loading || summaryLoading) && productUrl && !error
@@ -742,75 +843,16 @@ export default function CreateAd() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Create Ad - Step 1</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">Describe your video</h1>
           <p className="text-gray-400">Set up your product information and assets</p>
         </div>
 
-        {/* Product URL Status */}
-        {productUrl ? (
-          <div className="mb-6 p-4 bg-gray-900 rounded-xl border border-gray-800">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-gray-400">Product URL:</span>
-              <span className="font-mono text-orange-400 break-all">{productUrl}</span>
-            </div>
-            {loading && (
-              <div className="flex items-center gap-2 mt-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-orange-500"></div>
-                <span className="text-orange-400 text-sm">Scraping page...</span>
-              </div>
-            )}
-            {!loading && !error && scrapeResult && !summaryLoading && summary && (
-              <div className="flex items-center gap-2 mt-2">
-                <span className="text-green-400 text-sm">✓ Content processed successfully</span>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="mb-6 p-4 bg-gray-900 rounded-xl border border-gray-800">
-            <span className="text-gray-400 text-sm">No product URL provided. You can start by describing your product below.</span>
-          </div>
-        )}
-        
         {/* Error Display */}
         {error && (
           <div className="mb-6 p-4 bg-red-900/20 border border-red-500/50 rounded-xl">
             <div className="text-red-400">
               <strong>Error scraping:</strong> {error}
             </div>
-          </div>
-        )}
-
-        {/* AI Product Summary */}
-        {(productUrl && !error || !productUrl) && (
-          <div className="card mb-8">
-            <label htmlFor="aiSummaryTextarea" className="block text-xl font-semibold text-white mb-4">
-              AI Product Summary
-            </label>
-            
-            {summaryLoading && (
-              <div className="flex items-center gap-2 mb-4">
-                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-orange-500"></div>
-                <span className="text-orange-400 text-sm">Generating summary...</span>
-              </div>
-            )}
-            
-            {summaryError && (
-              <div className="mb-4 p-3 bg-red-900/20 border border-red-500/50 rounded-lg">
-                <span className="text-red-400 text-sm">Failed to generate summary: {summaryError}</span>
-              </div>
-            )}
-            
-            <textarea 
-              id="aiSummaryTextarea"
-              className="input w-full"
-              rows={summary ? Math.max(4, summary.split('\n').length) : 4} 
-              value={summary} 
-              onChange={e => {setSummary(e.target.value); setAdData({ summary: e.target.value });}} 
-              maxLength={1000} 
-              placeholder={productUrl ? (loading ? "Processing URL..." : (scrapeResult ? "Summary will appear here..." : "Enter product URL above to generate summary, or describe your product here.")) : "Describe your product or service here..."}
-              disabled={summaryLoading || !!(productUrl && loading)}
-            />
-            <p className="text-gray-500 text-sm mt-2">Max 1000 characters. This will be used to generate ad scripts.</p>
           </div>
         )}
 
@@ -869,6 +911,7 @@ export default function CreateAd() {
           <div className="mb-6">
             <h3 className="text-lg font-medium text-white mb-3">Images</h3>
             <div className="flex flex-wrap gap-3">
+              {/* Uploaded Images */}
               {[...(scrapeResult?.images || []), ...uploadedImages].map((src, i) => (
                 <div 
                   key={i} 
@@ -903,17 +946,54 @@ export default function CreateAd() {
                   )}
                 </div>
               ))}
+              
+              {/* Uploading Images with Progress */}
+              {uploadingImages.map((tempKey) => {
+                const progress = imageUploadProgress[tempKey] || 0
+                const fileName = tempKey.split('-')[1] || 'Image'
+                
+                return (
+                  <div 
+                    key={tempKey}
+                    className="relative w-24 h-24 border border-gray-700 rounded-lg overflow-hidden bg-gray-900"
+                  >
+                    {/* Upload progress background */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="w-6 h-6 border-2 border-gray-600 border-t-orange-500 rounded-full animate-spin mx-auto mb-1"></div>
+                        <div className="text-xs text-gray-400 truncate px-1">{fileName.substring(0, 8)}...</div>
+                      </div>
+                    </div>
+                    
+                    {/* Progress bar */}
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-700">
+                      <div 
+                        className="h-full bg-orange-500 transition-all duration-300 ease-out"
+                        style={{ width: `${progress}%` }}
+                      ></div>
+                    </div>
+                    
+                    {/* Progress percentage */}
+                    <div className="absolute top-1 left-1 text-xs text-white bg-black/70 px-1 rounded">
+                      {Math.round(progress)}%
+                    </div>
+                  </div>
+                )
+              })}
+              
               <button 
                 className={`w-24 h-24 border-2 border-dashed border-gray-600 rounded-lg flex flex-col items-center justify-center text-gray-400 transition-colors ${
-                  (loading || summaryLoading) ? 'opacity-50 cursor-not-allowed' : 'hover:border-orange-500 hover:text-orange-400'
+                  (loading || summaryLoading || uploadingImages.length > 0) ? 'opacity-50 cursor-not-allowed' : 'hover:border-orange-500 hover:text-orange-400'
                 }`}
                 onClick={() => imageInputRef.current?.click()}
-                disabled={loading || summaryLoading}
+                disabled={loading || summaryLoading || uploadingImages.length > 0}
               >
                 <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                <span className="text-xs">Upload</span>
+                <span className="text-xs">
+                  {uploadingImages.length > 0 ? 'Uploading...' : 'Upload'}
+                </span>
                 <input 
                   type="file" 
                   accept="image/*" 
@@ -921,7 +1001,7 @@ export default function CreateAd() {
                   hidden 
                   ref={imageInputRef} 
                   onChange={handleImageUpload} 
-                  disabled={loading || summaryLoading}
+                  disabled={loading || summaryLoading || uploadingImages.length > 0}
                 />
               </button>
             </div>
@@ -931,6 +1011,7 @@ export default function CreateAd() {
           <div>
             <h3 className="text-lg font-medium text-white mb-3">Videos</h3>
             <div className="flex flex-wrap gap-3">
+              {/* Uploaded Videos */}
               {[...(scrapeResult?.videos || []), ...uploadedVideos].map((src, i) => (
                 <div 
                   key={i} 
@@ -965,17 +1046,54 @@ export default function CreateAd() {
                   )}
                 </div>
               ))}
+              
+              {/* Uploading Videos with Progress */}
+              {uploadingVideos.map((tempKey) => {
+                const progress = videoUploadProgress[tempKey] || 0
+                const fileName = tempKey.split('-')[1] || 'Video'
+                
+                return (
+                  <div 
+                    key={tempKey}
+                    className="relative w-32 h-20 border border-gray-700 rounded-lg overflow-hidden bg-gray-900"
+                  >
+                    {/* Upload progress background */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="w-8 h-8 border-2 border-gray-600 border-t-orange-500 rounded-full animate-spin mx-auto mb-2"></div>
+                        <div className="text-xs text-gray-400 truncate px-1">{fileName}</div>
+                      </div>
+                    </div>
+                    
+                    {/* Progress bar */}
+                    <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-700">
+                      <div 
+                        className="h-full bg-orange-500 transition-all duration-300 ease-out"
+                        style={{ width: `${progress}%` }}
+                      ></div>
+                    </div>
+                    
+                    {/* Progress percentage */}
+                    <div className="absolute top-1 left-1 text-xs text-white bg-black/70 px-1 rounded">
+                      {Math.round(progress)}%
+                    </div>
+                  </div>
+                )
+              })}
+              
               <button 
                 className={`w-32 h-20 border-2 border-dashed border-gray-600 rounded-lg flex flex-col items-center justify-center text-gray-400 transition-colors ${
-                  (loading || summaryLoading) ? 'opacity-50 cursor-not-allowed' : 'hover:border-orange-500 hover:text-orange-400'
+                  (loading || summaryLoading || uploadingVideos.length > 0) ? 'opacity-50 cursor-not-allowed' : 'hover:border-orange-500 hover:text-orange-400'
                 }`}
                 onClick={() => videoInputRef.current?.click()}
-                disabled={loading || summaryLoading}
+                disabled={loading || summaryLoading || uploadingVideos.length > 0}
               >
                 <svg className="w-6 h-6 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                <span className="text-xs">Upload</span>
+                <span className="text-xs">
+                  {uploadingVideos.length > 0 ? 'Uploading...' : 'Upload'}
+                </span>
                 <input 
                   type="file" 
                   accept="video/*" 
@@ -983,7 +1101,7 @@ export default function CreateAd() {
                   hidden 
                   ref={videoInputRef} 
                   onChange={handleVideoUpload} 
-                  disabled={loading || summaryLoading}
+                  disabled={loading || summaryLoading || uploadingVideos.length > 0}
                 />
               </button>
             </div>
@@ -1088,7 +1206,7 @@ export default function CreateAd() {
           
           <div className="space-y-4">
             <div>
-              <label className="block text-gray-300 font-medium mb-2">Brand / Product name</label>
+              <label className="block text-gray-300 font-normal mb-2">Brand / Product name</label>
               <input 
                 type="text" 
                 className="input w-full" 
@@ -1102,7 +1220,7 @@ export default function CreateAd() {
 
             
             <div>
-              <label className="block text-gray-300 font-medium mb-2">Product description</label>
+              <label className="block text-gray-300 font-normal mb-2">Product description</label>
               <textarea 
                 className="input w-full" 
                 rows={4} 
@@ -1125,23 +1243,36 @@ export default function CreateAd() {
         {/* Promotional Information */}
         <div className="card mb-8">
           <div className="flex items-center gap-3 mb-6">
-            <input 
-              type="checkbox" 
-              id="showPromo"
-              checked={showPromo} 
-              onChange={e => setShowPromo(e.target.checked)}
-              className="w-4 h-4 text-orange-500 bg-gray-800 border-gray-600 rounded focus:ring-orange-500 focus:ring-2"
-            />
-            <label htmlFor="showPromo" className="text-lg font-medium text-white cursor-pointer">
-              Add promotional information
-            </label>
+            <div className="relative">
+              <input 
+                type="checkbox" 
+                id="showPromo"
+                checked={showPromo} 
+                onChange={e => setShowPromo(e.target.checked)}
+                className="sr-only"
+              />
+              <label htmlFor="showPromo" className="flex items-center cursor-pointer">
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200 ${
+                  showPromo 
+                    ? 'bg-orange-500 border-orange-500' 
+                    : 'bg-transparent border-gray-600 hover:border-orange-500'
+                }`}>
+                  {showPromo && (
+                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </div>
+                <span className="text-lg font-normal text-white ml-3">Add promotional information</span>
+              </label>
+            </div>
           </div>
           
           {showPromo && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-gray-300 font-medium mb-2">Original price</label>
+                  <label className="block text-gray-300 font-normal mb-2">Original price</label>
                   <input 
                     type="text" 
                     className="input w-full" 
@@ -1153,7 +1284,7 @@ export default function CreateAd() {
                   />
                 </div>
                 <div>
-                  <label className="block text-gray-300 font-medium mb-2">Promo price</label>
+                  <label className="block text-gray-300 font-normal mb-2">Promo price</label>
                   <input 
                     type="text" 
                     className="input w-full" 
@@ -1167,7 +1298,7 @@ export default function CreateAd() {
               </div>
               
               <div>
-                <label className="block text-gray-300 font-medium mb-2">Promotion details</label>
+                <label className="block text-gray-300 font-normal mb-2">Promotion details</label>
                 <input 
                   type="text" 
                   className="input w-full" 
@@ -1182,12 +1313,13 @@ export default function CreateAd() {
               {/* Promo Suggestions */}
               {promoSuggestions.length > 0 && (
                 <div>
-                  <label className="block text-gray-300 font-medium mb-2">Quick suggestions</label>
+                  <label className="block text-gray-300 font-normal mb-2">Quick suggestions</label>
                   <div className="flex flex-wrap gap-2">
                     {promoSuggestions.map((suggestion, i) => (
                       <button 
                         key={i} 
-                        className="px-3 py-1 text-sm bg-gray-800 border border-gray-600 rounded-lg text-gray-300 hover:bg-gray-700 hover:border-orange-500/50 hover:text-orange-400 transition-all duration-200" 
+                        className="px-3 py-2 text-sm border border-gray-600 rounded-[10px] text-gray-300 hover:border-orange-500 transition-colors duration-200" 
+                        style={{ backgroundColor: '#111827' }}
                         type="button" 
                         onClick={() => setPromoDetails(suggestion)}
                       >

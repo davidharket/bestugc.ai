@@ -11,10 +11,10 @@ import { avatars } from './avatars';
 import { COMPOSITION_FPS } from '../remotion/constants';
 import { bundle } from '@remotion/bundler';
 import { renderMedia, selectComposition } from '@remotion/renderer';
-import { getProductionGPUConfig, getGPUWebpackConfig, createPerformanceMonitor } from './gpu-config';
+import { getProductionGPUConfig, getPreviewGPUConfig, getGPUWebpackConfig, createPerformanceMonitor } from './gpu-config';
 
 const prisma = new PrismaClient();
-const INTERNAL_API_BASE_URL = '***REMOVED***';
+const INTERNAL_API_BASE_URL = process.env.INTERNAL_API_URL || '***REMOVED***';
 const EXTERNAL_API_BASE_URL = process.env.NEXT_PUBLIC_APP_URL || '***REMOVED***';
 
 // This is the refactored core logic from the Inngest function
@@ -51,6 +51,23 @@ export async function performRender(jobData: { adId: string; templateId: string;
     templateId: adRecord.templateId ?? undefined,
     backgroundMusicUrl: adRecord.backgroundMusicUrl ?? undefined,
     backgroundMusicVolume: adRecord.backgroundMusicVolume ?? undefined,
+    // Include font styling fields for final render
+    oneWordAtATime: adRecord.oneWordAtATime ?? undefined,
+    fontSize: adRecord.fontSize ?? undefined,
+    subtitleStyle: adRecord.subtitleStyle ?? undefined,
+    fontWeight: adRecord.fontWeight ?? undefined,
+    outlineWidth: adRecord.outlineWidth ?? undefined,
+    outlineColor: adRecord.outlineColor ?? undefined,
+    shadowOffsetX: adRecord.shadowOffsetX ?? undefined,
+    shadowOffsetY: adRecord.shadowOffsetY ?? undefined,
+    shadowBlur: adRecord.shadowBlur ?? undefined,
+    shadowColor: adRecord.shadowColor ?? undefined,
+    letterSpacing: adRecord.letterSpacing ?? undefined,
+    textTransform: (adRecord.textTransform as 'none' | 'uppercase' | 'lowercase' | 'capitalize') ?? undefined,
+    textColor: adRecord.textColor ?? undefined,
+    subtitleAnimation: (adRecord.subtitleAnimation as 'fade' | 'slide' | 'typewriter' | 'bounce' | 'none') ?? undefined,
+    subtitlePosition: (adRecord.subtitlePosition as 'bottom' | 'top' | 'center') ?? undefined,
+    enableSubtitles: adRecord.enableSubtitles ?? undefined,
   };
 
   // STEP 2: Generate TTS Audio with timestamps
@@ -193,16 +210,54 @@ export async function performRender(jobData: { adId: string; templateId: string;
 
   // STEP 9: Render the Final Video
   console.log('[worker] STEP 9: Render final video with Remotion');
-  const convertToLocalUrl = (url: string) => url.startsWith('http') ? new URL(url).pathname : url;
+  const convertToLocalUrl = (url: string) => {
+    if (!url) return '';
+    if (url.startsWith('http')) {
+      return new URL(url).pathname;
+    }
+    // Handle b-roll URLs that need API endpoint conversion
+    if (url.startsWith('b-roll/')) {
+      return `/api/serve-broll/${url.replace('b-roll/', '')}`;
+    }
+    // Handle legacy /public/b-roll/ URLs (after symlink removal)
+    if (url.startsWith('/public/b-roll/')) {
+      const filename = url.replace('/public/b-roll/', '');
+      return `/api/serve-broll/${filename}`;
+    }
+    // Handle public/b-roll/ URLs (without leading slash)
+    if (url.startsWith('public/b-roll/')) {
+      const filename = url.replace('public/b-roll/', '');
+      return `/api/serve-broll/${filename}`;
+    }
+    return url;
+  };
   const inputProps = {
     adData: {
       ...adData,
-      wordTimings: wordTimings
+      wordTimings: wordTimings,
+      // Process asset URLs to handle b-roll path changes
+      selectedImages: (adData.selectedImages || []).map(convertToLocalUrl),
+      selectedVideos: (adData.selectedVideos || []).map(convertToLocalUrl),
+      selectedBRoll: (adData.selectedBRoll || []).map(convertToLocalUrl),
     },
     timeline: concreteTimeline,
-    audioUrl: convertToLocalUrl(localLipSyncedVideoUrl),
+    audioUrl: convertToLocalUrl(audioUrl), // Use the original TTS audio for timing
     processedAvatarUrl: convertToLocalUrl(localLipSyncedVideoUrl),
     greenscreenAvatarUrl: convertToLocalUrl(transparentAvatarUrl),
+    // Pass font styling props directly to Main composition
+    oneWordAtATime: adData.oneWordAtATime,
+    fontSize: adData.fontSize,
+    subtitlePosition: adData.subtitlePosition,
+    textColor: adData.textColor,
+    fontWeight: adData.fontWeight,
+    outlineWidth: adData.outlineWidth,
+    outlineColor: adData.outlineColor,
+    shadowOffsetX: adData.shadowOffsetX,
+    shadowOffsetY: adData.shadowOffsetY,
+    shadowBlur: adData.shadowBlur,
+    shadowColor: adData.shadowColor,
+    letterSpacing: adData.letterSpacing,
+    textTransform: adData.textTransform,
   };
 
   // Initialize performance monitoring
@@ -215,7 +270,9 @@ export async function performRender(jobData: { adId: string; templateId: string;
   try {
     bundleLocation = await bundle({
       entryPoint: path.resolve('./remotion/index.ts'),
-      webpackOverride: getGPUWebpackConfig(true) // Production mode
+      webpackOverride: getGPUWebpackConfig(true), // Production mode
+      publicDir: path.resolve("./public-minimal"), // Use full public directory to include all assets
+      enableCaching: false, // Disable caching for speed
     });
     
     perfMonitor.logPerformance('Bundle Complete');
@@ -272,7 +329,12 @@ export async function performRender(jobData: { adId: string; templateId: string;
     console.log('[worker] STEP 10: Update database');
     await prisma.ad.update({
       where: { id: adId },
-      data: { finalVideoUrl, status: 'COMPLETED' },
+      data: {
+        finalVideoUrl,
+        status: 'COMPLETED',
+        lipsyncedAvatarUrl: localLipSyncedVideoUrl,
+        lipsyncedAvatarNoBgUrl: transparentAvatarUrl,
+      },
     });
 
     console.log(`[worker] ✅ Successfully rendered video for ad ${adId}: ${finalVideoUrl}`);

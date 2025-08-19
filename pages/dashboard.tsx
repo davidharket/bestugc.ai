@@ -4,22 +4,17 @@ import { useRouter } from 'next/router'
 import { useState, useEffect } from 'react'
 import { useAdCreation } from '../components/AdCreationContext'
 import axios from 'axios'
-import toast from 'react-hot-toast'
 import Link from 'next/link'
-import { refreshSessionGlobally } from '../lib/session-refresh'
 
 export default function Dashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const { resetAdData } = useAdCreation()
   const [productUrl, setProductUrl] = useState('')
-  const [recentAds, setRecentAds] = useState<any[]>([])
+  const [recentVideos, setRecentVideos] = useState<any[]>([])
   const [loadingRecent, setLoadingRecent] = useState(true)
-  const [stats, setStats] = useState({
-    totalAds: 0,
-    completedAds: 0,
-    inProgress: 0
-  })
+  const [freshCredits, setFreshCredits] = useState<number | null>(null)
+  const [freshPlan, setFreshPlan] = useState<string | null>(null)
 
   useEffect(() => {
     if (router.isReady) {
@@ -27,16 +22,13 @@ export default function Dashboard() {
       let shouldClearQuery = false;
 
       if (payment_success === 'true' && session_id) {
-        toast.success('Payment successful! Your account has been updated.');
-        refreshSessionGlobally(); // Refresh session to show updated credits/plan
+        // Handle payment success
         shouldClearQuery = true;
       } else if (payment_canceled === 'true') {
-        const message = Array.isArray(error_message) ? error_message[0] : error_message;
-        toast.error(message || 'Payment canceled or failed. Please try again.');
+        // Handle payment canceled
         shouldClearQuery = true;
       } else if (error_message) {
-        const message = Array.isArray(error_message) ? error_message[0] : error_message;
-        toast.error(message);
+        // Handle error
         shouldClearQuery = true;
       }
 
@@ -51,33 +43,55 @@ export default function Dashboard() {
     }
   }, [router.isReady, router.query]);
 
+  // Listen for credits updates - removed redundant fetch since Layout.tsx handles this
   useEffect(() => {
-    const fetchRecentAds = async () => {
+    const handleCreditsUpdated = (event: CustomEvent) => {
+      setFreshCredits(event.detail.credits)
+      setFreshPlan(event.detail.plan)
+    }
+
+    // Only fetch fresh data if we don't have session data yet
+    const fetchFreshUserDataIfNeeded = async () => {
+      if (!session?.user?.credits && status === 'authenticated') {
+        try {
+          const response = await fetch('/api/user/current')
+          if (response.ok) {
+            const userData = await response.json()
+            setFreshCredits(userData.credits)
+            setFreshPlan(userData.plan)
+          }
+        } catch (error) {
+          console.error('Failed to fetch fresh user data:', error)
+        }
+      }
+    }
+
+    // Only fetch if needed to avoid redundant requests
+    fetchFreshUserDataIfNeeded()
+    window.addEventListener('credits-updated', handleCreditsUpdated as EventListener)
+    
+    return () => {
+      window.removeEventListener('credits-updated', handleCreditsUpdated as EventListener)
+    }
+  }, [session?.user?.credits, status]) // Added dependencies to avoid unnecessary fetches
+
+  useEffect(() => {
+    const fetchRecentVideos = async () => {
       if (status === 'authenticated') {
         try {
           const res = await axios.get('/api/ads')
-          const ads = res.data.slice(0, 3) // Only show 3 most recent
-          setRecentAds(ads)
-          
-          // Calculate stats
-          setStats({
-            totalAds: res.data.length,
-            completedAds: res.data.filter((ad: any) => ad.status === 'COMPLETED').length,
-            inProgress: res.data.filter((ad: any) => ad.status === 'PENDING' || ad.status === 'RENDERING').length
-          })
+          const videos = res.data.slice(0, 3) // Only show 3 most recent
+          setRecentVideos(videos)
         } catch (e: any) {
-          console.error('Error fetching ads:', e)
+          console.error('Error fetching videos:', e)
         } finally {
           setLoadingRecent(false)
         }
       }
     }
 
-    fetchRecentAds()
-    const interval = setInterval(fetchRecentAds, 30000) // Update every 30s
-    return () => clearInterval(interval)
+    fetchRecentVideos()
   }, [status])
-
 
   if (status === 'unauthenticated' || !session?.user) {
     signIn()
@@ -88,12 +102,19 @@ export default function Dashboard() {
     plan?: string;
     credits?: number;
   }
-  const user = session.user as UserSession;
+  const baseUser = session?.user as UserSession;
+  
+  // Use fresh data if available, otherwise fall back to session data
+  const user = {
+    ...baseUser,
+    credits: freshCredits !== null ? freshCredits : (baseUser?.credits ?? 0),
+    plan: freshPlan !== null ? freshPlan : (baseUser?.plan || 'FREE')
+  };
 
-  const AD_CREATION_COST = 10;
-  const canCreateAd = user.credits !== undefined && user.credits >= AD_CREATION_COST;
+  const VIDEO_CREATION_COST = 10;
+  const canCreateVideo = (user.credits ?? 0) >= VIDEO_CREATION_COST;
 
-  const handleCreateAd = () => {
+  const handleCreateVideo = () => {
     resetAdData()
     if (productUrl.trim()) {
       router.push(`/ad/create?productUrl=${encodeURIComponent(productUrl)}`)
@@ -113,267 +134,195 @@ export default function Dashboard() {
       case 'RENDERING':
         return (
           <div className="flex items-center gap-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-orange-500"></div>
+            <img src="/pending.svg" alt="Processing" className="w-4 h-4" style={{ filter: 'brightness(0) saturate(100%) invert(73%) sepia(33%) saturate(1582%) hue-rotate(358deg) brightness(97%) contrast(92%)' }} />
             <span className="text-orange-400 text-sm">Processing...</span>
           </div>
         );
       case 'COMPLETED':
-        return <span className="text-green-400 text-sm">✅ Completed</span>;
+        return (
+          <div className="flex items-center gap-2">
+            <img src="/success.svg" alt="Completed" className="w-4 h-4" style={{ filter: 'brightness(0) saturate(100%) invert(48%) sepia(96%) saturate(407%) hue-rotate(88deg) brightness(103%) contrast(93%)' }} />
+            <span className="text-green-400 text-sm">Completed</span>
+          </div>
+        );
       case 'FAILED':
-        return <span className="text-red-400 text-sm">❌ Failed</span>;
+        return (
+          <div className="flex items-center gap-2">
+            <img src="/fail.svg" alt="Failed" className="w-4 h-4" style={{ filter: 'brightness(0) saturate(100%) invert(29%) sepia(94%) saturate(1455%) hue-rotate(339deg) brightness(97%) contrast(97%)' }} />
+            <span className="text-red-400 text-sm">Failed</span>
+          </div>
+        );
       default:
         return <span className="text-gray-400 text-sm">{status}</span>;
     }
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">
-            Welcome back, {user.name?.split(' ')[0] || 'Creator'}!
-          </h1>
-          <p className="text-gray-400">Ready to create your next viral video ad?</p>
-        </div>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+      {/* Header */}
+      <div className="text-center mb-16">
+        <h1 className="text-5xl lg:text-7xl font-semibold leading-relaxed tracking-wide mb-8">
+          Welcome back, {' '}
+          <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>
+            {user.name?.split(' ')[0] || 'Creator'}
+          </span>
+        </h1>
+        <p className="text-lg text-white max-w-2xl mx-auto">
+          Ready to create your next high-converting AI video?
+        </p>
+      </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
-                <span className="text-white text-xl">⭐</span>
-              </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Main Creation Panel - Left Side */}
+        <div className="lg:col-span-2">
+          <div className="rounded-[20px] border border-gray-700 p-8" style={{ backgroundColor: '#111827' }}>
+            <h2 className="text-2xl font-semibold text-white mb-6">Create New Video</h2>
+            
+            <div className="space-y-6">
+              {/* Product Link Input */}
               <div>
-                <p className="text-gray-400 text-sm">Credits</p>
-                <p className="text-2xl font-bold text-white">{user.credits ?? 0}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white text-xl">📊</span>
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Total Ads</p>
-                <p className="text-2xl font-bold text-white">{stats.totalAds}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 rounded-lg flex items-center justify-center">
-                <span className="text-white text-xl">✅</span>
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Completed</p>
-                <p className="text-2xl font-bold text-white">{stats.completedAds}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <span className="text-white text-xl">⏳</span>
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">In Progress</p>
-                <p className="text-2xl font-bold text-white">{stats.inProgress}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Creation Panel */}
-          <div className="lg:col-span-2">
-            <div className="bg-gray-900 rounded-xl p-8 border border-gray-800">
-              <h2 className="text-2xl font-bold text-white mb-6">Create New Video Ad</h2>
-              
-              <div className="space-y-6">
-                {/* URL Input */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-3">
-                    Start with a product URL (optional)
-                  </label>
-                  <div className="flex gap-3">
-                    <input
-                      type="text"
-                      value={productUrl}
-                      onChange={e => setProductUrl(e.target.value)}
-                      className="flex-1 bg-black border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-orange-500 focus:outline-none transition-colors"
-                      placeholder="https://yourstore.com/product-page"
-                    />
-                    <button 
-                      className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                      onClick={handleCreateAd}
-                      disabled={!canCreateAd}
-                      title={!canCreateAd ? `You need at least ${AD_CREATION_COST} credits to create an ad.` : 'Start with product URL'}
-                    >
-                      Start with URL
-                    </button>
-                  </div>
+                <label className="block text-sm font-normal text-gray-300 mb-3">
+                  Start with a product link (optional)
+                </label>
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    value={productUrl}
+                    onChange={e => setProductUrl(e.target.value)}
+                    className="flex-1 bg-black border border-gray-700 rounded-[15px] px-4 py-3 text-white placeholder-gray-500 focus:border-orange-500 focus:outline-none transition-colors"
+                    placeholder="https://yourstore.com/product-page"
+                  />
+                  <button 
+                    className="btn-primary px-8 py-3 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={handleCreateVideo}
+                    disabled={!canCreateVideo}
+                    title={!canCreateVideo ? `You need at least ${VIDEO_CREATION_COST} credits to create a video.` : 'Start with product link'}
+                  >
+                    <img src="/ai-star.svg" alt="AI" className="w-4 h-4" />
+                    Start with Link
+                  </button>
                 </div>
-
-                {/* Divider */}
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-gray-700"></div>
-                  </div>
-                  <div className="relative flex justify-center text-sm">
-                    <span className="px-3 bg-gray-900 text-gray-400">or</span>
-                  </div>
-                </div>
-
-                {/* From Scratch */}
-                <button 
-                  className="w-full py-4 border-2 border-gray-700 text-gray-300 rounded-lg hover:border-orange-500 hover:text-orange-400 hover:bg-black/50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={handleCreateFromScratch}
-                  disabled={!canCreateAd}
-                  title={!canCreateAd ? `You need at least ${AD_CREATION_COST} credits to create an ad.` : 'Create an ad from scratch'}
-                >
-                  <div className="flex items-center justify-center gap-3">
-                    <span className="text-2xl">✨</span>
-                    <span className="font-medium">Create Ad From Scratch</span>
-                  </div>
-                </button>
-
-                {!canCreateAd && (
-                  <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
-                    <p className="text-red-400 text-sm text-center">
-                      You need at least {AD_CREATION_COST} credits to create a new ad. 
-                      <Link href="/subscription" className="text-orange-400 hover:text-orange-300 ml-1 underline">
-                        Top up your credits
-                      </Link>
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Link href="/creations" className="bg-gray-900 border border-gray-800 rounded-lg p-6 hover:border-orange-500/50 transition-all duration-200 group">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <span className="text-white">📹</span>
-                  </div>
-                  <div>
-                    <h3 className="text-white font-medium">My Creations</h3>
-                    <p className="text-gray-400 text-sm">View all your video ads</p>
-                  </div>
-                </div>
-              </Link>
-
-              <Link href="/subscription" className="bg-gray-900 border border-gray-800 rounded-lg p-6 hover:border-orange-500/50 transition-all duration-200 group">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-green-600 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <span className="text-white">💎</span>
-                  </div>
-                  <div>
-                    <h3 className="text-white font-medium">Subscription</h3>
-                    <p className="text-gray-400 text-sm">Manage plan & billing</p>
-                  </div>
-                </div>
-              </Link>
-            </div>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Recent Activity */}
-            <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-white">Recent Activity</h3>
-                <Link href="/creations" className="text-orange-400 hover:text-orange-300 text-sm font-medium">
-                  View All
-                </Link>
               </div>
 
-              {loadingRecent ? (
-                <div className="space-y-3">
-                  {[...Array(3)].map((_, i) => (
-                    <div key={i} className="bg-black rounded-lg p-3 animate-pulse">
-                      <div className="h-4 bg-gray-800 rounded w-3/4 mb-2"></div>
-                      <div className="h-3 bg-gray-800 rounded w-1/2"></div>
-                    </div>
-                  ))}
+              {/* Divider */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-600"></div>
                 </div>
-              ) : recentAds.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">
-                  <span className="text-4xl mb-3 block">🎬</span>
-                  <p className="text-sm">No ads created yet.</p>
-                  <p className="text-xs">Create your first video ad!</p>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-4 text-gray-400" style={{ backgroundColor: '#111827' }}>or</span>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {recentAds.map(ad => (
-                    <div key={ad.id} className="bg-black rounded-lg p-3 border border-gray-800 hover:border-gray-700 transition-colors">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-white text-sm font-medium truncate">
-                          {ad.brandName || `Ad #${ad.id.slice(0, 6)}`}
-                        </h4>
-                        {renderStatus(ad.status)}
-                      </div>
-                      <p className="text-gray-400 text-xs">
-                        {new Date(ad.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                  ))}
+              </div>
+
+              {/* From Scratch */}
+              <button 
+                className="w-full py-4 btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleCreateFromScratch}
+                disabled={!canCreateVideo}
+                title={!canCreateVideo ? `You need at least ${VIDEO_CREATION_COST} credits to create a video.` : 'Create a video from scratch'}
+              >
+                <div className="flex items-center justify-center gap-3">
+                  <span className="font-normal">Create Video From Scratch</span>
+                </div>
+              </button>
+
+              {!canCreateVideo && (
+                <div className="bg-red-900/20 border border-red-800 rounded-[15px] p-4">
+                  <p className="text-red-400 text-sm text-center">
+                    You need at least {VIDEO_CREATION_COST} credits to create a new video. 
+                    <Link href="/subscription" className="text-orange-400 hover:text-orange-300 ml-1 transition-colors">
+                      Top up your credits
+                    </Link>
+                  </p>
                 </div>
               )}
             </div>
+          </div>
+        </div>
 
-            {/* Account Info */}
-            <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-              <h3 className="text-lg font-semibold text-white mb-4">Account</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400 text-sm">Plan</span>
-                  <span className="bg-gradient-to-r from-orange-500 to-orange-600 px-2 py-1 rounded text-white text-xs font-medium">
-                    {user.plan || 'FREE'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400 text-sm">Credits</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-white font-medium">{user.credits ?? 0}</span>
-                    <Link href="/subscription" className="text-orange-400 hover:text-orange-300 text-xs">
-                      +
-                    </Link>
+        {/* Sidebar - Right Side */}
+        <div className="space-y-6">
+          {/* Recent Activity */}
+          <div className="rounded-[20px] border border-gray-700 p-6" style={{ backgroundColor: '#111827' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Recent Activity</h3>
+              <Link href="/creations" className="text-orange-400 hover:text-orange-300 text-sm font-normal">
+                View All
+              </Link>
+            </div>
+
+            {loadingRecent ? (
+              <div className="space-y-3">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="bg-black rounded-lg p-3 animate-pulse">
+                    <div className="h-4 bg-gray-800 rounded w-3/4 mb-2"></div>
+                    <div className="h-3 bg-gray-800 rounded w-1/2"></div>
                   </div>
+                ))}
+              </div>
+            ) : recentVideos.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                <img src="/videos.svg" alt="Videos" className="w-12 h-12 mx-auto mb-3" />
+                <p className="text-sm">No videos created yet.</p>
+                <p className="text-xs">Create your first video!</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+		{recentVideos.map((video) => (
+		  <div
+		    key={video.id}
+		    className="bg-black rounded-lg p-3 border border-gray-800"
+		  >
+		    <div className="flex items-center justify-between mb-2">
+		      {/* --- ADD flex-1 and min-w-0 HERE --- */}
+		      <h4 className="text-white text-sm font-normal truncate flex-1 min-w-0 mr-2" title={video.brandName || `Video #${video.id.slice(0, 6)}`}>
+		        {video.brandName || `Video #${video.id.slice(0, 6)}`}
+		      </h4>
+		      {renderStatus(video.status)}
+		    </div>
+		    <p className="text-gray-400 text-xs">
+		      {new Date(video.createdAt).toLocaleDateString()}
+		    </p>
+		  </div>
+		))}
+              </div>
+            )}
+          </div>
+
+          {/* Account Info */}
+          <div className="rounded-[20px] border border-gray-700 p-6" style={{ backgroundColor: '#111827' }}>
+            <h3 className="text-lg font-semibold text-white mb-4">Account</h3>
+            <div className="space-y-4">
+              <div>
+                <p className="text-gray-400 text-sm mb-2">Credits</p>
+                <div className="flex items-center justify-between bg-black border border-gray-700 rounded-[15px] px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <img src="/credits.svg" alt="Credits" className="w-5 h-5" />
+                    <span className="text-white font-normal">{user.credits ?? 0}</span>
+                  </div>
+                  <Link 
+                    href="/subscription"
+                    className="text-orange-400 hover:text-orange-300 text-lg font-normal transition-colors"
+                    title="Buy more credits"
+                  >
+                    +
+                  </Link>
                 </div>
               </div>
-
+              <div>
+                <p className="text-gray-400 text-sm mb-1">Plan</p>
+                <span className="text-white font-normal">{user.plan || 'FREE'} Plan</span>
+              </div>
               <Link 
                 href="/subscription"
-                className="mt-4 w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white text-center py-2 rounded-lg text-sm font-medium hover:shadow-lg transition-all duration-200 block"
+                className="btn-primary px-4 py-2 text-sm block text-center"
               >
                 Upgrade Plan
               </Link>
             </div>
-
-
-            {/* Help & Support */}
-            <div className="bg-gray-900 rounded-xl p-6 border border-gray-800">
-              <h3 className="text-lg font-semibold text-white mb-4">Need Help?</h3>
-              <div className="space-y-3">
-                <Link href="/help" className="block text-orange-400 hover:text-orange-300 text-sm">
-                  📚 Help Center
-                </Link>
-                <Link href="/about" className="block text-orange-400 hover:text-orange-300 text-sm">
-                  🎯 How It Works
-                </Link>
-                <a href="mailto:david@drift.as" className="block text-orange-400 hover:text-orange-300 text-sm">
-                  💬 Contact Support
-                </a>
-              </div>
-            </div>
           </div>
         </div>
       </div>
+    </div>
   )
 }

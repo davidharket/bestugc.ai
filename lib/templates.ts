@@ -13,7 +13,6 @@ export type LayoutType =
   | 'small-cutout-bottom-left'
   | 'small-cutout-bottom-right'
   | 'small-cutout-center'
-  | 'small-cutout-bottom-left-no-padding'
   | 'small-cutout-bottom-right-no-padding'
   | 'small-cutout-center-tilted-left'
   | 'small-cutout-center-tilted-right'
@@ -46,6 +45,40 @@ function generateAssetIndices(timeline: Omit<WeightedScene, 'assetIndices'>[]): 
   }));
 }
 
+// Helper function to adjust timeline based on duration for optimal pacing
+export function adjustTimelineForDuration(template: VideoTemplate, duration: number): VideoTemplate {
+  const baseScenes = template.timeline;
+  let adjustedScenes: WeightedScene[];
+
+  // Base scenes per duration - optimized for viewer engagement
+  if (duration <= 15) {
+    // 15 seconds: 3 scenes for quick pacing (5s per scene average)
+    adjustedScenes = baseScenes.slice(0, 3);
+  } else if (duration <= 30) {
+    // 30 seconds: 4 scenes for balanced pacing (7.5s per scene average)
+    adjustedScenes = baseScenes.slice(0, 4);
+  } else if (duration <= 45) {
+    // 45 seconds: 5 scenes for good retention (9s per scene average)
+    adjustedScenes = [...baseScenes, baseScenes[0]]; // Add first scene again for variety
+  } else {
+    // 60+ seconds: 6 scenes for extended content (10s per scene average)
+    adjustedScenes = [...baseScenes, baseScenes[0], baseScenes[1]]; // Add first two scenes again
+  }
+
+  // Re-balance weights for optimal viewing experience
+  const totalScenes = adjustedScenes.length;
+  adjustedScenes = adjustedScenes.map((scene, index) => ({
+    ...scene,
+    // First and last scenes get slightly more weight for impact
+    durationWeight: (index === 0 || index === totalScenes - 1) ? 4 : 3
+  }));
+
+  return {
+    ...template,
+    timeline: adjustedScenes
+  };
+}
+
 // The official library of all available video templates, using weights.
 export const TEMPLATE_LIBRARY: VideoTemplate[] = [
   {
@@ -53,10 +86,10 @@ export const TEMPLATE_LIBRARY: VideoTemplate[] = [
     name: 'Edge Showcase',
     description: 'Avatar positioned at screen edges for maximum product visibility.',
     timeline: generateAssetIndices([
-      { layout: 'small-cutout-bottom-left-no-padding', durationWeight: 4 },
       { layout: 'small-cutout-bottom-right-no-padding', durationWeight: 4 },
       { layout: 'small-cutout-top-left', durationWeight: 3 },
-      { layout: 'small-cutout-bottom-left-no-padding', durationWeight: 3 },
+      { layout: 'small-cutout-top-right', durationWeight: 4 },
+      { layout: 'small-cutout-bottom-left', durationWeight: 3 },
     ]),
   },
   {
@@ -101,6 +134,28 @@ export const TEMPLATE_LIBRARY: VideoTemplate[] = [
       { layout: 'small-cutout-center', durationWeight: 4 },
       { layout: 'small-cutout-bottom-right', durationWeight: 4 },
       { layout: 'small-cutout-bottom-left', durationWeight: 3 },
+    ]),
+  },
+  {
+    id: 'bottom-left',
+    name: 'Bottom Left Avatar',
+    description: 'Avatar stays in the bottom-left corner throughout the entire video.',
+    timeline: generateAssetIndices([
+      { layout: 'small-cutout-bottom-left', durationWeight: 4 },
+      { layout: 'small-cutout-bottom-left', durationWeight: 4 },
+      { layout: 'small-cutout-bottom-left', durationWeight: 4 },
+      { layout: 'small-cutout-bottom-left', durationWeight: 3 },
+    ]),
+  },
+  {
+    id: 'bottom-right',
+    name: 'Bottom Right Avatar',
+    description: 'Avatar stays in the bottom-right corner throughout the entire video.',
+    timeline: generateAssetIndices([
+      { layout: 'small-cutout-bottom-right', durationWeight: 4 },
+      { layout: 'small-cutout-bottom-right', durationWeight: 4 },
+      { layout: 'small-cutout-bottom-right', durationWeight: 4 },
+      { layout: 'small-cutout-bottom-right', durationWeight: 3 },
     ]),
   },
 ];

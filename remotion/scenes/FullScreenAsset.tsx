@@ -1,39 +1,25 @@
 // remotion/scenes/FullScreenAsset.tsx
-import { AbsoluteFill, Img, Video } from 'remotion';
-import { LoopingVideo } from '../components/LoopingVideo';
+import { AbsoluteFill, useVideoConfig } from 'remotion';
+import { DualLayerBackground } from '../components/DualLayerBackground';
 
-const isVideo = (url: string): boolean => {
-  if (!url) return false;
-  return url.toLowerCase().endsWith('.mp4') || url.toLowerCase().endsWith('.webm');
-};
+interface FullScreenAssetProps {
+  src: string;
+}
 
-export const FullScreenAsset: React.FC<{ src: string; videoDurationInFrames?: number }> = ({ src, videoDurationInFrames = 300 }) => {
+export const FullScreenAsset: React.FC<FullScreenAssetProps> = ({ src }) => {
+  const { } = useVideoConfig();
+  
   if (!src) {
     return <AbsoluteFill style={{ backgroundColor: '#cccccc' }} />;
   }
 
-  // --- THE FIX: Explicit styling to guarantee "cover" behavior ---
-  const coverStyle: React.CSSProperties = {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-  };
-  // --- END OF FIX ---
 
   return (
-    <AbsoluteFill className="bg-black justify-center items-center">
-      {isVideo(src) ? (
-        <LoopingVideo 
-          src={src} 
-          style={coverStyle} 
-          videoDurationInFrames={videoDurationInFrames}
-          muted 
-          playsInline={true} 
-          preload="metadata" 
-        />
-      ) : (
-        <Img src={src} style={coverStyle} />
-      )}
+    <AbsoluteFill className="bg-black">
+      <DualLayerBackground 
+        src={src}
+        
+      />
     </AbsoluteFill>
   );
 };

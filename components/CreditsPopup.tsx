@@ -15,28 +15,22 @@ const creditPacks = [
     id: 'TOPUP_10',
     name: '10 Credits',
     price: '49kr',
-    credits: 10,
-    pricePerCredit: '4.9kr',
-    color: 'from-blue-500 to-blue-600'
+    credits: 10
   },
   {
     id: 'TOPUP_20',
     name: '20 Credits',
     price: '89kr',
     credits: 20,
-    pricePerCredit: '4.5kr',
     popular: true,
-    savings: '10% savings',
-    color: 'from-orange-500 to-orange-600'
+    savings: '10% savings'
   },
   {
     id: 'TOPUP_30',
     name: '30 Credits',
     price: '119kr',
     credits: 30,
-    pricePerCredit: '4.0kr',
-    savings: '20% savings',
-    color: 'from-purple-500 to-purple-600'
+    savings: '20% savings'
   }
 ]
 
@@ -74,19 +68,19 @@ export const CreditsPopup: React.FC<CreditsPopupProps> = ({ isOpen, onClose, cur
 
   return (
     <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 rounded-2xl border border-gray-800 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-gray-900 rounded-2xl border border-gray-800 max-w-lg w-full">
         {/* Header */}
-        <div className="sticky top-0 bg-gray-900 border-b border-gray-800 p-6 rounded-t-2xl">
+        <div className="bg-gray-900 border-b border-gray-800 p-4 rounded-t-2xl">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-white">Top Up Credits</h2>
-              <p className="text-gray-400 mt-1">You currently have {currentCredits} credits</p>
+              <h2 className="text-xl font-bold text-white">Top Up Credits</h2>
+              <p className="text-gray-400 text-sm mt-1">You currently have {currentCredits} credits</p>
             </div>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-white p-2 hover:bg-gray-800 rounded-lg transition-colors"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -94,72 +88,63 @@ export const CreditsPopup: React.FC<CreditsPopupProps> = ({ isOpen, onClose, cur
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="p-4">
           {/* Quick Info */}
-          <div className="bg-black/50 rounded-lg p-4 mb-6 border border-gray-800">
+          <div className="bg-black/50 rounded-lg p-3 mb-4 border border-gray-800">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
-                <span className="text-white text-lg">🎬</span>
+              <div className="w-8 h-8 bg-gradient-to-r from-orange-600 to-orange-600 rounded-lg flex items-center justify-center">
+                <img src="/videos.svg" alt="Videos" className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-white font-medium">Each video ad costs 10 credits</p>
-                <p className="text-gray-400 text-sm">Credits never expire and can be used anytime</p>
+                <p className="text-white font-medium text-sm">Each video ad costs 10 credits</p>
+                <p className="text-gray-400 text-xs">Credits never expire and can be used anytime</p>
               </div>
             </div>
           </div>
 
           {/* Credit Packs */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             {creditPacks.map((pack) => (
               <div
                 key={pack.id}
-                className={`relative border-2 rounded-xl p-4 transition-all duration-200 hover:scale-[1.02] ${
+                className={`relative border rounded-lg p-3 transition-all duration-200 ${
                   pack.popular 
-                    ? 'border-orange-500 bg-gradient-to-r from-orange-500/10 to-orange-600/10' 
+                    ? 'border-orange-500 bg-orange-500/10' 
                     : 'border-gray-700 bg-gray-800/50 hover:border-orange-500/50'
                 }`}
               >
                 {pack.popular && (
-                  <div className="absolute -top-2 left-4">
-                    <span className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-3 py-1 rounded-full text-xs font-medium">
-                      Most Popular
-                    </span>
-                  </div>
-                )}
-
-                {pack.savings && (
-                  <div className="absolute -top-2 right-4">
-                    <span className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-medium">
-                      {pack.savings}
+                  <div className="absolute -top-2 left-3">
+                    <span className="bg-gradient-to-r from-orange-600 to-orange-600 text-white px-2 py-0.5 rounded-full text-xs font-medium">
+                      Popular
                     </span>
                   </div>
                 )}
 
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 bg-gradient-to-r ${pack.color} rounded-lg flex items-center justify-center`}>
-                      <span className="text-white text-xl">⭐</span>
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center">
+                      <img src="/credits.svg" alt="Credits" className="w-4 h-4" />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-white">{pack.name}</h3>
-                      <p className="text-gray-400 text-sm">{pack.pricePerCredit} per credit</p>
+                      <h3 className="text-base font-medium text-white">{pack.name}</h3>
                     </div>
                   </div>
 
                   <div className="text-right">
-                    <div className="text-xl font-bold text-white mb-1">{pack.price}</div>
+                    <div className="text-lg font-medium text-white mb-1">{pack.price}</div>
                     <button
                       onClick={() => redirectToCheckout(pack.id)}
                       disabled={isLoading}
-                      className={`px-6 py-2 rounded-lg font-medium transition-all duration-200 disabled:opacity-50 ${
+                      className={`px-4 py-2 rounded-lg font-sm transition-all duration-200 disabled:opacity-50 text-sm ${
                         pack.popular
-                          ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:shadow-lg'
-                          : 'bg-gray-700 text-white hover:bg-gray-600'
+                          ? 'btn-primary'
+                          : 'btn-secondary'
                       }`}
                     >
                       {loadingItem === pack.id ? (
                         <div className="flex items-center gap-2">
-                          <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-current"></div>
+                          <div className="animate-spin border-2 border-current border-t-transparent rounded-full w-3 h-3"></div>
                           <span>Loading...</span>
                         </div>
                       ) : (
@@ -173,34 +158,37 @@ export const CreditsPopup: React.FC<CreditsPopupProps> = ({ isOpen, onClose, cur
           </div>
 
           {/* Footer Info */}
-          <div className="mt-6 pt-6 border-t border-gray-800">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-              <div className="flex items-center gap-2 text-gray-400">
+          <div className="mt-4 pt-3 border-t border-gray-800">
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="flex items-center gap-1.5 text-gray-400">
                 <span className="text-green-400">✓</span>
-                <span>Secure payment via Stripe</span>
+                <span>Secure payment</span>
               </div>
-              <div className="flex items-center gap-2 text-gray-400">
+              <div className="flex items-center gap-1.5 text-gray-400">
                 <span className="text-green-400">✓</span>
-                <span>Credits never expire</span>
+                <span>Never expire</span>
               </div>
-              <div className="flex items-center gap-2 text-gray-400">
+              <div className="flex items-center gap-1.5 text-gray-400">
                 <span className="text-green-400">✓</span>
-                <span>Instant credit delivery</span>
+                <span>Instant delivery</span>
               </div>
-              <div className="flex items-center gap-2 text-gray-400">
+              <div className="flex items-center gap-1.5 text-gray-400">
                 <span className="text-green-400">✓</span>
                 <span>Cancel anytime</span>
               </div>
             </div>
 
-            <div className="mt-4 text-center">
+            <div className="mt-3 text-center">
               <p className="text-gray-500 text-xs">
-                Need a subscription instead?{' '}
+                Need a subscription?{' '}
                 <button 
-                  onClick={onClose}
+                  onClick={() => {
+                    onClose();
+                    window.location.href = '/subscription';
+                  }}
                   className="text-orange-400 hover:text-orange-300 underline"
                 >
-                  View subscription plans
+                  View plans
                 </button>
               </p>
             </div>

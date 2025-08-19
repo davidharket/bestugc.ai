@@ -108,16 +108,17 @@ export default function AvatarAd() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Gender Filter */}
             <div>
-              <label className="block text-gray-300 font-medium mb-3">Gender</label>
+              <label className="block text-gray-300 font-normal mb-3">Gender</label>
               <div className="flex gap-2">
                 {genderOptions.map(opt => (
                   <button
                     key={opt}
-                    className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                    className={`px-3 py-2 text-sm border border-gray-600 rounded-[10px] text-gray-300 transition-colors duration-200 ${
                       gender === opt
-                        ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25'
-                        : 'bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 hover:border-orange-500/50'
+                        ? 'border-orange-500'
+                        : 'hover:border-orange-500'
                     }`}
+                    style={{ backgroundColor: '#111827' }}
                     onClick={() => setGender(gender === opt ? null : opt)}
                     type="button"
                   >
@@ -129,16 +130,17 @@ export default function AvatarAd() {
 
             {/* Age Filter */}
             <div>
-              <label className="block text-gray-300 font-medium mb-3">Age</label>
+              <label className="block text-gray-300 font-normal mb-3">Age</label>
               <div className="flex gap-2">
                 {ageOptions.map(opt => (
                   <button
                     key={opt}
-                    className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                    className={`px-3 py-2 text-sm border border-gray-600 rounded-[10px] text-gray-300 transition-colors duration-200 ${
                       age === opt
-                        ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25'
-                        : 'bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 hover:border-orange-500/50'
+                        ? 'border-orange-500'
+                        : 'hover:border-orange-500'
                     }`}
+                    style={{ backgroundColor: '#111827' }}
                     onClick={() => setAge(age === opt ? null : opt)}
                     type="button"
                   >
@@ -150,16 +152,17 @@ export default function AvatarAd() {
 
             {/* Location Filter */}
             <div>
-              <label className="block text-gray-300 font-medium mb-3">Location</label>
+              <label className="block text-gray-300 font-normal mb-3">Location</label>
               <div className="flex gap-2">
                 {locationOptions.map(opt => (
                   <button
                     key={opt}
-                    className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                    className={`px-3 py-2 text-sm border border-gray-600 rounded-[10px] text-gray-300 transition-colors duration-200 ${
                       location === opt
-                        ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25'
-                        : 'bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 hover:border-orange-500/50'
+                        ? 'border-orange-500'
+                        : 'hover:border-orange-500'
                     }`}
+                    style={{ backgroundColor: '#111827' }}
                     onClick={() => setLocation(location === opt ? null : opt)}
                     type="button"
                   >
@@ -184,9 +187,7 @@ export default function AvatarAd() {
           {filteredAvatars.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-gray-400 mb-4">
-                <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.29-1.044-5.709-2.709M15 17h3a2 2 0 002-2V9a2 2 0 00-2-2h-3m-6 8H6a2 2 0 01-2-2V9a2 2 0 012-2h3m0 0V5a2 2 0 012-2h4a2 2 0 012 2v2M9 7h6" />
-                </svg>
+                <img src="/avatar.svg" alt="Avatar" className="w-16 h-16 mx-auto mb-4" />
                 <p className="text-lg">No avatars match the selected filters</p>
                 <p className="text-sm">Try adjusting your filter criteria</p>
               </div>
@@ -198,7 +199,7 @@ export default function AvatarAd() {
                   key={avatar.id}
                   className={`relative rounded-xl overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105 ${
                     selectedAvatar === avatar.id
-                      ? 'ring-4 ring-orange-500 shadow-lg shadow-orange-500/25'
+                      ? 'border-2 border-orange-500'
                       : 'border border-gray-700 hover:border-orange-500/50'
                   }`}
                   onClick={() => setSelectedAvatar(avatar.id)}
@@ -231,11 +232,6 @@ export default function AvatarAd() {
                     </div>
                   )}
 
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
-                    <p className="text-white text-sm font-medium truncate">
-                      {avatar.label}
-                    </p>
-                  </div>
                 </div>
               ))}
             </div>
@@ -256,7 +252,7 @@ export default function AvatarAd() {
           </button>
 
           <button
-            className={`flex items-center justify-center px-8 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 ${selectedAvatar === null ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className='btn-primary'
             onClick={handleNext}
             disabled={selectedAvatar === null}
           >

@@ -1,12 +1,9 @@
 // remotion/scenes/SmallCutoutBottomLeftNoPadding.tsx
-import { AbsoluteFill, Img, OffthreadVideo, Video, useCurrentFrame, useVideoConfig, getInputProps } from 'remotion';
+import { AbsoluteFill, OffthreadVideo, useCurrentFrame, useVideoConfig, getInputProps } from 'remotion';
 import React from 'react';
+import { DualLayerBackground } from '../components/DualLayerBackground';
 import { COMPOSITION_FPS } from '../constants';
 
-const isVideo = (url: string): boolean => {
-  if (!url) return false;
-  return url.toLowerCase().endsWith('.mp4') || url.toLowerCase().endsWith('.webm');
-};
 
 export const SmallCutoutBottomLeftNoPadding: React.FC<{
   backgroundSrc: string;
@@ -16,6 +13,7 @@ export const SmallCutoutBottomLeftNoPadding: React.FC<{
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const inputProps = getInputProps();
+  
   
   // Check if we're in preview mode
   const isPreviewMode = (inputProps as any)?.adData?.previewMode === true;
@@ -50,20 +48,14 @@ export const SmallCutoutBottomLeftNoPadding: React.FC<{
     };
   };
 
-  const coverStyle: React.CSSProperties = {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-  };
 
   return (
     <AbsoluteFill className="bg-black">
-      {/* Background layer */}
-      {isVideo(backgroundSrc) ? (
-        <Video src={backgroundSrc} style={coverStyle} muted />
-      ) : (
-        <Img src={backgroundSrc} style={coverStyle} />
-      )}
+      {/* Background layer with dual-layer system */}
+      <DualLayerBackground 
+        src={backgroundSrc}
+        
+      />
 
       {/* Transparent overlay */}
       <div style={getPositionStyle()}>

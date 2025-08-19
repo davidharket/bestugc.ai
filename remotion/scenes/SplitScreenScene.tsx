@@ -1,23 +1,19 @@
 // remotion/scenes/SplitScreenScene.tsx
-import { AbsoluteFill, Img, Video, useCurrentFrame, useVideoConfig, getInputProps } from 'remotion';
-import { LoopingVideo } from '../components/LoopingVideo';
+import { AbsoluteFill, Video, useCurrentFrame, useVideoConfig, getInputProps } from 'remotion';
+import { DualLayerBackground } from '../components/DualLayerBackground';
 import React from 'react';
 import { COMPOSITION_FPS } from '../constants';
 
-const isVideo = (url: string): boolean => {
-  if (!url) return false;
-  return url.toLowerCase().endsWith('.mp4') || url.toLowerCase().endsWith('.webm');
-};
 
 export const SplitScreenScene: React.FC<{
   videoSrc: string; // Avatar video
   assetSrc: string; // Product image or video
   startFrom?: number; // In seconds
-  assetVideoDurationInFrames?: number;
-}> = ({ videoSrc, assetSrc, startFrom = 0, assetVideoDurationInFrames = 300 }) => {
+}> = ({ videoSrc, assetSrc, startFrom = 0 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const inputProps = getInputProps();
+  
   
   // Check if we're in preview mode
   const isPreviewMode = (inputProps as any)?.adData?.previewMode === true;
@@ -44,13 +40,7 @@ export const SplitScreenScene: React.FC<{
     return <AbsoluteFill style={{ backgroundColor: '#1a1a1a' }} />;
   }
 
-  // Style for the TOP asset. This is correct and remains unchanged.
-  const assetFillStyle: React.CSSProperties = {
-    width: '100%',
-    height: '100%',
-    order: '0',
-    objectFit: 'cover',
-  };
+  // No need for asset fill style as DualLayerBackground handles it
 
   // --- THE FINAL FIX: A new style to manually position the avatar ---
   const avatarVideoStyle: React.CSSProperties = {
@@ -81,31 +71,10 @@ export const SplitScreenScene: React.FC<{
           flexGrow: 0 // Prevent growing
         }}
       >
-        {isVideo(assetSrc) ? (
-          <LoopingVideo 
-            src={assetSrc} 
-            style={{
-              ...assetFillStyle,
-              // Ensure it fills exactly the container bounds
-              minHeight: '100%',
-              maxHeight: '100%'
-            }}
-            videoDurationInFrames={assetVideoDurationInFrames}
-            muted 
-            playsInline={true}
-            preload="metadata"
-          />
-        ) : (
-          <Img 
-            src={assetSrc} 
-            style={{
-              ...assetFillStyle,
-              // Ensure it fills exactly the container bounds
-              minHeight: '100%',
-              maxHeight: '100%'
-            }}
-          />
-        )}
+        <DualLayerBackground
+          src={assetSrc}
+          blurAmount={6}
+        />
       </div>
 
       {/* Bottom Half: Avatar's container - Strictly cropped to 50% height */}
@@ -121,7 +90,7 @@ export const SplitScreenScene: React.FC<{
           flexGrow: 0 // Prevent growing
         }}
       >
-        {/* The video element with the new transform style */}
+        {/* The avatar video with looping and transform style */}
         <Video
           src={videoSrc}
           style={{

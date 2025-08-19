@@ -1,46 +1,11 @@
 import React from 'react';
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from 'remotion';
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig, staticFile, delayRender, continueRender } from 'remotion';
 import { spring } from 'remotion';
+import { fitText } from '@remotion/layout-utils';
+import { getAllAvailableFonts, FONT_FALLBACKS, FontConfig } from '../../lib/google-fonts';
 
-// Note: Font loading via loadFont API temporarily disabled due to API changes in Remotion v4
-// Fonts should be loaded via CSS @font-face rules in the browser environment
-// TODO: Investigate proper font loading approach for current Remotion version
+// Google Fonts are now loaded via GoogleFontLoader component
 
-/*
-// Load fonts for Remotion - ensure fonts are available in Remotion's browser environment
-const fontLoadingPromises = [
-  loadFont({
-    family: 'The Bold Font',
-    url: 'https://bestugc.ai/fonts/THEBOLDFONT-FREEVERSION.woff',
-    display: 'swap',
-  }),
-  loadFont({
-    family: 'Inter',
-    url: 'https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.woff2',
-    display: 'swap',
-  }),
-  loadFont({
-    family: 'Montserrat',
-    url: 'https://fonts.gstatic.com/s/montserrat/v25/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCtr6Ew-Y3tcoqK5.woff2',
-    display: 'swap',
-  }),
-  loadFont({
-    family: 'Roboto',
-    url: 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxKKTU1Kg.woff2',
-    display: 'swap',
-  }),
-  loadFont({
-    family: 'Open Sans',
-    url: 'https://fonts.gstatic.com/s/opensans/v34/memSYaGs126MiZpBA-UvWbX2vVnXBbObj2OVZyOOSr4dVJWUgsjZ0B4gaVc.woff2',
-    display: 'swap',
-  }),
-  loadFont({
-    family: 'Lato',
-    url: 'https://fonts.gstatic.com/s/lato/v23/S6uyw4BMUTPHjx4wXiWtFCc.woff2',
-    display: 'swap',
-  }),
-];
-*/
 
 // Subtitle styles configuration
 export type SubtitleStyle = {
@@ -59,171 +24,216 @@ export type SubtitleStyle = {
   textShadow?: string;
   border?: string;
   supportsCaps?: boolean; // Whether this font supports caps lock toggle
+  // New customization options
+  outlineWidth?: number;
+  outlineColor?: string;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
+  shadowBlur?: number;
+  shadowColor?: string;
+  letterSpacing?: number;
+  textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
 };
 
-// Predefined subtitle styles with popular social media fonts
-export const SUBTITLE_STYLES: SubtitleStyle[] = [
-  {
-    id: 'bold-white',
-    name: 'Bold (Default)',
-    font: 'The Bold Font, Arial Black, sans-serif',
-    backgroundColor: 'transparent',
-    textColor: '#ffffff',
-    borderRadius: 0,
-    padding: 8,
-    fontSize: 40,
-    fontWeight: 900,
-    textAlign: 'center',
-    maxWidth: 95,
-    lineHeight: 1.2,
-    textShadow: '-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 -2px 0 #000, 0 2px 0 #000, -2px 0 0 #000, 2px 0 0 #000',
-    supportsCaps: false,
-  },
-  {
-    id: 'steady',
-    name: 'Steady',
-    font: 'Steady, Helvetica, sans-serif',
-    backgroundColor: 'transparent',
-    textColor: '#ffffff',
-    borderRadius: 0,
-    padding: 8,
-    fontSize: 38,
-    fontWeight: 600,
-    textAlign: 'center',
-    maxWidth: 95,
-    lineHeight: 1.3,
-    textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000',
-    supportsCaps: true,
-  },
-  {
-    id: 'system',
-    name: 'System',
-    font: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    backgroundColor: 'transparent',
-    textColor: '#ffffff',
-    borderRadius: 0,
-    padding: 8,
-    fontSize: 36,
-    fontWeight: 700,
-    textAlign: 'center',
-    maxWidth: 95,
-    lineHeight: 1.2,
-    textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000',
-    supportsCaps: true,
-  },
-  {
-    id: 'gotham',
-    name: 'Gotham',
-    font: 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
-    backgroundColor: 'transparent',
-    textColor: '#ffffff',
-    borderRadius: 0,
-    padding: 8,
-    fontSize: 38,
-    fontWeight: 700,
-    textAlign: 'center',
-    maxWidth: 95,
-    lineHeight: 1.2,
-    textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000',
-    supportsCaps: true,
-  },
-  {
-    id: 'story',
-    name: 'Story',
-    font: 'Roboto, -apple-system, BlinkMacSystemFont, sans-serif',
-    backgroundColor: 'transparent',
-    textColor: '#ffffff',
-    borderRadius: 0,
-    padding: 8,
-    fontSize: 40,
-    fontWeight: 600,
-    textAlign: 'center',
-    maxWidth: 95,
-    lineHeight: 1.3,
-    textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000',
-    supportsCaps: true,
-  },
-  {
-    id: 'modern',
-    name: 'Modern',
-    font: '"Open Sans", -apple-system, BlinkMacSystemFont, sans-serif',
-    backgroundColor: 'transparent',
-    textColor: '#ffffff',
-    borderRadius: 0,
-    padding: 8,
-    fontSize: 36,
-    fontWeight: 500,
-    textAlign: 'center',
-    maxWidth: 95,
-    lineHeight: 1.2,
-    textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000',
-    supportsCaps: true,
-  },
-  {
-    id: 'genial',
-    name: 'Genial',
-    font: 'Lato, -apple-system, BlinkMacSystemFont, sans-serif',
-    backgroundColor: 'transparent',
-    textColor: '#ffffff',
-    borderRadius: 0,
-    padding: 8,
-    fontSize: 38,
-    fontWeight: 600,
-    textAlign: 'center',
-    maxWidth: 95,
-    lineHeight: 1.3,
-    textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000',
-    supportsCaps: true,
-  },
-  {
-    id: 'montserrat',
-    name: 'Montserrat',
-    font: 'Montserrat, -apple-system, BlinkMacSystemFont, sans-serif',
-    backgroundColor: 'transparent',
-    textColor: '#ffffff',
-    borderRadius: 0,
-    padding: 8,
-    fontSize: 36,
-    fontWeight: 700,
-    textAlign: 'center',
-    maxWidth: 95,
-    lineHeight: 1.2,
-    textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000',
-    supportsCaps: true,
-  },
-  {
-    id: 'inter',
-    name: 'Inter',
-    font: 'Inter, sans-serif',
-    backgroundColor: 'transparent',
-    textColor: '#ffffff',
-    borderRadius: 0,
-    padding: 8,
-    fontSize: 36,
-    fontWeight: 600,
-    textAlign: 'center',
-    maxWidth: 95,
-    lineHeight: 1.2,
-    textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000',
-    supportsCaps: true,
-  },
-  {
-    id: 'roboto',
-    name: 'Roboto',
-    font: 'Roboto, sans-serif',
-    backgroundColor: 'transparent',
-    textColor: '#ffffff',
-    borderRadius: 0,
-    padding: 8,
-    fontSize: 36,
-    fontWeight: 600,
-    textAlign: 'center',
-    maxWidth: 95,
-    lineHeight: 1.2,
-    textShadow: '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000',
-    supportsCaps: true,
-  },
-];
+// Generate subtitle styles from all available fonts
+function generateSubtitleStyles(): SubtitleStyle[] {
+  const styles: SubtitleStyle[] = [];
+  
+  // Get all available fonts (Google + local + custom)
+  const allFonts = getAllAvailableFonts();
+
+  // Define video-friendly fonts with optimized settings
+  const videoFriendlyFonts = [
+    // Local fonts first
+    { id: 'bold-font', weight: 900, size: 42 },
+    { id: 'system-font', weight: 700, size: 36 },
+    
+    // Popular Google Fonts
+    { id: 'inter', weight: 700, size: 38 },
+    { id: 'roboto', weight: 700, size: 36 },
+    { id: 'open-sans', weight: 600, size: 36 },
+    { id: 'montserrat', weight: 700, size: 38 },
+    { id: 'lato', weight: 700, size: 38 },
+    { id: 'poppins', weight: 600, size: 38 },
+    { id: 'nunito', weight: 700, size: 38 },
+    { id: 'work-sans', weight: 600, size: 36 },
+    { id: 'quicksand', weight: 600, size: 38 },
+    { id: 'cabin', weight: 600, size: 36 },
+    { id: 'dosis', weight: 600, size: 38 },
+    { id: 'fira-sans', weight: 600, size: 36 },
+    { id: 'pt-sans', weight: 700, size: 36 },
+    { id: 'mulish', weight: 600, size: 36 },
+    { id: 'karla', weight: 600, size: 36 },
+    { id: 'barlow', weight: 600, size: 36 },
+    { id: 'dm-sans', weight: 700, size: 36 },
+    { id: 'rubik', weight: 600, size: 38 },
+    { id: 'heebo', weight: 700, size: 38 },
+    { id: 'manrope', weight: 600, size: 36 },
+    
+    // Display fonts for impact
+    { id: 'oswald', weight: 600, size: 40 },
+    { id: 'bebas-neue', weight: 400, size: 44 },
+    { id: 'anton', weight: 400, size: 42 },
+    { id: 'bangers', weight: 400, size: 40 },
+    { id: 'archivo-black', weight: 400, size: 40 },
+    { id: 'russo-one', weight: 400, size: 38 },
+    { id: 'comfortaa', weight: 600, size: 38 },
+    { id: 'righteous', weight: 400, size: 38 },
+    { id: 'pacifico', weight: 400, size: 40 },
+    { id: 'lobster', weight: 400, size: 40 },
+    { id: 'alfa-slab-one', weight: 400, size: 42 },
+    { id: 'bungee', weight: 400, size: 40 },
+    { id: 'black-ops-one', weight: 400, size: 38 },
+    { id: 'permanent-marker', weight: 400, size: 38 },
+    { id: 'orbitron', weight: 700, size: 38 },
+    { id: 'press-start-2p', weight: 400, size: 32 },
+    { id: 'kalam', weight: 400, size: 38 },
+    
+    // Elegant serif fonts
+    { id: 'playfair-display', weight: 700, size: 36 },
+    { id: 'merriweather', weight: 700, size: 34 },
+    { id: 'lora', weight: 600, size: 36 },
+    { id: 'eb-garamond', weight: 600, size: 36 },
+    { id: 'libre-baskerville', weight: 700, size: 36 },
+    { id: 'cormorant-garamond', weight: 600, size: 36 },
+    { id: 'crimson-text', weight: 600, size: 36 },
+    { id: 'vollkorn', weight: 600, size: 36 },
+    { id: 'bitter', weight: 600, size: 36 },
+    { id: 'zilla-slab', weight: 600, size: 36 }
+  ];
+
+  videoFriendlyFonts.forEach(({ id, weight, size }) => {
+    const font = allFonts.find(f => f.id === id);
+    if (font) {
+      // Handle different font types
+      let fontFamily: string;
+      if (font.type === 'local' && font.localPath) {
+        // Local font with fallback
+        fontFamily = font.fontFamily;
+      } else if (font.type === 'custom' && font.uploadedFile) {
+        // Custom uploaded font
+        fontFamily = `"${font.fontFamily}", ${FONT_FALLBACKS[font.category] || FONT_FALLBACKS['sans-serif']}`;
+      } else {
+        // Google font
+        fontFamily = `"${font.fontFamily}"${FONT_FALLBACKS[font.category] || FONT_FALLBACKS['sans-serif']}`;
+      }
+      
+      styles.push({
+        id: font.id,
+        name: font.name,
+        font: fontFamily,
+        backgroundColor: 'transparent',
+        textColor: '#ffffff',
+        borderRadius: 0,
+        padding: 8,
+        fontSize: size,
+        fontWeight: weight,
+        textAlign: 'center',
+        maxWidth: 95,
+        lineHeight: font.category === 'display' ? 1.1 : 1.2,
+        textShadow: font.category === 'display' || font.category === 'local' ? 
+          '-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 -2px 0 #000, 0 2px 0 #000, -2px 0 0 #000, 2px 0 0 #000' :
+          '-1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000',
+        supportsCaps: font.category !== 'handwriting',
+      });
+    }
+  });
+
+  return styles;
+}
+
+// Predefined subtitle styles using Google Fonts
+export const SUBTITLE_STYLES: SubtitleStyle[] = generateSubtitleStyles();
+
+// Helper function to calculate optimal words per line based on font size and screen width
+export function calculateOptimalWordsPerLine(
+  fontSize: number,
+  screenWidth: number = 1080, // Default video width
+  padding: number = 48, // More conservative padding (increased from 24)
+  letterSpacing: number = 0,
+  avgCharacterWidth: number = 0.65 // Slightly wider character estimate for safety
+): number {
+  // Calculate effective width (screen width minus padding)
+  const effectiveWidth = screenWidth - padding;
+  
+  // Estimate character width based on font size and letter spacing
+  const charWidth = fontSize * avgCharacterWidth + letterSpacing;
+  
+  // Average word length in English is about 4.7 characters + 1 space
+  const avgWordWidth = charWidth * 6.2; // More conservative estimate (increased from 5.7)
+  
+  // Calculate how many words can fit with 85% safety margin
+  const wordsPerLine = Math.floor((effectiveWidth * 0.85) / avgWordWidth);
+  
+  // Ensure minimum of 1 word and reasonable maximum (reduced from 8)
+  return Math.max(1, Math.min(wordsPerLine, 6));
+}
+
+// Helper function to generate CSS style object from SubtitleStyle with overrides
+export function generateCSSFromSubtitleStyle(
+  style: SubtitleStyle, 
+  overrides?: Partial<SubtitleStyle>,
+  screenWidth: number = 1080,
+  previewScale: number = 1.0
+): React.CSSProperties {
+  // Merge style with overrides
+  const finalStyle = { ...style, ...overrides };
+  
+  let textShadow = finalStyle.textShadow;
+  
+  // Override with custom shadow if specified
+  if (finalStyle.shadowOffsetX !== undefined || finalStyle.shadowOffsetY !== undefined) {
+    const offsetX = finalStyle.shadowOffsetX || 0;
+    const offsetY = finalStyle.shadowOffsetY || 0;
+    const blur = finalStyle.shadowBlur || 0;
+    const color = finalStyle.shadowColor || '#000000';
+    textShadow = `${offsetX}px ${offsetY}px ${blur}px ${color}`;
+  }
+  
+  // Generate outline effect using text-shadow if specified
+  if (finalStyle.outlineWidth && finalStyle.outlineWidth > 0) {
+    const width = finalStyle.outlineWidth;
+    const color = finalStyle.outlineColor || '#000000';
+    const outlineShadows = [];
+    
+    // Create multiple text-shadows to simulate outline
+    for (let x = -width; x <= width; x++) {
+      for (let y = -width; y <= width; y++) {
+        if (x !== 0 || y !== 0) {
+          outlineShadows.push(`${x}px ${y}px 0 ${color}`);
+        }
+      }
+    }
+    
+    // Combine outline shadows with existing text shadow
+    if (textShadow && textShadow !== 'none') {
+      textShadow = `${outlineShadows.join(', ')}, ${textShadow}`;
+    } else {
+      textShadow = outlineShadows.join(', ');
+    }
+  }
+
+  return {
+    background: finalStyle.backgroundColor,
+    color: finalStyle.textColor,
+    fontFamily: finalStyle.font,
+    fontSize: `${finalStyle.fontSize / previewScale}px`, // Adjust font size for scale
+    fontWeight: finalStyle.fontWeight,
+    borderRadius: `${finalStyle.borderRadius / previewScale}px`, // Adjust border radius for scale
+    padding: `${finalStyle.padding / previewScale}px`, // Adjust padding for scale  
+    lineHeight: finalStyle.lineHeight,
+    textShadow,
+    border: finalStyle.border,
+    letterSpacing: finalStyle.letterSpacing ? `${finalStyle.letterSpacing / previewScale}px` : undefined, // Adjust letter spacing for scale
+    textTransform: finalStyle.textTransform || 'none',
+    textAlign: finalStyle.textAlign,
+    maxWidth: `${(screenWidth - (finalStyle.padding * 2)) / previewScale}px`, // Adjust max width for scale
+    whiteSpace: 'nowrap' as const,
+    overflow: 'visible' as const,
+    display: 'block' as const,
+    margin: '4px 0',
+  };
+}
 
 // Word timing interface
 export interface WordTiming {
@@ -237,11 +247,15 @@ interface SubtitleProps {
   transcript: string;
   wordTimings?: WordTiming[];
   style: SubtitleStyle;
-  animationType?: 'fade' | 'slide' | 'typewriter' | 'bounce';
+  animationType?: 'fade' | 'slide' | 'typewriter' | 'bounce' | 'none';
   position?: 'bottom' | 'top' | 'center';
   maxWordsPerLine?: number;
   highlightCurrentWord?: boolean;
   useCapsLock?: boolean;
+  // Style overrides for advanced customization
+  styleOverrides?: Partial<SubtitleStyle>;
+  // Scale factor to handle preview vs final render differences
+  previewScale?: number;
 }
 
 // Animation variants
@@ -261,6 +275,11 @@ const getWordAnimation = (
   });
 
   switch (animationType) {
+    case 'none':
+      return {
+        opacity: 1,
+        transform: 'none',
+      };
     case 'slide':
       return {
         opacity: interpolate(progress, [0, 1], [0, 1]) * (1 - exitProgress),
@@ -308,9 +327,9 @@ const isLongWord = (word: string, threshold: number = 15): boolean => {
   return cleanWord.length > threshold;
 };
 
-// Break text into chunks for engaging display with word-level timing
-// Improved to prevent single words after periods and handle long words
-const breakIntoChunks = (text: string, wordTimings: WordTiming[], maxWordsPerLine: number = 8): { text: string; words: WordTiming[] }[] => {
+// Break text into chunks for single-line display with word-level timing
+// Optimized for single-line subtitles with dynamic font sizing
+const breakIntoChunks = (text: string, wordTimings: WordTiming[], maxWordsPerLine: number = 6): { text: string; words: WordTiming[] }[] => {
   const words = text.split(' ');
   const chunks: { text: string; words: WordTiming[] }[] = [];
   
@@ -321,10 +340,11 @@ const breakIntoChunks = (text: string, wordTimings: WordTiming[], maxWordsPerLin
     
     // Check if current word is very long - display it alone
     if (isLongWord(words[i])) {
+      const timing = wordTimings[i] || { word: words[i], startTime: 0, endTime: 1 };
       chunks.push({
         text: transformSubtitleText(words[i]),
         words: [{
-          ...wordTimings[i],
+          ...timing,
           word: transformSubtitleText(words[i])
         }]
       });
@@ -340,7 +360,8 @@ const breakIntoChunks = (text: string, wordTimings: WordTiming[], maxWordsPerLin
       }
       
       chunkWords.push(words[i]);
-      chunkTimings.push(wordTimings[i]);
+      const timing = wordTimings[i] || { word: words[i], startTime: i * 0.5, endTime: (i + 1) * 0.5 };
+      chunkTimings.push(timing);
       i++;
       
       // If we hit a sentence ending and have room for more words, continue to avoid orphaned words
@@ -350,7 +371,8 @@ const breakIntoChunks = (text: string, wordTimings: WordTiming[], maxWordsPerLin
         if (remainingWords <= 2 && chunkWords.length + remainingWords <= maxWordsPerLine + 2) {
           while (i < words.length && chunkWords.length < maxWordsPerLine + 2 && !isLongWord(words[i])) {
             chunkWords.push(words[i]);
-            chunkTimings.push(wordTimings[i]);
+            const timing = wordTimings[i] || { word: words[i], startTime: i * 0.5, endTime: (i + 1) * 0.5 };
+            chunkTimings.push(timing);
             i++;
           }
         }
@@ -389,31 +411,23 @@ export const Subtitles: React.FC<SubtitleProps> = ({
   style,
   animationType = 'fade',
   position = 'bottom',
-  maxWordsPerLine = 6,
+  maxWordsPerLine, // Optional - when undefined, will use dynamic calculation
   highlightCurrentWord = false, // Disabled highlighting for clean text
   useCapsLock = false,
+  styleOverrides,
+  previewScale = 1.0, // Default to full scale for final render
 }) => {
   const frame = useCurrentFrame();
-  const { fps, durationInFrames } = useVideoConfig();
+  const { fps, durationInFrames, width } = useVideoConfig();
   
-  // Wait for fonts to load - this ensures all fonts are available before rendering
-  // Font loading temporarily disabled - fonts will be loaded via CSS
-  const [fontsLoaded, setFontsLoaded] = React.useState(true);
-  
-  /*
-  React.useEffect(() => {
-    Promise.all(fontLoadingPromises)
-      .then(() => {
-        console.log('[Subtitles] All fonts loaded successfully');
-        setFontsLoaded(true);
-      })
-      .catch((error) => {
-        console.error('[Subtitles] Error loading fonts:', error);
-        // Continue rendering even if fonts fail to load
-        setFontsLoaded(true);
-      });
-  }, []);
-  */
+  // Calculate dynamic words per line based on font size and screen width
+  const mergedStyle = { ...style, ...styleOverrides };
+  const dynamicWordsPerLine = maxWordsPerLine ?? calculateOptimalWordsPerLine(
+    mergedStyle.fontSize,
+    width,
+    (mergedStyle.padding || 12) * 2, // Total horizontal padding
+    mergedStyle.letterSpacing || 0
+  );
   
   // Use provided word timings (from ElevenLabs) or generate fallback timings
   const generatedWordTimings = wordTimings && wordTimings.length > 0 
@@ -421,16 +435,30 @@ export const Subtitles: React.FC<SubtitleProps> = ({
     : parseTranscriptWithTimings(transcript, durationInFrames / fps);
   
   // Break transcript into chunks with word-level timing
-  const chunks = breakIntoChunks(transcript, generatedWordTimings, maxWordsPerLine);
+  const chunks = breakIntoChunks(transcript, generatedWordTimings, dynamicWordsPerLine);
   
   // Get current time in seconds
   const currentTime = frame / fps;
   
-  // Find currently active chunks - show chunk from first word start to last word end
+  // Find currently active chunks with improved timing for single words
   const activeChunks = chunks.filter(chunk => {
     if (chunk.words.length === 0) return false;
     const chunkStartTime = chunk.words[0].startTime;
-    const chunkEndTime = chunk.words[chunk.words.length - 1].endTime;
+    let chunkEndTime = chunk.words[chunk.words.length - 1].endTime;
+    
+    // For single words, extend display time to overlap with next word's start
+    if (chunk.words.length === 1) {
+      const currentChunkIndex = chunks.findIndex(c => c === chunk);
+      const nextChunk = chunks[currentChunkIndex + 1];
+      if (nextChunk && nextChunk.words.length > 0) {
+        // Show current word until next word starts (with small overlap)
+        chunkEndTime = Math.max(chunkEndTime, nextChunk.words[0].startTime - 0.05);
+      } else {
+        // Last word - extend by 0.3 seconds for better readability
+        chunkEndTime += 0.3;
+      }
+    }
+    
     return currentTime >= chunkStartTime && currentTime <= chunkEndTime;
   });
 
@@ -459,11 +487,6 @@ export const Subtitles: React.FC<SubtitleProps> = ({
     }
   };
 
-  // Don't render subtitles until fonts are loaded
-  if (!fontsLoaded) {
-    return <AbsoluteFill />;
-  }
-  
   // Debug logging for font selection
   console.log('[Subtitles] Rendering with font:', {
     fontFamily: style.font,
@@ -494,42 +517,39 @@ export const Subtitles: React.FC<SubtitleProps> = ({
             fps
           );
 
+          // Get the text content for the chunk
+          const chunkText = chunk.words.map(w => 
+            useCapsLock ? w.word.toUpperCase() : w.word
+          ).join(' ');
+
           return (
             <div
               key={`chunk-${chunkIndex}`}
               style={{
-                background: style.backgroundColor,
-                color: style.textColor,
-                fontFamily: style.font,
-                fontSize: `${style.fontSize}px`,
-                fontWeight: style.fontWeight,
-                borderRadius: `${style.borderRadius}px`,
-                padding: `${style.padding}px`,
-                margin: '4px 0',
-                maxWidth: '95%', // Allow more width for longer sentences
-                lineHeight: style.lineHeight,
-                textShadow: style.textShadow,
-                border: style.border,
-                whiteSpace: 'normal', // Allow normal text wrapping
-                wordBreak: 'normal', // Use normal word breaking
-                overflowWrap: 'anywhere', // Break anywhere if needed
-                hyphens: 'auto', // Use automatic hyphenation if supported
-                display: 'block', // Use block display for proper text centering
-                textAlign: 'center', // Ensure text is centered
+                ...generateCSSFromSubtitleStyle(style, styleOverrides, width, previewScale),
                 ...animation,
               }}
             >
-              {chunk.words.map((wordTiming, wordIndex) => (
-                <span
-                  key={`word-${chunkIndex}-${wordIndex}`}
-                  style={{
-                    color: style.textColor,
-                  }}
-                >
-                  {useCapsLock ? wordTiming.word.toUpperCase() : wordTiming.word}
-                  {wordIndex < chunk.words.length - 1 ? ' ' : ''}
-                </span>
-              ))}
+              {chunk.words.map((wordTiming, wordIndex) => {
+                // Use merged style for consistent styling
+                const mergedStyle = { ...style, ...styleOverrides };
+                return (
+                  <span
+                    key={`word-${chunkIndex}-${wordIndex}`}
+                    style={{
+                      color: mergedStyle.textColor,
+                      fontSize: `${mergedStyle.fontSize / previewScale}px`, // Adjust font size for scale
+                      fontWeight: mergedStyle.fontWeight,
+                      fontFamily: mergedStyle.font,
+                      letterSpacing: mergedStyle.letterSpacing ? `${mergedStyle.letterSpacing / previewScale}px` : undefined, // Adjust letter spacing for scale
+                      textTransform: mergedStyle.textTransform || 'none',
+                    }}
+                  >
+                    {useCapsLock ? wordTiming.word.toUpperCase() : wordTiming.word}
+                    {wordIndex < chunk.words.length - 1 ? ' ' : ''}
+                  </span>
+                );
+              })}
             </div>
           );
         })}

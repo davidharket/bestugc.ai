@@ -5,6 +5,7 @@ import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import { prisma } from '../../../lib/prisma';
+import { processAffiliateSignup } from '../../../lib/affiliate-utils';
 import bcrypt from 'bcryptjs';
 
 // Extend the built-in session and user types to include our custom fields
@@ -79,7 +80,7 @@ export const authOptions: NextAuthOptions = {
               email: credentials.email,
               password: hashedPassword,
               name: credentials.name,
-              credits: 20, // Initial credits
+              credits: 30, // Initial credits
               plan: 'FREE'
             }
           });
@@ -112,6 +113,29 @@ export const authOptions: NextAuthOptions = {
   // Callbacks are used to control what happens when an action is performed.
   callbacks: {
     /**
+     * The signIn callback is called when a user signs in.
+     * We use it to handle affiliate attribution for new users.
+     */
+    async signIn({ user, account, profile, email, credentials }) {
+      // Only process for new user signups
+      if (account?.provider === 'google' && user?.email) {
+        // Check if this is a new user by looking for existing user
+        const existingUser = await prisma.user.findUnique({
+          where: { email: user.email }
+        });
+
+        // If it's a new Google user, try to process affiliate signup
+        if (!existingUser) {
+          // We can't easily access cookies in the signIn callback,
+          // so we'll handle this in a separate API endpoint after successful sign-in
+          // For now, just allow the sign-in to proceed
+        }
+      }
+      
+      return true;
+    },
+
+    /**
      * The jwt callback is called whenever a JWT token is created/updated.
      * We use it to add custom properties to the JWT token.
      */
@@ -119,6 +143,7 @@ export const authOptions: NextAuthOptions = {
       // Initial sign in
       if (user) {
         token.id = user.id;
+        token.name = user.name; // Ensure name is included
         token.credits = user.credits;
         token.plan = user.plan;
       }
@@ -127,10 +152,25 @@ export const authOptions: NextAuthOptions = {
       if (account?.provider === 'google') {
         const dbUser = await prisma.user.findUnique({
           where: { email: token.email! },
-          select: { id: true, credits: true, plan: true }
+          select: { id: true, name: true, credits: true, plan: true }
         });
         if (dbUser) {
           token.id = dbUser.id;
+          token.name = dbUser.name; // Include name from database
+          token.credits = dbUser.credits;
+          token.plan = dbUser.plan;
+        }
+      }
+
+      // For credentials users, ensure we have the latest data from database
+      if (account?.provider === 'credentials' || (!account && token.email)) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: token.email! },
+          select: { id: true, name: true, credits: true, plan: true }
+        });
+        if (dbUser) {
+          token.id = dbUser.id;
+          token.name = dbUser.name; // Ensure name is always fresh from database
           token.credits = dbUser.credits;
           token.plan = dbUser.plan;
         }
@@ -147,6 +187,7 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user && token) {
         session.user.id = token.id as string;
+        session.user.name = token.name as string; // Ensure name is included in session
         session.user.credits = token.credits as number;
         session.user.plan = token.plan as string;
       }

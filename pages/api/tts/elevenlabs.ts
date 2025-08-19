@@ -28,7 +28,7 @@ const SWEDISH_VOICES = {
 };
 
 const DUTCH_VOICES = {
-  female: ['ANHrhmaFeVN0QJaa0PhL', 'XJa38TJgDqYhj5mYbSJA', 'gC9jy9VUxaXAswovchvQ', 'SXBL9NbvTrjsJQYay2kT'],
+  female: ['SXBL9NbvTrjsJQYay2kT'], // Only working voice with Dutch special characters
   male: ['wqDY19Brqhu7UCoLadPh', 'ARIOBKJtltx2F7r1TMzI', 'h6uBOiAjLKklte8hdYio']
 };
 
@@ -110,35 +110,110 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   console.log(`[TTS] Gender: ${gender || 'female'}, Language: ${language || 'en'}, ProvidedVoiceId: ${providedVoiceId || 'none'}`);
   console.log(`[TTS] Using voice ID: ${voiceId} for language: ${language || 'en'}`);
+  console.log(`[TTS] Text to synthesize: "${text}" (length: ${text.length} chars)`);
+  
+  // Debug character encoding
+  console.log(`[TTS] Text bytes: ${Buffer.from(text, 'utf8').length} bytes`);
+  console.log(`[TTS] Special chars detected: ${/[^\x00-\x7F]/.test(text) ? 'YES' : 'NO'}`);
+  if (/[^\x00-\x7F]/.test(text)) {
+    const specialChars = text.match(/[^\x00-\x7F]/g);
+    console.log(`[TTS] Special characters found: ${JSON.stringify(specialChars)}`);
+  }
 
   try {
+    const startTime = Date.now();
+    
     // Use timestamps endpoint if requested, otherwise use regular endpoint
     const endpoint = withTimestamps 
       ? `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}/with-timestamps`
       : `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
 
+    console.log(`[TTS] Endpoint: ${endpoint}`);
+
+    // Ensure proper JSON encoding for special characters
+    const requestPayload = { 
+      text, 
+      model_id: modelId, 
+      voice_settings: { stability: 0.5, similarity_boost: 0.75, speed: 1.2 } 
+    };
+    const requestData = JSON.stringify(requestPayload);
+    
+    console.log(`[TTS] Request payload size: ${requestData.length} bytes`);
+    console.log(`[TTS] JSON serialized text preview: ${requestData.substring(0, 200)}...`);
+    
     const response = await axios.post(
       endpoint,
-      { text, model_id: modelId, voice_settings: { stability: 0.5, similarity_boost: 0.75, speed: 1.2 } },
+      requestData,
       {
-        headers: { 'Content-Type': 'application/json', 'xi-api-key': ELEVENLABS_API_KEY, 'Accept': withTimestamps ? 'application/json' : 'audio/mpeg' },
+        headers: { 
+          'Content-Type': 'application/json; charset=utf-8', 
+          'xi-api-key': ELEVENLABS_API_KEY, 
+          'Accept': withTimestamps ? 'application/json' : 'audio/mpeg' 
+        },
         responseType: withTimestamps ? 'json' : 'arraybuffer',
       }
     );
+    
+    const responseTime = Date.now() - startTime;
+    console.log(`[TTS] API Response time: ${responseTime}ms`);
+    console.log(`[TTS] Response status: ${response.status} ${response.statusText}`);
+    console.log(`[TTS] Response headers: ${JSON.stringify(response.headers)}`);
+    console.log(`[TTS] Response data type: ${typeof response.data}, size: ${response.data?.length || response.data?.byteLength || 'unknown'}`);
+    
+    if (response.status !== 200) {
+      console.log(`[TTS] Non-200 response: ${response.status} - ${JSON.stringify(response.data)}`);
+    }
 
     let audioBuffer: Buffer;
     let wordTimings: any[] | undefined;
 
     if (withTimestamps) {
-      // Handle timestamps response
-      audioBuffer = Buffer.from(response.data.audio_base64, 'base64');
+      console.log(`[TTS] Processing timestamps response`);
+      console.log(`[TTS] Response data keys: ${JSON.stringify(Object.keys(response.data))}`);
+      
+      // Validate timestamps response structure
+      if (!response.data.audio_base64) {
+        throw new Error('Missing audio_base64 in timestamps response');
+      }
+      
+      if (!response.data.alignment) {
+        throw new Error('Missing alignment data in timestamps response');
+      }
+      
+      console.log(`[TTS] Base64 audio data length: ${response.data.audio_base64.length} characters`);
+      console.log(`[TTS] Base64 preview: ${response.data.audio_base64.substring(0, 50)}...`);
+      
+      try {
+        // Handle timestamps response
+        audioBuffer = Buffer.from(response.data.audio_base64, 'base64');
+        console.log(`[TTS] Decoded base64 audio buffer: ${audioBuffer.length} bytes`);
+        
+        if (audioBuffer.length < 1000) {
+          console.warn(`[TTS] WARNING: Suspiciously small audio buffer from base64 decode: ${audioBuffer.length} bytes`);
+          console.log(`[TTS] Full base64 data: ${response.data.audio_base64}`);
+        }
+      } catch (base64Error: any) {
+        console.error(`[TTS] Base64 decode error: ${base64Error.message}`);
+        throw new Error(`Failed to decode base64 audio: ${base64Error.message}`);
+      }
       
       // Convert character-level alignment to word-level timings
       const alignment = response.data.alignment;
-      wordTimings = convertCharacterToWordTimings(text, alignment);
+      console.log(`[TTS] Alignment data: ${JSON.stringify(alignment)}`);
+      
+      try {
+        wordTimings = convertCharacterToWordTimings(text, alignment);
+        console.log(`[TTS] Generated ${wordTimings.length} word timings`);
+      } catch (alignmentError: any) {
+        console.error(`[TTS] Alignment processing error: ${alignmentError.message}`);
+        // Continue without word timings rather than failing
+        wordTimings = [];
+      }
     } else {
+      console.log(`[TTS] Processing regular audio response`);
       // Handle regular audio response
       audioBuffer = Buffer.from(response.data);
+      console.log(`[TTS] Audio buffer size: ${audioBuffer.length} bytes`);
     }
 
     const fileName = `tts_${crypto.randomBytes(8).toString('hex')}.mp3`;
@@ -148,14 +223,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     const filePath = path.join(outputDir, fileName);
 
+    console.log(`[TTS] Writing audio to: ${filePath}`);
     await fs.promises.writeFile(filePath, audioBuffer);
 
-    if (fs.statSync(filePath).size === 0) {
+    const fileStats = fs.statSync(filePath);
+    console.log(`[TTS] File written successfully: ${fileStats.size} bytes`);
+    
+    if (fileStats.size === 0) {
+      console.error(`[TTS] ERROR: Generated audio file is empty!`);
       throw new Error('Generated audio file is empty');
+    }
+    
+    if (fileStats.size < 1000) {
+      console.warn(`[TTS] WARNING: Generated audio file is very small (${fileStats.size} bytes) - may be problematic`);
     }
 
     const audioUrl = `/generated_audio/${fileName}`;
     const responseData: any = { audioUrl, voiceUsed: voiceId, modelUsed: modelId };
+    
+    console.log(`[TTS] Success: Generated ${fileName} (${fileStats.size} bytes) with voice ${voiceId}`);
     
     if (wordTimings) {
       responseData.wordTimings = wordTimings;
@@ -166,8 +252,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.status(200).json(responseData);
 
   } catch (error: any) {
+    console.error(`[TTS] ERROR occurred during TTS processing`);
+    console.error(`[TTS] Error type: ${error.constructor.name}`);
+    console.error(`[TTS] Error message: ${error.message}`);
+    
+    if (error.response) {
+      console.error(`[TTS] HTTP Error - Status: ${error.response.status} ${error.response.statusText}`);
+      console.error(`[TTS] Response headers: ${JSON.stringify(error.response.headers)}`);
+      console.error(`[TTS] Response data type: ${typeof error.response.data}`);
+      
+      let errorMessage;
+      if (error.response.data) {
+        if (Buffer.isBuffer(error.response.data)) {
+          errorMessage = new TextDecoder().decode(error.response.data);
+        } else if (typeof error.response.data === 'object') {
+          errorMessage = JSON.stringify(error.response.data);
+        } else {
+          errorMessage = String(error.response.data);
+        }
+      } else {
+        errorMessage = error.message;
+      }
+      
+      console.error(`[TTS] Parsed error message: ${errorMessage}`);
+    } else if (error.request) {
+      console.error(`[TTS] Network Error - No response received`);
+      console.error(`[TTS] Request config: ${JSON.stringify(error.config)}`);
+    } else {
+      console.error(`[TTS] General Error: ${error.message}`);
+    }
+    
     const errorMessage = error.response?.data ? new TextDecoder().decode(error.response.data) : error.message;
-    console.error('[TTS] ElevenLabs API error:', errorMessage);
     res.status(500).json({ error: 'Failed to generate speech via ElevenLabs', details: errorMessage });
   }
 }

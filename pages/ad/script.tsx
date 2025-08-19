@@ -1,6 +1,6 @@
 // pages/ad/script.tsx
 import { useRouter } from 'next/router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useAdCreation } from '../../components/AdCreationContext';
 import toast from 'react-hot-toast';
@@ -9,6 +9,8 @@ const scriptTypes = [
   { key: 'cta', label: 'Call to Action' },
   { key: 'lifestyle', label: 'Product Lifestyle' },
   { key: 'brand', label: 'Brand Story' },
+  { key: 'trending', label: 'Trending Style' },
+  { key: 'custom', label: 'Custom Appeal' },
 ];
 
 export default function ScriptAdPage() {
@@ -19,13 +21,36 @@ export default function ScriptAdPage() {
   const [scripts, setScripts] = useState(adData.scripts || {});
   const [selectedScript, setSelectedScript] = useState(adData.script || '');
   const [loading, setLoading] = useState(false);
+  
+  // Track if we're already fetching to prevent duplicate requests
+  const fetchingRef = useRef(false);
+  const hasInitializedRef = useRef(false);
+  
+  // Persistent flag to track if scripts have been generated for this session
+  const scriptsGeneratedRef = useRef(Object.keys(adData.scripts || {}).length > 0);
+
+  // Sync state with context when context updates (but don't trigger regeneration)
+  useEffect(() => {
+    if (adData.scripts && Object.keys(adData.scripts).length > 0) {
+      setScripts(adData.scripts);
+      scriptsGeneratedRef.current = true;
+      hasInitializedRef.current = true;
+    }
+    if (adData.script) {
+      setSelectedScript(adData.script);
+    }
+  }, [adData.scripts, adData.script]);
 
   // Fetch scripts only if they don't already exist in the context
   useEffect(() => {
     const fetchScripts = async () => {
-      if (Object.keys(scripts).length > 0) return; // Don't re-fetch
+      // Prevent duplicate requests
+      if (fetchingRef.current) return;
+      if (scriptsGeneratedRef.current) return; // Don't re-fetch if scripts have been generated
+      if (hasInitializedRef.current && Object.keys(scripts).length > 0) return; // Don't re-fetch existing scripts
       if (!adData.summary) return; // Don't fetch if no product summary
 
+      fetchingRef.current = true;
       setLoading(true);
       const toastId = toast.loading('Generating script variations...');
       try {
@@ -42,6 +67,8 @@ export default function ScriptAdPage() {
         setSelectedScript(firstScript);
         setAdData({ scripts: generatedScripts, script: firstScript });
         toast.success('Scripts generated!', { id: toastId });
+        hasInitializedRef.current = true;
+        scriptsGeneratedRef.current = true;
       } catch (err: any) {
         if (err.response?.status === 429) {
           const rateLimitInfo = err.response?.data?.rateLimitInfo;
@@ -56,13 +83,16 @@ export default function ScriptAdPage() {
         }
       } finally {
         setLoading(false);
+        fetchingRef.current = false;
       }
     };
 
     fetchScripts();
-  }, [adData.summary, adData.brandName, adData.language, setAdData]);
+  }, [adData.summary, adData.brandName, adData.language]);
 
   const handleRegenerateScripts = async () => {
+    // Temporarily reset flags to allow regeneration
+    fetchingRef.current = true;
     setLoading(true);
     const toastId = toast.loading('Regenerating scripts...');
     try {
@@ -93,6 +123,7 @@ export default function ScriptAdPage() {
       }
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   };
 
@@ -147,11 +178,12 @@ export default function ScriptAdPage() {
                   <button
                     key={key}
                     onClick={() => setSelectedScript(scripts[key])}
-                    className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                    className={`px-3 py-2 text-sm border border-gray-600 rounded-[10px] text-gray-300 transition-colors duration-200 ${
                       selectedScript === scripts[key]
-                        ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/25'
-                        : 'bg-gray-800 text-gray-300 border border-gray-700 hover:bg-gray-700 hover:border-orange-500/50'
+                        ? 'border-orange-500'
+                        : 'hover:border-orange-500'
                     }`}
+                    style={{ backgroundColor: '#111827' }}
                   >
                     {scriptTypes.find(t => t.key === key)?.label || 'Generated'}
                   </button>
@@ -161,7 +193,7 @@ export default function ScriptAdPage() {
 
             {/* Script Editor */}
             <div>
-              <label className="block text-gray-300 font-medium mb-3">
+              <label className="block text-gray-300 font-normal mb-3">
                 Selected Script 
                 <span className="text-gray-500 text-sm font-normal ml-2">
                   (Feel free to edit and customize)
@@ -173,13 +205,13 @@ export default function ScriptAdPage() {
                 value={selectedScript}
                 onChange={(e) => setSelectedScript(e.target.value)}
                 placeholder="Your ad script will appear here..."
-                maxLength={2000}
+                maxLength={600}
               />
               <div className="flex justify-between items-center mt-2">
                 <p className="text-gray-500 text-sm">
                   This script will be used for the video narration. You can edit it to better fit your needs.
                 </p>
-                <span className="text-gray-500 text-sm">{selectedScript.length}/2000</span>
+                <span className="text-gray-500 text-sm">{selectedScript.length}/600</span>
               </div>
             </div>
           </div>

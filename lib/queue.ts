@@ -9,7 +9,8 @@ const redisConnection = {
 
 // Define a single queue for rendering videos.
 // We export this so it can be used by both the API route and the worker.
-export const renderQueue = new Queue('render-video', {
+const queueName = process.env.RENDER_QUEUE_NAME || 'render-video';
+export const renderQueue = new Queue(queueName, {
   connection: redisConnection,
   defaultJobOptions: {
     attempts: 3, // Retry a job up to 3 times if it fails
@@ -22,4 +23,4 @@ export const renderQueue = new Queue('render-video', {
   },
 });
 
-console.log('[Queue] BullMQ renderQueue initialized.');
+console.log(`[Queue] BullMQ renderQueue initialized with name: ${queueName}`);

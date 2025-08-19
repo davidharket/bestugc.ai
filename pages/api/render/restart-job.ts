@@ -35,20 +35,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         throw new Error('Ad not found');
       }
 
-      // Check if user has enough credits and deduct 10 credits for video restart
+      // Determine credit cost based on dual format
+      const creditCost = existingAd.enableDualFormat ? 15 : 10;
+
+      // Check if user has enough credits and deduct credits for video restart
       const user = await tx.user.findUnique({
         where: { id: session.user!.id },
         select: { credits: true }
       });
 
-      if (!user || user.credits < 10) {
-        throw new Error('Insufficient credits. You need at least 10 credits to restart video rendering.');
+      if (!user || user.credits < creditCost) {
+        throw new Error(`Insufficient credits. You need at least ${creditCost} credits to restart ${existingAd.enableDualFormat ? 'dual format video' : 'video'} rendering.`);
       }
 
-      // Deduct 10 credits from user's balance
+      // Deduct credits from user's balance
       const updatedUser = await tx.user.update({
         where: { id: session.user!.id },
-        data: { credits: { decrement: 10 } }
+        data: { credits: { decrement: creditCost } }
       });
       
       // ✅ This is the main logic change. Instead of inngest.send, we add to the queue.
@@ -68,17 +71,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         },
       });
 
-      return { job, existingAd, updatedCredits: updatedUser.credits };
+      return { job, existingAd, updatedCredits: updatedUser.credits, creditCost };
     });
 
-    const { job, existingAd } = result;
+    const { job, existingAd, creditCost } = result;
 
-    console.log(`[API /restart-job] Job ${job.id} added to the render queue for Ad ID: ${adId}. 10 credits deducted from user ${session.user!.id}`);
+    console.log(`[API /restart-job] Job ${job.id} added to the render queue for Ad ID: ${adId}. ${creditCost} credits deducted from user ${session.user!.id}`);
 
     return res.status(202).json({
       message: 'Video rendering job restarted.',
       adId: existingAd.id,
       jobId: job.id,
+      triggerFrequentPolling: true, // Signal frontend to start frequent polling
     });
 
   } catch (error: any) {

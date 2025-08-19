@@ -114,40 +114,69 @@ function buildRecipe(durationSec = DEFAULT_DURATION_SECONDS, language?: string) 
   const budget = estimateWordBudget(durationSec)
 
   return `
-You MUST follow this immutable recipe & constraints for every script:
+You MUST follow this enhanced recipe & constraints for every script:
 
-STRUCTURE (Direct Response-friendly):
+ENHANCED STRUCTURE (High-Converting UGC Format):
 1) HOOK (<= 2.5 seconds, ideally <= 10–12 words):
-   - Call out the avatar + pain OR a bold quantified promise.
-   - Use a number (under 100), a time bound, or a concrete mechanism.
-2) PROBLEM (1–2 short lines): Make the pain relatable and specific.
-3) SOLUTION / MECHANISM (1–2 lines): Name the unique mechanism, method, or checklist.
-4) PROOF / SOCIAL PROOF (1 line): A specific number (under 100), time saved, % lift, or testimonial-ish statement.
-5) CTA (1 line): MUST end with directing users to visit the website. Use phrases like "visit our website", "check out our site", "learn more at our website", or "get started on our website".
+   - Start with attention-grabbing words like "Stop scrolling if...", "Wait, what?", "You need to see this..."
+   - Call out the target audience directly OR make a bold promise with specific numbers
+   - Use urgency, curiosity, or controversy to stop the scroll
+   
+2) PROBLEM/PAIN POINT (1–2 short lines): 
+   - Make it relatable and emotional - "Are you tired of...", "Struggling with...", "Fed up with..."
+   - Be specific about the frustration or pain point
+   
+3) SOLUTION/MECHANISM (1–2 lines): 
+   - Introduce the product as the solution with confidence
+   - Use phrases like "That's where [product] comes in", "This changed everything for me"
+   - Mention the unique mechanism or key benefit
+   
+4) PROOF/CREDIBILITY (1 line): 
+   - Use specific numbers, time frames, or results (under 100)
+   - Personal testimonial style: "In just X days", "I saved X hours", "X percent improvement"
+   
+5) OBJECTION HANDLING (Optional, 1 line):
+   - Address common concerns: "I was skeptical too, but...", "It's easier than you think"
+   
+6) CTA (1 line): 
+   - MUST end with directing users to visit the website
+   - Use urgent, actionable language: "Check out our website now", "Visit our site today", "Get started on our website"
 
-HARD TTS CONSTRAINTS (for ElevenLabs):
-- Entire script in ${langName}.
-- Plain text only. No markdown, no emojis, no symbols like ™ or ®.
-- Write model numbers/codes with dashes between each character (e.g., "X-2-1-8", "G-P-S-5-0-0-0").
-- NEVER use numbers above 100 in any context (discount, quantity, etc.).
-- NEVER mention specific prices, costs, or currency amounts.
-- ONLY mention discounts in percentage format (e.g., "40 percent discount", "50 percent off").
-- Avoid parentheses and slashes where possible—prefer commas and new sentences for clarity.
-- Prefer sentences <= 18 words for clean TTS prosody.
+ADVANCED TTS OPTIMIZATION (for ElevenLabs):
+- Entire script in ${langName} with natural, conversational flow
+- Plain text only. No markdown, emojis, symbols like ™ or ®
+- Use contractions naturally: "I'm", "you're", "it's", "won't" for conversational tone
+- Write numbers as words: "twenty-five" not "25", "three" not "3"
+- Model numbers with dashes: "X-2-1-8", "G-P-S-5-0-0-0"
+- NEVER use numbers above 100 in any context
+- NEVER mention specific prices or currency amounts
+- Discounts in percentage only: "forty percent off", "fifty percent discount"
+- Use natural pauses with commas and periods for better TTS flow
+- Sentences <= 18 words for optimal prosody and comprehension
 
-PERFORMANCE & DURATION GUARDRAILS:
-- The total *script* should be approximately ${durationSec} seconds.
-- Target word count: ~${budget.target} words (acceptable range ${budget.min}–${budget.max}).
-- The HOOK must be immediately first (no greetings), and must finish in <= 2.5 seconds.
-- Use first-person *as a real user*, speaking to a friend (“you”), not a TV ad voice.
+ENGAGEMENT & RETENTION OPTIMIZATION:
+- Script duration: approximately ${durationSec} seconds
+- Target word count: ~${budget.target} words (range ${budget.min}–${budget.max})
+- First 3 seconds are CRITICAL - must grab attention immediately
+- Use "you" frequently to create personal connection
+- Speak as a real person sharing a discovery, not as a salesperson
+- Include emotion words: "amazing", "incredible", "shocked", "obsessed"
+- Create urgency without being pushy
+
+SCRIPT VARIETY BY TYPE:
+- CTA: Direct, benefit-focused, solution-oriented
+- LIFESTYLE: Aspirational, emotional, transformation-focused  
+- BRAND: Story-driven, value-focused, trust-building
+- TRENDING: Current, relatable, social proof heavy
+- CUSTOM: Unique angle, creative approach, memorable hook
 
 RETURN FORMAT:
 Return a JSON object *only* through the provided function call where each script type has:
 {
-  "script": "<full plain text script>",
+  "script": "<full plain text script optimized for TTS and engagement>",
   "segments": {
     "hook": "...",
-    "problem": "...",
+    "problem": "...", 
     "solution": "...",
     "valueProp": "...",
     "proof": "...",
@@ -309,7 +338,7 @@ IMPORTANT:
       messages: [
         {
           role: 'system',
-          content: `You are an expert in crafting short-form, high-retention, user-generated ad scripts that work on TikTok, Reels, and Shorts, **and** are highly suitable for ElevenLabs TTS. ${systemPrompt}`,
+          content: `You are a world-class UGC content creator and copywriter specializing in viral TikTok, Instagram Reels, and YouTube Shorts advertisements. You have generated thousands of high-converting video scripts that consistently achieve 3%+ click-through rates and drive significant revenue. Your scripts are optimized for both human engagement and ElevenLabs TTS pronunciation. You understand platform psychology, attention retention techniques, and what makes viewers stop scrolling and take action. ${systemPrompt}`,
         },
         {
           role: 'user',

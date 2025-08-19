@@ -19,6 +19,7 @@ export const AvatarWithCornerAsset: React.FC<{
   const { fps } = useVideoConfig();
   const inputProps = getInputProps();
   
+  
   // Check if we're in preview mode
   const isPreviewMode = (inputProps as any)?.adData?.previewMode === true;
   

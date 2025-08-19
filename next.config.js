@@ -9,7 +9,7 @@ const nextConfig = {
     },
   },
   
-  // Configure API routes
+  // Configure API routes and video headers
   async headers() {
     return [
       {
@@ -18,6 +18,42 @@ const nextConfig = {
           {
             key: 'Cache-Control',
             value: 'no-cache, no-store, must-revalidate',
+          },
+        ],
+      },
+      // Add proper headers for video files
+      {
+        source: '/(.*\\.mp4$)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+          {
+            key: 'Accept-Ranges',
+            value: 'bytes',
+          },
+          {
+            key: 'Content-Type',
+            value: 'video/mp4',
+          },
+        ],
+      },
+      // Hero videos specifically
+      {
+        source: '/hero:num.mp4',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+          {
+            key: 'Accept-Ranges',
+            value: 'bytes',
+          },
+          {
+            key: 'Content-Type',
+            value: 'video/mp4',
           },
         ],
       },

@@ -1,21 +1,25 @@
 // pages/index.tsx
 import { useSession, signIn } from 'next-auth/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
+import Head from 'next/head';
 
 // Enhanced showcase videos with variety
 const showcaseVideos = [
-  '/avatars/female-brunette-adult-inside.mp4',
-  '/avatars/male-brunette-adult-inside.mp4',
-  '/avatars/female-blonde-senior-inside.mp4',
-  '/avatars/female-blonde2-adult-inside.mp4',
-  '/avatars/male-blonde-adult-inside.mp4',
-  '/avatars/female-brunette2-adult-inside.mp4',
+  '/hero3.mp4',
+  '/v1.mp4',
+  '/v2.mp4',
+  '/hero2.mp4',
+  '/v3.mp4',
+  '/v4.mp4',
+  '/hero1.mp4',
+  '/v5.mp4',
+  '/v6.mp4',
 ];
 
 const features = [
   {
-    icon: '🎬',
+    icon: '/videos.svg',
     title: 'AI-Powered Scripts',
     description: 'Generate converting ad scripts instantly with our advanced AI that understands your product and audience.'
   },
@@ -48,10 +52,41 @@ const features = [
 
 // Testimonials removed - will add real customer testimonials later
 
+// Hook for scroll animations
+function useScrollAnimation() {
+  useEffect(() => {
+    const observerCallback = (entries: IntersectionObserverEntry[]) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in-view');
+        }
+      });
+    };
+
+    const observer = new IntersectionObserver(observerCallback, {
+      threshold: 0.1,
+      rootMargin: '0px 0px -50px 0px',
+    });
+
+    const animateElements = document.querySelectorAll('.animate-on-scroll');
+    animateElements.forEach((el) => observer.observe(el));
+
+    return () => observer.disconnect();
+  }, []);
+}
+
 export default function LandingPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+  const featuresRef = useRef<HTMLElement>(null);
+
+  const scrollToFeatures = () => {
+    featuresRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useScrollAnimation();
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -70,147 +105,156 @@ export default function LandingPage() {
 
   return (
     <>
+      <Head>
+        <title>Best UGC - The #1 AI UGC Tool | Create High-Converting Video Ads</title>
+        <meta name="description" content="Create high-converting AI video ads in minutes. Transform your product links into professional UGC content that drives real results. Never overpay for UGC again." />
+      </Head>
+      
       {/* Hero Section */}
       <div className="bg-black text-white">
-        <div className="max-w-7xl mx-auto py-20 px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            {/* Left Column - Content */}
-            <div className="text-white">
-              <div className="inline-flex items-center px-3 py-1 rounded-full bg-gradient-to-r from-orange-500/20 to-orange-600/20 border border-orange-500/30 mb-6">
-                <span className="text-orange-400 text-sm font-medium">✨ AI-Powered Video Ads</span>
-              </div>
-              
-              <h1 className="text-5xl lg:text-6xl font-extrabold leading-tight mb-6">
-                Never overpay for{' '}
-                <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
-                  UGC
-                </span>{' '}
-                again
-              </h1>
-              
-              <p className="text-xl text-gray-300 mb-8 leading-relaxed">
-                Transform your product link into high-ROI video ads optimized for social media conversions. 
-                Our AI creates authentic-looking user-generated content that maximizes your advertising spend.
-              </p>
+        <div className="max-w-6xl mx-auto py-20 px-4 sm:px-6 lg:px-8 text-center">
+          {/* Main Heading */}
+          <h1 className="text-5xl lg:text-7xl font-semibold leading-relaxed tracking-wide mb-8">
+            The best way to<br />
+            create <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>AI videos</span>
+          </h1>
+          
+          {/* Subtitle */}
+          <p className="text-lg text-white mb-12 max-w-2xl mx-auto">
+            Enter your product link → Create AI videos in minutes
+          </p>
 
-              {/* Key Benefits */}
-              <div className="space-y-4 text-lg text-gray-300 mb-10">
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl">🚀</span>
-                  <span>Enter your product link → Create UGC ads in minutes</span>
-                </div>
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl">👸</span>
-                  <span>Choose from diverse AI avatars and voices</span>
-                </div>
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl">💖</span>
-                  <span>Proven converting templates and scripts</span>
-                </div>
-                <div className="flex items-start gap-3">
-                  <span className="text-2xl">⚡</span>
-                  <span>Test variations 10x faster than traditional UGC</span>
-                </div>
-              </div>
+          {/* CTA Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+            <button
+              onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
+              className="btn-primary px-8 py-4 w-48"
+            >
+              Start creating
+            </button>
+            
+            <button
+              onClick={scrollToFeatures}
+              className="btn-secondary px-8 py-4 w-48"
+            >
+              Features
+            </button>
+          </div>
 
-              {/* CTA Buttons */}
-              <div className="flex flex-col sm:flex-row gap-4">
-                <button
-                  onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
-                  className="group relative px-8 py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-semibold rounded-xl shadow-2xl shadow-orange-500/25 hover:shadow-orange-500/40 transform hover:scale-105 transition-all duration-300"
-                >
-                  <span className="relative z-10 flex items-center justify-center gap-2">
-                    <svg className="h-5 w-5" viewBox="0 0 48 48">
-                      <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12s5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path>
-                      <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path>
-                      <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path>
-                      <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571l6.19,5.238C41.38,36.331,44,30.651,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path>
-                    </svg>
-                    Start Creating - Free
-                  </span>
-                  <div className="absolute inset-0 bg-gradient-to-r from-orange-600 to-orange-700 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                </button>
-                
-                <a href="/about" className="px-8 py-4 border-2 border-orange-500 text-orange-400 font-semibold rounded-xl hover:bg-orange-500/10 transition-all duration-300 inline-block text-center">
-                  How it works
-                </a>
-              </div>
-
-              {/* Social Proof */}
-              <div className="mt-8 pt-8 border-t border-gray-800">
-                <p className="text-sm text-gray-400 mb-3">Trusted by growing businesses</p>
-                <div className="flex items-center gap-6">
-                  <div className="flex -space-x-2">
-                    {['👩‍💼', '👨‍💻', '👩‍🚀', '👨‍🎨', '👩‍🔬'].map((emoji, i) => (
-                      <div key={i} className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-orange-600 flex items-center justify-center border-2 border-black">
-                        <span className="text-sm">{emoji}</span>
+          {/* Three Overlapping Phone Mockups */}
+          <div className="relative flex justify-center items-end max-w-4xl mx-auto mb-16">
+            {/* Left Phone */}
+            <div className="relative transform -rotate-12 scale-90 z-10">
+              <div className="w-64 bg-black rounded-[2.5rem] p-2 shadow-2xl border-4 border-gray-800" style={{ aspectRatio: '9/19.5' }}>
+                <div className="w-full h-full bg-black rounded-[2rem] overflow-hidden relative">
+                  <video
+                    className="w-full h-full object-cover"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="auto"
+		    >
+                    <source src="/hero1.mp4" type="video/mp4" />
+                    {/* Fallback for unsupported browsers */}
+                    <div className="w-full h-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
+                      <div className="text-white text-center">
+                        <div className="text-2xl mb-2">🎬</div>
+                        <div className="text-sm">Video Preview</div>
                       </div>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {[...Array(5)].map((_, i) => (
-                      <span key={i} className="text-orange-400 text-sm">⭐</span>
-                    ))}
-                    <span className="text-gray-400 text-sm ml-2">4.9/5 rating</span>
-                  </div>
+                    </div>
+                  </video>
+                  {/* TikTok-style overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
                 </div>
               </div>
             </div>
 
-            {/* Right Column - Video Showcase */}
-            <div className="relative">
-              <div className="relative max-w-sm mx-auto">
-                {/* Phone Frame */}
-                <div className="relative bg-black p-2 rounded-[2.5rem] shadow-2xl border-4 border-gray-800">
-                  <div className="relative bg-black rounded-[2rem] overflow-hidden" style={{ aspectRatio: '9/16' }}>
-                    {/* Video */}
-                    <video
-                      key={showcaseVideos[currentVideoIndex]}
-                      src={showcaseVideos[currentVideoIndex]}
-                      className="w-full h-full object-cover"
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
-                    />
-                    
-                    {/* Overlay UI Elements */}
-                    <div className="absolute top-4 left-4 right-4 flex justify-between items-center">
-                      <div className="bg-black/50 backdrop-blur rounded-full px-3 py-1">
-                        <span className="text-white text-xs font-medium">AI Generated</span>
-                      </div>
-                      <div className="bg-orange-500 rounded-full w-8 h-8 flex items-center justify-center">
-                        <span className="text-white text-xs">▶</span>
-                      </div>
-                    </div>
-                    
-                    <div className="absolute bottom-4 left-4 right-4">
-                      <div className="bg-black/50 backdrop-blur rounded-xl p-3">
-                        <p className="text-white text-sm font-medium">🔥 This serum changed my skin!</p>
-                        <p className="text-gray-300 text-xs mt-1">Click link in bio for 20% off ✨</p>
+            {/* Center Phone */}
+            <div className="relative z-20 mx-4">
+              <div className="w-72 bg-black rounded-[2.5rem] p-2 shadow-2xl border-4 border-gray-800" style={{ aspectRatio: '9/19.5' }}>
+                <div className="w-full h-full bg-black rounded-[2rem] overflow-hidden relative">
+                  <video
+                    className="w-full h-full object-cover"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="auto"
+                    onEnded={(e) => e.currentTarget.play()}
+                    onError={(e) => {
+                      console.error('Video failed to load:', e);
+                      // Try to reload the video once
+                      setTimeout(() => {
+                        e.currentTarget.load();
+                      }, 1000);
+                    }}
+                  >
+                    <source src="/hero2.mp4" type="video/mp4" />
+                    {/* Fallback for unsupported browsers */}
+                    <div className="w-full h-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
+                      <div className="text-white text-center">
+                        <div className="text-2xl mb-2">🎬</div>
+                        <div className="text-sm">Video Preview</div>
                       </div>
                     </div>
-                  </div>
+                  </video>
+                  {/* TikTok-style overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
                 </div>
+              </div>
+            </div>
 
-                {/* Floating Elements */}
-                <div className="absolute -top-4 -right-4 bg-gradient-to-r from-orange-500 to-orange-600 rounded-full p-3 shadow-lg animate-bounce">
-                  <span className="text-white text-xl">🎬</span>
+            {/* Right Phone */}
+            <div className="relative transform rotate-12 scale-90 z-10">
+              <div className="w-64 bg-black rounded-[2.5rem] p-2 shadow-2xl border-4 border-gray-800" style={{ aspectRatio: '9/19.5' }}>
+                <div className="w-full h-full bg-black rounded-[2rem] overflow-hidden relative">
+                  <video
+                    className="w-full h-full object-cover"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="auto"
+                    onEnded={(e) => e.currentTarget.play()}
+                    onError={(e) => {
+                      console.error('Video failed to load:', e);
+                      // Try to reload the video once
+                      setTimeout(() => {
+                        e.currentTarget.load();
+                      }, 1000);
+                    }}
+                  >
+                    <source src="/hero3.mp4" type="video/mp4" />
+                    {/* Fallback for unsupported browsers */}
+                    <div className="w-full h-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
+                      <div className="text-white text-center">
+                        <div className="text-2xl mb-2">🎬</div>
+                        <div className="text-sm">Video Preview</div>
+                      </div>
+                    </div>
+                  </video>
+                  {/* TikTok-style overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
                 </div>
-                
-                <div className="absolute -bottom-4 -left-4 bg-gradient-to-r from-orange-500 to-orange-600 rounded-full p-3 shadow-lg animate-pulse">
-                  <span className="text-white text-xl">✨</span>
-                </div>
+              </div>
+            </div>
+          </div>
 
-                {/* Video Indicators */}
-                <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 flex gap-2">
-                  {showcaseVideos.map((_, index) => (
-                    <div
-                      key={index}
-                      className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                        index === currentVideoIndex ? 'bg-orange-500 w-6' : 'bg-gray-600'
-                      }`}
-                    />
+          {/* Social Proof */}
+          <div className="flex items-center justify-center gap-6 flex-wrap">
+            <div className="flex items-center gap-4">
+              <div className="flex -space-x-4">
+                <img src="/socialproof1.png" alt="User testimonial" className="w-12 h-12 rounded-full" />
+                <img src="/socialproof2.png" alt="User testimonial" className="w-12 h-12 rounded-full" />
+                <img src="/socialproof3.png" alt="User testimonial" className="w-12 h-12 rounded-full" />
+                <img src="/socialproof4.png" alt="User testimonial" className="w-12 h-12 rounded-full" />
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-white font-normal">Loved by 100+ businesses</span>
+                <div className="flex items-center gap-1">
+                  {[...Array(5)].map((_, i) => (
+                    <img key={i} src="/star.svg" alt="Star rating" className="w-4 h-4" />
                   ))}
                 </div>
               </div>
@@ -220,97 +264,239 @@ export default function LandingPage() {
       </div>
 
       {/* How It Works Section */}
-      <section className="bg-gray-900 py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-extrabold text-white mb-4">
-              From Product Link to Viral Ad in{' '}
-              <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
-                3 Simple Steps
-              </span>
-            </h2>
-            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              Our AI handles everything from script writing to avatar selection. Just provide your product and watch the magic happen.
-            </p>
+      <section id="features" className="bg-black py-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          
+          <div className="relative space-y-24">
+            {/* Vertical connecting lines */}
+            <div className="absolute left-4 top-16 bottom-36 w-px bg-white opacity-30"></div>
+            
+            {/* Step 1: Enter any link */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center animate-on-scroll animate-slide-in-left">
+              <div className="relative">
+                <h2 className="text-3xl lg:text-4xl font-semibold text-white mb-4">
+                  <span className="bg-black px-2 py-1 mr-2">1.</span> Enter any <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>link</span>
+                </h2>
+                <p className="text-lg text-white pl-14">
+                  Enter anything from a product link,<br></br> to a real estate listing
+                </p>
+              </div>
+              <div className="animate-on-scroll animate-slide-in-right" style={{ animationDelay: '0.2s' }}>
+                <img 
+                  src="/image1-section1.png" 
+                  alt="Enter any link interface"
+                  className="w-full max-w-lg ml-auto rounded-2xl"
+                />
+              </div>
+            </div>
+
+            {/* Step 2: Get AI generated scripts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center animate-on-scroll animate-slide-in-left" style={{ animationDelay: '0.3s' }}>
+              <div className="relative">
+                <h2 className="text-3xl lg:text-4xl font-semibold text-white mb-4">
+                  <span className="bg-black px-2 py-1 mr-2">2.</span>Get AI generated <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>scripts</span>
+                </h2>
+                <p className="text-lg text-white pl-14">
+                  Get several scripts that you can use,<br></br>or edit to your needs
+                </p>
+              </div>
+              <div className="animate-on-scroll animate-slide-in-right" style={{ animationDelay: '0.5s' }}>
+                <img 
+                  src="/image2-section1.png" 
+                  alt="AI generated scripts interface"
+                  className="w-full max-w-lg ml-auto rounded-2xl"
+                />
+              </div>
+            </div>
+
+            {/* Step 3: Select an AI Avatar */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center animate-on-scroll animate-slide-in-left" style={{ animationDelay: '0.6s' }}>
+              <div className="relative">
+                <h2 className="text-3xl lg:text-4xl font-semibold text-white mb-4">
+                  <span className="bg-black px-2 py-1 mr-2">3.</span>Select an <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>AI Avatar</span>
+                </h2>
+                <p className="text-lg text-white pl-14">
+                  Select from our vast library of<br></br>AI avatars
+                </p>
+              </div>
+              <div className="animate-on-scroll animate-slide-in-right" style={{ animationDelay: '0.8s' }}>
+                <img 
+                  src="/image3-section1.png" 
+                  alt="AI Avatar selection interface"
+                  className="w-full max-w-lg ml-auto rounded-2xl"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Generate Videos Section */}
+      <section className="bg-black py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-4xl lg:text-5xl font-semibold text-white mb-16">
+            Generate <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>Videos</span>
+          </h2>
+          
+          {/* Infinite Scrolling Avatar Videos */}
+          <div className="relative mb-16 overflow-hidden">
+            <div className="flex gap-4 animate-scroll-left">
+              {/* First set of videos */}
+              {showcaseVideos.slice(0, 5).map((video, index) => (
+                <div key={index} className="relative group flex-shrink-0">
+                  <div className="w-48 rounded-2xl overflow-hidden border-2 border-gray-700 group-hover:border-orange-clean transition-all duration-300" style={{ backgroundColor: '#111827', aspectRatio: '9/16' }}>
+                    <video
+                      src={video}
+                      className="w-full h-full object-cover"
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      onEnded={(e) => e.currentTarget.play()}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
+                  </div>
+                </div>
+              ))}
+              {/* Duplicate set for infinite effect */}
+              {showcaseVideos.slice(0, 5).map((video, index) => (
+                <div key={`duplicate-${index}`} className="relative group flex-shrink-0">
+                  <div className="w-48 rounded-2xl overflow-hidden border-2 border-gray-700 group-hover:border-orange-clean transition-all duration-300" style={{ backgroundColor: '#111827', aspectRatio: '9/16' }}>
+                    <video
+                      src={video}
+                      className="w-full h-full object-cover"
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      onEnded={(e) => e.currentTarget.play()}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* CTA Button */}
+          <button
+            onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
+            className="btn-primary px-8 py-4 gap-2"
+          >
+            Get started
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      </section>
+
+      {/* Comparison Section */}
+      <section className="py-20" style={{ backgroundColor: '#111827' }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-16">
+            {/* No back and forth with creators */}
+            <div className="text-center">
+              <h3 className="text-white text-lg mb-8">No back and fourth with creators</h3>
+              <div className="flex justify-center items-center mb-4 h-48">
+                <img 
+                  src="/nobackandforthwithcreators.png" 
+                  alt="No back and forth with creators comparison"
+                  className="max-h-full w-auto object-contain"
+                />
+              </div>
+            </div>
+
+            {/* Use minutes instead of months */}
+            <div className="text-center">
+              <h3 className="text-white text-lg mb-8">Use minutes instead of months</h3>
+              <div className="flex justify-center items-center mb-4 h-48">
+                <img 
+                  src="/minutesinsteadofmonths.png" 
+                  alt="Minutes instead of months comparison"
+                  className="max-h-full w-auto object-contain"
+                />
+              </div>
+            </div>
+
+            {/* For 5% of the cost */}
+            <div className="text-center">
+              <h3 className="text-white text-lg mb-8">For 5% of the cost</h3>
+              <div className="flex justify-center items-center mb-4 h-48">
+                <img 
+                  src="/5percentofthecost.png" 
+                  alt="5% of the cost comparison"
+                  className="max-h-full w-auto object-contain"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="bg-black py-20">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-4xl lg:text-5xl font-semibold text-white text-center mb-16">
+            Have questions?
+          </h2>
+          
+          <div className="space-y-4">
             {[
               {
-                step: '01',
-                title: 'Paste Your URL',
-                description: 'Enter any product page link. Our AI analyzes the content, extracts images, and understands your product.',
-                icon: '🔗'
+                question: "What is Best UGC?",
+                answer: "Best UGC is an AI-powered platform that creates authentic-looking user-generated content videos from your product links in minutes."
               },
               {
-                step: '02', 
-                title: 'AI Creates Everything',
-                description: 'Choose from AI-generated scripts, select your perfect avatar, and customize the format for your platform.',
-                icon: '🤖'
+                question: "How does the AI avatar selection work?",
+                answer: "You can choose from our diverse library of AI avatars based on gender, age, and scene preferences. Each avatar is trained to deliver natural, engaging presentations."
               },
               {
-                step: '03',
-                title: 'Download & Launch',
-                description: 'Get your professional video ad in minutes. Test variations, scale what works, dominate your market.',
-                icon: '🚀'
+                question: "What video formats do you support?",
+                answer: "We support all major social media formats including TikTok (9:16), Instagram Stories (9:16), Facebook/Instagram Feed (1:1), and YouTube (16:9)."
+              },
+              {
+                question: "How long does it take to create a video?",
+                answer: "Once you provide your product link and make your selections, videos are typically generated within 2-5 minutes depending on length and complexity."
+              },
+              {
+                question: "What's included in the free trial?",
+                answer: "You get 20 free credits to start with - no credit card required. Each video generation costs 1 credit, so you can create up to 20 videos for free."
+              },
+              {
+                question: "Can I edit the AI-generated scripts?",
+                answer: "Yes! You can customize and edit any of the AI-generated scripts to match your brand voice and specific messaging needs."
               }
-            ].map((item, index) => (
-              <div key={index} className="relative group">
-                <div className="bg-black border border-gray-800 rounded-2xl p-8 h-full hover:border-orange-500/50 transition-all duration-300 group-hover:transform group-hover:scale-105">
-                  <div className="text-6xl mb-4">{item.icon}</div>
-                  <div className="text-orange-500 text-sm font-bold mb-2">STEP {item.step}</div>
-                  <h3 className="text-xl font-bold text-white mb-4">{item.title}</h3>
-                  <p className="text-gray-300 leading-relaxed">{item.description}</p>
-                </div>
-                
-                {/* Connecting Line */}
-                {index < 2 && (
-                  <div className="hidden md:block absolute top-1/2 -right-4 w-8 h-0.5 bg-gradient-to-r from-orange-500 to-orange-600"></div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Features Grid */}
-      <section className="bg-black py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-extrabold text-white mb-4">
-              Everything You Need to{' '}
-              <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
-                Maximize Your ROI
-              </span>
-            </h2>
-            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              Professional features optimized for social media conversions, designed to get the most from every advertising dollar.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {features.map((feature, index) => (
-              <div key={index} className="group">
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 h-full hover:border-orange-500/50 transition-all duration-300 group-hover:bg-gray-800">
-                  <div className="text-3xl mb-4">{feature.icon}</div>
-                  <h3 className="text-xl font-bold text-white mb-3">{feature.title}</h3>
-                  <p className="text-gray-300 leading-relaxed">{feature.description}</p>
+            ].map((faq, index) => (
+              <div key={index} className="rounded-xl border border-gray-700 overflow-hidden" style={{ backgroundColor: '#111827' }}>
+                <button 
+                  onClick={() => setExpandedFaq(expandedFaq === index ? null : index)}
+                  className="w-full px-6 py-5 text-left flex items-center justify-between hover:bg-gray-700 transition-all duration-300 rounded-xl"
+                >
+                  <span className="text-white font-normal">{faq.question}</span>
+                  <span className={`text-orange-clean text-lg transform transition-transform duration-300 ${expandedFaq === index ? 'rotate-45' : ''}`}>
+                    +
+                  </span>
+                </button>
+                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${expandedFaq === index ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'}`}>
+                  <div className="px-6 py-6">
+                    <p className="text-white leading-relaxed">{faq.answer}</p>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         </div>
       </section>
-
-      {/* Testimonials section removed - will add real customer testimonials later */}
 
       {/* Final CTA */}
-      <section className="bg-gradient-to-r from-orange-500 to-orange-600 py-20">
+      <section className="bg-black py-20">
         <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
-          <h2 className="text-4xl font-extrabold text-white mb-6">
+          <h2 className="text-4xl font-semibold text-white mb-6">
             Ready to Create Your First AI Video Ad?
           </h2>
-          <p className="text-xl text-orange-100 mb-8 leading-relaxed">
+          <p className="text-lg text-white mb-8 leading-relaxed">
             Join forward-thinking businesses maximizing ROI with AI-powered video ads optimized for social media conversions. 
             Start free, scale unlimited.
           </p>
@@ -318,12 +504,12 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <button
               onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
-              className="px-8 py-4 bg-black text-white font-semibold rounded-xl hover:bg-gray-900 transform hover:scale-105 transition-all duration-300 shadow-xl"
+              className="btn-secondary"
             >
               Get Started - It's Free
             </button>
-            <div className="text-orange-100 text-sm">
-              ✨ No credit card required • 20 free credits
+            <div className="text-white text-lg">
+              No credit card required • 20 free credits
             </div>
           </div>
         </div>
@@ -331,3 +517,4 @@ export default function LandingPage() {
     </>
   );
 }
+

@@ -12,13 +12,14 @@ import { AdCreationData } from '../components/AdCreationContext';
 import { ConcreteScene } from '../lib/timeline-generator';
 import { LayoutType } from '../lib/templates';
 import { COMPOSITION_FPS } from './constants';
+import { GoogleFontLoader } from './components/GoogleFontLoader';
+import { UnifiedFontLoader } from './components/UnifiedFontLoader';
 
 // Import all 4:5 scene components
 import { FullScreenAvatar4x5 } from './scenes-4x5/FullScreenAvatar4x5';
 import { SmallCutoutBottomLeftScene4x5 } from './scenes-4x5/SmallCutoutBottomLeftScene4x5';
 import { SmallCutoutBottomRightScene4x5 } from './scenes-4x5/SmallCutoutBottomRightScene4x5';
 import { SmallCutoutCenterScene4x5 } from './scenes-4x5/SmallCutoutCenterScene4x5';
-import { SmallCutoutBottomLeftNoPadding4x5 } from './scenes-4x5/SmallCutoutBottomLeftNoPadding4x5';
 import { SmallCutoutBottomRightNoPadding4x5 } from './scenes-4x5/SmallCutoutBottomRightNoPadding4x5';
 import { SmallCutoutCenterTiltedLeft4x5 } from './scenes-4x5/SmallCutoutCenterTiltedLeft4x5';
 import { SmallCutoutCenterTiltedRight4x5 } from './scenes-4x5/SmallCutoutCenterTiltedRight4x5';
@@ -40,6 +41,20 @@ export const Main4x5CompositionProps = z.object({
   audioUrl: z.string(),
   processedAvatarUrl: z.string(),
   greenscreenAvatarUrl: z.string(),
+  oneWordAtATime: z.boolean().optional(),
+  fontSize: z.number().optional(),
+  subtitlePosition: z.enum(['bottom', 'top', 'center']).optional(),
+  textColor: z.string().optional(),
+  fontWeight: z.number().optional(),
+  outlineWidth: z.number().optional(),
+  outlineColor: z.string().optional(),
+  shadowOffsetX: z.number().optional(),
+  shadowOffsetY: z.number().optional(),
+  shadowBlur: z.number().optional(),
+  shadowColor: z.string().optional(),
+  letterSpacing: z.number().optional(),
+  textTransform: z.enum(['none', 'uppercase', 'lowercase', 'capitalize']).optional(),
+  previewScale: z.number().optional(),
 });
 
 // --- Mock Data for Studio Showcase ---
@@ -100,10 +115,26 @@ const resolveAsset = (assetPath: string): string => {
     console.warn('[resolveAsset4x5] Empty asset path provided');
     return '';
   }
+  
+  // If it's already an absolute URL, return it unchanged
   if (assetPath.startsWith('http://') || assetPath.startsWith('https://')) {
-    console.log('[resolveAsset4x5] Using remote asset:', assetPath);
+    console.log('[resolveAsset4x5] Using remote asset (unchanged):', assetPath);
     return assetPath;
   }
+  
+  // For preview mode, try to construct absolute URL using staging environment
+  // This is a fallback for when staticFile doesn't work properly with staging URLs
+  if (typeof window === 'undefined' && assetPath.startsWith('/')) {
+    // We're in server-side render context (Remotion render)
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL;
+    if (baseUrl) {
+      const absoluteUrl = baseUrl + assetPath;
+      console.log('[resolveAsset4x5] Server-side URL resolution:', assetPath, '->', absoluteUrl);
+      return absoluteUrl;
+    }
+  }
+  
+  // Default to staticFile for local assets
   const resolved = staticFile(assetPath);
   console.log('[resolveAsset4x5] Resolved local asset:', assetPath, '->', resolved);
   return resolved;
@@ -116,6 +147,20 @@ export const Main4x5Composition: React.FC<z.infer<typeof Main4x5CompositionProps
   audioUrl,
   processedAvatarUrl,
   greenscreenAvatarUrl,
+  oneWordAtATime,
+  fontSize,
+  subtitlePosition,
+  textColor,
+  fontWeight,
+  outlineWidth,
+  outlineColor,
+  shadowOffsetX,
+  shadowOffsetY,
+  shadowBlur,
+  shadowColor,
+  letterSpacing,
+  textTransform,
+  previewScale,
 }) => {
   // Helper function to get assets in proper order
   const getOrderedAssets = (orderedAssets: any[], fallbackAssets: string[]) => {
@@ -150,10 +195,35 @@ export const Main4x5Composition: React.FC<z.infer<typeof Main4x5CompositionProps
   // Get subtitle configuration
   const enableSubtitles = adData.enableSubtitles !== false;
   const subtitleStyle = SUBTITLE_STYLES.find(s => s.id === adData.subtitleStyle) || SUBTITLE_STYLES[0];
-  const subtitleAnimation = adData.subtitleAnimation || 'fade';
-  const subtitlePosition = adData.subtitlePosition || 'bottom';
+  const subtitleAnimation = adData.subtitleAnimation || 'none';
+  const finalSubtitlePosition = subtitlePosition ?? adData.subtitlePosition ?? 'bottom';
   const scriptText = adData.selectedScript || adData.script || '';
   
+  // Build style overrides from user customizations (prefer direct props over adData)
+  const styleOverrides = {
+    fontSize: fontSize ?? adData.fontSize ?? subtitleStyle.fontSize,
+    fontWeight: fontWeight ?? adData.fontWeight,
+    outlineWidth: outlineWidth ?? adData.outlineWidth,
+    outlineColor: outlineColor ?? adData.outlineColor,
+    shadowOffsetX: shadowOffsetX ?? adData.shadowOffsetX,
+    shadowOffsetY: shadowOffsetY ?? adData.shadowOffsetY,
+    shadowBlur: shadowBlur ?? adData.shadowBlur,
+    shadowColor: shadowColor ?? adData.shadowColor,
+    letterSpacing: letterSpacing ?? adData.letterSpacing,
+    textTransform: textTransform ?? adData.textTransform,
+    textColor: textColor ?? adData.textColor,
+  };
+  
+  // Filter out undefined values
+  const cleanedStyleOverrides = Object.fromEntries(
+    Object.entries(styleOverrides).filter(([_, value]) => value !== undefined)
+  );
+
+  const dynamicSubtitleStyle = {
+    ...subtitleStyle,
+    ...cleanedStyleOverrides,
+  };
+
   // Use ElevenLabs word timings if available, otherwise generate fallback timings
   const subtitleTimings = adData.wordTimings && adData.wordTimings.length > 0 
     ? adData.wordTimings 
@@ -169,6 +239,8 @@ export const Main4x5Composition: React.FC<z.infer<typeof Main4x5CompositionProps
 
   return (
     <AbsoluteFill className="bg-white">
+      <GoogleFontLoader />
+      <UnifiedFontLoader />
       <Audio src={resolveAsset(audioUrl)} volume={1.0} />
       
       {/* Background Music with dB-based volume calculation */}
@@ -203,10 +275,12 @@ export const Main4x5Composition: React.FC<z.infer<typeof Main4x5CompositionProps
           transcript={scriptText}
           wordTimings={subtitleTimings}
           style={subtitleStyle}
+          styleOverrides={cleanedStyleOverrides}
           animationType={subtitleAnimation}
-          position={subtitlePosition}
-          maxWordsPerLine={4}
+          position={finalSubtitlePosition}
+          maxWordsPerLine={(oneWordAtATime ?? adData.oneWordAtATime) ? 1 : undefined} // Let component calculate dynamically when not one-word-at-a-time
           useCapsLock={adData.useCapsLock || false}
+          previewScale={previewScale ?? 1.0} // Use provided previewScale or default to 1.0
         />
       )}
     </AbsoluteFill>
@@ -255,7 +329,7 @@ function renderScene4x5(
     case 'fullscreen-avatar':
       return <FullScreenAvatar4x5 src={resolvedVideoUrl} startFrom={avatarVideoStartFrom} />;
     case 'fullscreen-asset':
-      return <FullScreenAsset src={resolvedAssetUrl} videoDurationInFrames={300} />;
+      return <FullScreenAsset src={resolvedAssetUrl} />;
     case 'cutout-left-over-asset':
     case 'cutout-right-over-asset':
     case 'cutout-center-over-asset':
@@ -265,7 +339,6 @@ function renderScene4x5(
           greenscreenSrc={resolvedGreenscreenUrl}
           position={scene.layout.split('-')[1] as 'left' | 'right' | 'center'}
           avatarStartFrom={avatarVideoStartFrom}
-          backgroundVideoDurationInFrames={300}
         />
       );
     case 'small-cutout-bottom-left':
@@ -274,7 +347,6 @@ function renderScene4x5(
           backgroundSrc={resolvedAssetUrl}
           greenscreenSrc={resolvedGreenscreenUrl}
           avatarStartFrom={avatarVideoStartFrom}
-          backgroundVideoDurationInFrames={300}
         />
       );
     case 'small-cutout-bottom-right':
@@ -288,14 +360,6 @@ function renderScene4x5(
     case 'small-cutout-center':
       return (
         <SmallCutoutCenterScene4x5
-          backgroundSrc={resolvedAssetUrl}
-          greenscreenSrc={resolvedGreenscreenUrl}
-          avatarStartFrom={avatarVideoStartFrom}
-        />
-      );
-    case 'small-cutout-bottom-left-no-padding':
-      return (
-        <SmallCutoutBottomLeftNoPadding4x5
           backgroundSrc={resolvedAssetUrl}
           greenscreenSrc={resolvedGreenscreenUrl}
           avatarStartFrom={avatarVideoStartFrom}
@@ -356,7 +420,6 @@ function renderScene4x5(
           videoSrc={resolvedVideoUrl}
           assetSrc={resolvedAssetUrl}
           startFrom={avatarVideoStartFrom}
-          assetVideoDurationInFrames={300}
         />
       );
     default:

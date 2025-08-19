@@ -5,436 +5,191 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
-import { useRefreshableSession } from '../lib/session-refresh'
-
-interface Ad {
-  id: string
-  userId: string
-  createdAt: string
-  updatedAt: string
-  status: string
-  finalVideoUrl?: string
-  finalVideoUrl4x5?: string
-  brandName?: string
-  productUrl?: string
-  format?: string
-  duration?: number
-  language?: string
-  isWatermarked?: boolean
-  enableDualFormat?: boolean
-  lipsyncedAvatarUrl?: string
-  lipsyncedAvatarNoBgUrl?: string
-}
-
-function AdCard({ ad, onDelete, onCancel, userPlan }: { 
-  ad: Ad; 
-  onDelete: (adId: string) => void; 
-  onCancel: (adId: string) => void;
-  userPlan?: string;
-}) {
-  const [isMuted, setIsMuted] = useState(true); // Start muted for free users
-  const [currentFormat, setCurrentFormat] = useState<'9:16' | '4:5'>('9:16'); // Format toggle for dual format videos
-  const videoRef = useRef<HTMLVideoElement>(null);
-  
-  const toggleMute = () => {
-    if (videoRef.current) {
-      const newMutedState = !isMuted;
-      videoRef.current.muted = newMutedState;
-      setIsMuted(newMutedState);
-    }
-  };
-  const getVideoUrl = (finalVideoUrl: string | undefined) => {
-    if (!finalVideoUrl) return '';
-    
-    if (finalVideoUrl.startsWith('http')) return finalVideoUrl;
-    
-    // Use the current window location to build the correct URL
-    if (typeof window !== 'undefined') {
-      const baseUrl = `${window.location.protocol}//${window.location.host}`;
-      
-      // If the path starts with /renders/, use the serve-video API
-      if (finalVideoUrl.startsWith('/renders/')) {
-        const filename = finalVideoUrl.replace('/renders/', '');
-        const fullUrl = `${baseUrl}/api/serve-video/${filename}`;
-        console.log('Generated video URL:', fullUrl, 'from:', finalVideoUrl);
-        return fullUrl;
-      }
-      
-      // Otherwise use direct path
-      const fullUrl = `${baseUrl}${finalVideoUrl}`;
-      console.log('Generated video URL:', fullUrl, 'from:', finalVideoUrl);
-      return fullUrl;
-    }
-    
-    return finalVideoUrl;
-  };
-
-  const renderStatus = () => {
-    switch (ad.status) {
-      case 'PENDING':
-      case 'RENDERING':
-        return (
-          <div className="flex flex-col items-center justify-center h-48 bg-gray-800 rounded-lg p-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-orange-500 mb-3"></div>
-            <p className="text-orange-400 font-medium">Processing...</p>
-            <p className="text-gray-400 text-xs mt-1">Status: {ad.status}</p>
-          </div>
-        );
-      case 'COMPLETED':
-        const hasDualFormat = ad.enableDualFormat && ad.finalVideoUrl4x5;
-        const currentVideoUrl = currentFormat === '4:5' && ad.finalVideoUrl4x5 
-          ? getVideoUrl(ad.finalVideoUrl4x5) 
-          : getVideoUrl(ad.finalVideoUrl);
-        
-        return (
-          <div className="relative group">
-            {/* Format Toggle for Dual Format Videos */}
-            {hasDualFormat && (
-              <div className="absolute top-2 left-2 z-20 bg-black/70 backdrop-blur-sm rounded-lg p-1">
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => setCurrentFormat('9:16')}
-                    className={`px-2 py-1 text-xs rounded transition-colors ${
-                      currentFormat === '9:16'
-                        ? 'bg-orange-600 text-white'
-                        : 'text-gray-300 hover:text-white hover:bg-gray-700'
-                    }`}
-                  >
-                    9:16
-                  </button>
-                  <button
-                    onClick={() => setCurrentFormat('4:5')}
-                    className={`px-2 py-1 text-xs rounded transition-colors ${
-                      currentFormat === '4:5'
-                        ? 'bg-orange-600 text-white'
-                        : 'text-gray-300 hover:text-white hover:bg-gray-700'
-                    }`}
-                  >
-                    4:5
-                  </button>
-                </div>
-              </div>
-            )}
-            <video
-              ref={videoRef}
-              key={currentVideoUrl} // Force re-render when URL changes
-              src={currentVideoUrl}
-              className="w-full max-w-full h-auto rounded-lg bg-gray-800 video-player"
-              playsInline
-              controls={userPlan !== 'FREE'} // Only show controls for paid users
-              autoPlay={userPlan === 'FREE'} // Auto-play for free users since they can't control it
-              loop={userPlan === 'FREE'} // Loop for free users
-              muted={userPlan === 'FREE' ? isMuted : false} // Control mute state for free users
-              controlsList={userPlan === 'FREE' ? 'nodownload nofullscreen noremoteplayback' : undefined}
-              preload="metadata"
-              crossOrigin="anonymous"
-              onContextMenu={userPlan === 'FREE' ? (e) => e.preventDefault() : undefined} // Disable right-click for free users
-              style={{
-                WebkitAppearance: 'none',
-                aspectRatio: 'auto',
-              }}
-              onLoadedMetadata={(e) => {
-                // Set the current time to 0.1 seconds to get the first frame as poster
-                const video = e.target as HTMLVideoElement;
-                video.currentTime = 0.1;
-              }}
-              onError={(e) => {
-                console.error('Video failed to load:', currentVideoUrl);
-                console.error('Error details:', e);
-              }}
-              onLoadStart={() => {
-                console.log('Video started loading:', currentVideoUrl);
-              }}
-              onCanPlay={() => {
-                console.log('Video can play:', currentVideoUrl);
-              }}
-              onLoadedData={() => {
-                console.log('Video data loaded:', currentVideoUrl);
-              }}
-              onPlay={(e) => {
-                // Hide overlay when playing
-                const overlay = e.currentTarget.parentElement?.querySelector('.video-overlay') as HTMLElement;
-                if (overlay) overlay.style.display = 'none';
-              }}
-              onPause={(e) => {
-                // Show overlay when paused
-                const overlay = e.currentTarget.parentElement?.querySelector('.video-overlay') as HTMLElement;
-                if (overlay) overlay.style.display = 'flex';
-              }}
-            />
-            
-            {/* Watermark overlay for free users - always visible */}
-            {userPlan === 'FREE' && (
-              <div className="absolute top-4 right-4 bg-black/70 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-medium border border-purple-500/50 pointer-events-none z-10">
-                🎬 Upgrade for Controls
-              </div>
-            )}
-            
-            
-            {/* Upgrade overlay for free users when video is clicked */}
-            {userPlan === 'FREE' && (
-              <div className="absolute inset-0 bg-black/60 backdrop-blur-[1px] rounded-lg flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-300 cursor-pointer z-20"
-                   onClick={() => window.open('/subscription', '_blank')}>
-                <div className="bg-gradient-to-r from-purple-500/90 to-pink-600/90 backdrop-blur-sm text-white rounded-xl p-6 shadow-2xl transform hover:scale-105 transition-transform duration-200 text-center max-w-sm mx-4">
-                  <div className="bg-purple-500/20 rounded-full p-3 mx-auto mb-3 w-12 h-12 flex items-center justify-center">
-                    <svg className="w-6 h-6 text-purple-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </div>
-                  <h3 className="font-semibold mb-2">Upgrade for Full Control</h3>
-                  <p className="text-sm text-purple-100 mb-3">Get video controls, downloads & no watermark</p>
-                  <div className="text-xs text-purple-200">Click to view pricing</div>
-                </div>
-              </div>
-            )}
-            
-            {/* Play overlay - shows when paused and doesn't block controls */}
-            <div className="video-overlay absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-              <div className="bg-orange-500/90 backdrop-blur-sm text-white rounded-full p-3 shadow-2xl transform group-hover:scale-110 transition-transform duration-200">
-                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                </svg>
-              </div>
-            </div>
-          </div>
-        );
-      case 'FAILED':
-        return (
-          <div className="flex flex-col items-center justify-center h-48 bg-red-900/20 border border-red-800 rounded-lg p-4">
-            <span className="text-red-400 text-4xl mb-2">❌</span>
-            <p className="text-red-400 font-medium">Failed</p>
-            <p className="text-gray-400 text-xs text-center mt-1">Something went wrong during processing</p>
-          </div>
-        );
-      default:
-        return (
-          <div className="flex flex-col items-center justify-center h-48 bg-gray-800 rounded-lg p-4">
-            <p className="text-gray-400">Status: {ad.status || 'Unknown'}</p>
-          </div>
-        )
-    }
-  }
-
-  // Determine which actions are available
-  const canCancel = ad.status === 'PENDING' || ad.status === 'RENDERING';
-
-  return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 hover:border-orange-500/50 transition-all duration-200">
-      {/* Video/Status Display */}
-      <div className="mb-4">{renderStatus()}</div>
-      
-      {/* Audio Control for Free Users */}
-      {userPlan === 'FREE' && ad.status === 'COMPLETED' && (
-        <div className="mb-4 flex items-center justify-between">
-          <span className="text-sm text-gray-400">Audio Control:</span>
-          <button
-            onClick={toggleMute}
-            className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white px-3 py-2 rounded-lg transition-colors duration-200 text-sm"
-            title={isMuted ? 'Unmute video' : 'Mute video'}
-          >
-            {isMuted ? (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-                </svg>
-                Unmute
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                </svg>
-                Mute
-              </>
-            )}
-          </button>
-        </div>
-      )}
-      
-      {/* Ad Info */}
-      <div className="space-y-2 mb-4">
-        <h3 className="font-semibold text-white truncate" title={ad.brandName || 'Ad'}>
-          {ad.brandName || `Ad #${ad.id.slice(0, 8)}`}
-        </h3>
-        
-        <div className="flex items-center gap-4 text-xs text-gray-400">
-          <span>{new Date(ad.createdAt).toLocaleDateString()}</span>
-          {ad.enableDualFormat && ad.finalVideoUrl4x5 ? (
-            <span className="bg-orange-900/50 text-orange-400 px-2 py-0.5 rounded">9:16 + 4:5</span>
-          ) : ad.format ? (
-            <span>{ad.format}</span>
-          ) : null}
-          {ad.duration && <span>{ad.duration}s</span>}
-          {ad.language && <span>{ad.language.toUpperCase()}</span>}
-        </div>
-        
-        {ad.productUrl && (
-          <div className="text-xs text-gray-500 truncate">
-            🔗 {ad.productUrl}
-          </div>
-        )}
-      </div>
-
-      {/* Status Badge */}
-      <div className="mb-4">
-        {ad.status === 'COMPLETED' && (
-          <span className="inline-flex items-center px-2 py-1 bg-green-900/50 text-green-400 text-xs rounded-full">
-            ✅ Ready
-          </span>
-        )}
-        {(ad.status === 'PENDING' || ad.status === 'RENDERING') && (
-          <span className="inline-flex items-center px-2 py-1 bg-orange-900/50 text-orange-400 text-xs rounded-full">
-            ⏳ Processing
-          </span>
-        )}
-        {ad.status === 'FAILED' && (
-          <span className="inline-flex items-center px-2 py-1 bg-red-900/50 text-red-400 text-xs rounded-full">
-            ❌ Failed
-          </span>
-        )}
-      </div>
-
-      {/* Action Buttons */}
-      <div className="space-y-3">
-        {/* Avatar Downloads - Show if either version exists */}
-        {ad.status === 'COMPLETED' && (ad.lipsyncedAvatarUrl || ad.lipsyncedAvatarNoBgUrl) && (
-          <div className="space-y-2">
-            <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wider">Avatar Downloads</h4>
-            <div className="grid grid-cols-1 gap-2">
-              {ad.lipsyncedAvatarUrl && (
-                userPlan === 'FREE' ? (
-                  <Link
-                    href="/subscription"
-                    className="bg-gradient-to-r from-blue-500 to-blue-600 text-white text-center px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm font-medium"
-                    title="Upgrade to download avatar with background"
-                  >
-                    🔒 Avatar with Background
-                  </Link>
-                ) : (
-                  <a
-                    href={getVideoUrl(ad.lipsyncedAvatarUrl)}
-                    download
-                    className="bg-gradient-to-r from-blue-500 to-blue-600 text-white text-center px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm font-medium"
-                  >
-                    🎭 Avatar with Background
-                  </a>
-                )
-              )}
-              {ad.lipsyncedAvatarNoBgUrl && (
-                userPlan === 'FREE' ? (
-                  <Link
-                    href="/subscription"
-                    className="bg-gradient-to-r from-green-500 to-green-600 text-white text-center px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm font-medium"
-                    title="Upgrade to download avatar without background"
-                  >
-                    🔒 Avatar No Background
-                  </Link>
-                ) : (
-                  <a
-                    href={getVideoUrl(ad.lipsyncedAvatarNoBgUrl)}
-                    download
-                    className="bg-gradient-to-r from-green-500 to-green-600 text-white text-center px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm font-medium"
-                  >
-                    ✂️ Avatar No Background
-                  </a>
-                )
-              )}
-            </div>
-          </div>
-        )}
-        
-        {/* Main Action Buttons */}
-        <div className="grid grid-cols-2 gap-2">
-          {/* Conditional buttons based on status */}
-          {ad.status === 'COMPLETED' && ad.finalVideoUrl ? (
-            <>
-              {userPlan === 'FREE' ? (
-                <Link
-                  href="/subscription"
-                  className="bg-gradient-to-r from-purple-500 to-pink-600 text-white text-center px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm font-medium group relative overflow-hidden"
-                  title="Upgrade to any paid plan to download your videos. Your existing videos won't count against new credits!"
-                >
-                  <span className="relative z-10">🔒 Full Video</span>
-                  <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-700 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
-                </Link>
-              ) : (
-                <a
-                  href={getVideoUrl(ad.finalVideoUrl)}
-                  download
-                  className="bg-gradient-to-r from-orange-500 to-orange-600 text-white text-center px-3 py-2 rounded-lg hover:shadow-lg transition-all duration-200 text-sm font-medium"
-                >
-                  📥 Full Video
-                </a>
-              )}
-              <button
-                onClick={() => onDelete(ad.id)}
-                className="bg-gray-800 text-gray-300 hover:bg-red-600 hover:text-white px-3 py-2 rounded-lg transition-all duration-200 text-sm"
-              >
-                🗑️ Delete
-              </button>
-            </>
-          ) : canCancel ? (
-            <>
-              <button
-                onClick={() => onCancel(ad.id)}
-                className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded-lg transition-all duration-200 text-sm"
-              >
-                ⏹️ Cancel
-              </button>
-              <button
-                onClick={() => onDelete(ad.id)}
-                className="bg-gray-800 text-gray-300 hover:bg-red-600 hover:text-white px-3 py-2 rounded-lg transition-all duration-200 text-sm"
-              >
-                🗑️ Delete
-              </button>
-            </>
-          ) : (
-            <>
-              {/* For failed/other states, show only delete button */}
-              <div></div>
-              <button
-                onClick={() => onDelete(ad.id)}
-                className="bg-gray-800 text-gray-300 hover:bg-red-600 hover:text-white px-3 py-2 rounded-lg transition-all duration-200 text-sm"
-              >
-                🗑️ Delete
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
+import { Ad } from '../types/Ad';
+import AdCard from '../components/AdCard';
 
 export default function MyCreations() {
-  const { data: session, status, refreshUserData } = useRefreshableSession()
+  const { data: session, status } = useSession()
   const router = useRouter()
   const [ads, setAds] = useState<Ad[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'completed' | 'processing' | 'failed'>('all')
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const [isTabVisible, setIsTabVisible] = useState(true);
+  const scrollPositionRef = useRef(0);
+  
+  // Infinite scroll state
+  const [displayedAdsCount, setDisplayedAdsCount] = useState(6);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const [retryModal, setRetryModal] = useState<{isOpen: boolean, adId: string, brandName: string} | null>(null);
 
-  const fetchAds = async () => {
-    if (status === 'authenticated') {
-      try {
-        const res = await axios.get<Ad[]>('/api/ads')
-        console.log('Fetched ads data:', res.data)
-        setAds(res.data)
-      } catch (e: any) {
-        console.error('Error fetching ads:', e)
-        setError(e.response?.data?.error || 'Failed to load your creations.')
-      } finally {
-        setLoading(false)
+  const fetchAds = async (isPolling = false) => {
+    if (status !== 'authenticated') {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      return;
+    }
+
+    // Don't show loader on background polls or when tab is not visible
+    if (!isPolling && isTabVisible) {
+      setLoading(true);
+    }
+
+    try {
+      const res = await axios.get<Ad[]>('/api/ads');
+      console.log(`Fetched ads data (${isPolling ? 'polling' : 'initial'}):`, res.data.length, 'ads');
+      
+      // Only update ads state if data actually changed to prevent unnecessary re-renders
+      const currentAdsJson = JSON.stringify(ads);
+      const newAdsJson = JSON.stringify(res.data);
+      
+      if (currentAdsJson !== newAdsJson) {
+        setAds(res.data);
+        console.log('Ads updated - data changed');
+      } else if (isPolling) {
+        console.log('Ads data unchanged - skipping state update');
+      }
+      
+      setError(null);
+    } catch (e: any) {
+      console.error('Error fetching ads:', e);
+      setError(e.response?.data?.error || 'Failed to load your creations.');
+      // Stop polling on error to avoid repeated failures
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    } finally {
+      // Only update loading state if it's not a background poll
+      if (!isPolling && isTabVisible) {
+        setLoading(false);
       }
     }
-  }
+  };
+
+  // Handle tab visibility changes
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const isVisible = !document.hidden;
+      
+      if (!isVisible) {
+        // Save scroll position when tab becomes hidden
+        scrollPositionRef.current = window.scrollY;
+        console.log('Tab became hidden, saved scroll position:', scrollPositionRef.current);
+      } else {
+        // Restore scroll position when tab becomes visible
+        console.log('Tab became visible, restoring scroll position:', scrollPositionRef.current);
+        setTimeout(() => {
+          window.scrollTo(0, scrollPositionRef.current);
+        }, 0);
+      }
+      
+      setIsTabVisible(isVisible);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [status]);
+
+  // Start/stop polling based on processing status and tab visibility
+  const startPollingIfNeeded = (adsData: Ad[]) => {
+    const hasProcessingAds = adsData.some(ad => 
+      ad.status === 'PENDING' || ad.status === 'RENDERING' || ad.status === 'QUEUED'
+    );
+    
+    // Clear existing interval
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+    
+    // Only start polling if we have processing ads, tab is visible, and user is authenticated
+    if (hasProcessingAds && isTabVisible && status === 'authenticated') {
+      console.log('Starting polling - processing ads detected and tab is visible');
+      pollingRef.current = setInterval(() => {
+        // Only poll if tab is still visible
+        if (!document.hidden) {
+          fetchAds(true);
+        }
+      }, 15000); // Increased to 15 seconds to reduce excessive refreshing
+    } else {
+      console.log('Not starting polling:', { hasProcessingAds, isTabVisible, status });
+    }
+  };
 
   useEffect(() => {
-    fetchAds()
-    const interval = setInterval(fetchAds, 15000)
-    return () => clearInterval(interval)
-  }, [status])
+    if (status === 'loading') return;
+
+    if (status === 'unauthenticated') {
+      signIn();
+      return;
+    }
+    
+    // Initial fetch - the polling will be handled by the separate useEffect
+    fetchAds();
+
+    // Cleanup on unmount
+    return () => {
+      if (pollingRef.current) {
+        console.log('Clearing polling interval on unmount.');
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+  }, [status]);
+
+  // Optimized polling management - only restart when actually needed
+  useEffect(() => {
+    if (ads.length === 0 || status !== 'authenticated') return;
+    
+    const hasProcessingAds = ads.some(ad => 
+      ad.status === 'PENDING' || ad.status === 'RENDERING' || ad.status === 'QUEUED'
+    );
+    
+    // Only start polling if we have processing ads and tab is visible
+    // But don't restart polling just because tab visibility changed
+    if (hasProcessingAds && isTabVisible && !pollingRef.current) {
+      console.log('Starting polling - processing ads detected');
+      startPollingIfNeeded(ads);
+    } else if (!hasProcessingAds && pollingRef.current) {
+      // Stop polling if no processing ads
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+      console.log('Stopped polling - no processing ads');
+    }
+  }, [ads.length, status]); // Removed isTabVisible to prevent tab switching from restarting polling
+
+  // Handle tab visibility changes more efficiently - prevent unnecessary refreshes
+  useEffect(() => {
+    if (!isTabVisible && pollingRef.current) {
+      // Pause polling when tab becomes hidden
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+      console.log('Paused polling - tab hidden');
+    } else if (isTabVisible && !pollingRef.current && ads.length > 0) {
+      // Resume polling when tab becomes visible if we have processing ads
+      // BUT don't refetch data - just resume polling
+      const hasProcessingAds = ads.some(ad => 
+        ad.status === 'PENDING' || ad.status === 'RENDERING' || ad.status === 'QUEUED'
+      );
+      if (hasProcessingAds) {
+        console.log('Resumed polling - tab visible (no data refetch)');
+        // Start polling without triggering a data fetch
+        pollingRef.current = setInterval(() => {
+          if (!document.hidden) {
+            fetchAds(true);
+          }
+        }, 15000);
+      }
+    }
+  }, [isTabVisible]);
+
+
+  // Reset displayed count when filter changes
+  useEffect(() => {
+    setDisplayedAdsCount(6);
+  }, [filter]);
 
   if (status === 'loading') return (
     <div className="min-h-screen bg-black flex items-center justify-center">
@@ -442,10 +197,11 @@ export default function MyCreations() {
     </div>
   )
 
-  if (status === 'unauthenticated' || !session?.user) {
-    signIn()
-    return null
-  }
+  // This part is now handled in the useEffect
+  // if (status === 'unauthenticated' || !session?.user) {
+  //   signIn()
+  //   return null
+  // }
 
   const handleCancelAd = async (adId: string) => {
     if (!confirm('Are you sure you want to cancel this ad creation?')) return;
@@ -473,6 +229,49 @@ export default function MyCreations() {
     }
   };
 
+  const handleRetryAd = (adId: string) => {
+    // Find the ad to get its brand name for the modal
+    const ad = ads.find(a => a.id === adId);
+    setRetryModal({
+      isOpen: true,
+      adId: adId,
+      brandName: ad?.brandName || `Video #${adId.slice(0, 6)}`
+    });
+  };
+
+  const confirmRetryAd = async () => {
+    if (!retryModal) return;
+    
+    try {
+      // Find the ad to get its template ID
+      const ad = ads.find(a => a.id === retryModal.adId);
+      if (!ad || !ad.templateId) {
+        toast.error('Cannot retry this ad - template information missing.');
+        setRetryModal(null);
+        return;
+      }
+
+      const toastId = toast.loading('Retrying video creation...');
+      
+      // Call the same API endpoint used for new renders
+      await axios.post('/api/render/start-job', {
+        adId: retryModal.adId,
+        templateId: ad.templateId
+      });
+      
+      toast.success('Video retry started! Your video is now in the queue.', { id: toastId });
+      
+      // Refresh the ads list to show updated status
+      fetchAds();
+      setRetryModal(null);
+    } catch (error: any) {
+      console.error('Failed to retry ad:', error);
+      const errorMessage = error.response?.data?.message || 'Failed to retry video creation. Please try again.';
+      toast.error(errorMessage);
+      setRetryModal(null);
+    }
+  };
+
 
   const filteredAds = ads.filter(ad => {
     switch (filter) {
@@ -482,6 +281,32 @@ export default function MyCreations() {
       default: return true;
     }
   });
+
+  // Infinite scroll observer - moved here after filteredAds is defined
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loadingMore && displayedAdsCount < filteredAds.length) {
+          setLoadingMore(true);
+          setTimeout(() => {
+            setDisplayedAdsCount(prev => Math.min(prev + 6, filteredAds.length));
+            setLoadingMore(false);
+          }, 500); // Small delay for smooth loading
+        }
+      },
+      { threshold: 0.1, rootMargin: '100px' }
+    );
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+
+    return () => {
+      if (loadMoreRef.current) {
+        observer.unobserve(loadMoreRef.current);
+      }
+    };
+  }, [loadingMore, displayedAdsCount, filteredAds.length]);
 
   const stats = {
     total: ads.length,
@@ -501,94 +326,65 @@ export default function MyCreations() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-white mb-2">My Creations</h1>
-            <p className="text-gray-400">Manage all your AI video ads in one place</p>
-          </div>
-          <Link
-            href="/dashboard"
-            className="mt-4 sm:mt-0 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-200 text-center"
-          >
-            Create New Ad
-          </Link>
-        </div>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-gray-900 rounded-lg p-4 border border-gray-800">
-            <p className="text-2xl font-bold text-white">{stats.total}</p>
-            <p className="text-gray-400 text-sm">Total Ads</p>
-          </div>
-          <div className="bg-gray-900 rounded-lg p-4 border border-gray-800">
-            <p className="text-2xl font-bold text-green-400">{stats.completed}</p>
-            <p className="text-gray-400 text-sm">Completed</p>
-          </div>
-          <div className="bg-gray-900 rounded-lg p-4 border border-gray-800">
-            <p className="text-2xl font-bold text-orange-400">{stats.processing}</p>
-            <p className="text-gray-400 text-sm">Processing</p>
-          </div>
-          <div className="bg-gray-900 rounded-lg p-4 border border-gray-800">
-            <p className="text-2xl font-bold text-red-400">{stats.failed}</p>
-            <p className="text-gray-400 text-sm">Failed</p>
-          </div>
-        </div>
 
-        {/* Filters */}
-        {/* Quick Actions */}
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-          {/* Filter Buttons */}
-          <div className="flex gap-2 overflow-x-auto">
+        {/* Filter Tabs - with sliding animation */}
+        <div className="relative mb-8 max-w-md">
+          <div className="flex bg-black rounded-[20px] p-1 relative">
+            {/* Sliding background indicator */}
+            <div 
+              className="absolute top-1 bottom-1 bg-orange-600 rounded-[15px] transition-all duration-300 ease-in-out"
+              style={{
+                width: `${100/3}%`,
+                left: `${(['all', 'completed', 'processing'].indexOf(filter as string)) * (100/3)}%`
+              }}
+            />
+            
             {[
-              { key: 'all', label: 'All', count: stats.total },
-              { key: 'completed', label: 'Completed', count: stats.completed },
-              { key: 'processing', label: 'Processing', count: stats.processing },
-              { key: 'failed', label: 'Failed', count: stats.failed }
-            ].map(({ key, label, count }) => (
+              { key: 'all', label: 'All' },
+              { key: 'completed', label: 'Completed' },
+              { key: 'processing', label: 'Processing' }
+            ].map(({ key, label }) => (
               <button
                 key={key}
                 onClick={() => setFilter(key as any)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                className={`relative z-10 flex-1 px-4 py-3 rounded-[15px] text-sm font-medium transition-all duration-300 ${
                   filter === key
-                    ? 'bg-gradient-to-r from-orange-500 to-orange-600 text-white'
-                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                    ? 'text-white'
+                    : 'text-gray-300 hover:text-white'
                 }`}
               >
-                {label} ({count})
+                {label}
               </button>
             ))}
           </div>
-
         </div>
 
-        {/* Free User Upgrade Banner */}
+        {/* Upgrade Banner - matching CREATIONS.png design */}
         {session?.user?.plan === 'FREE' && stats.completed > 0 && (
-          <div className="bg-gradient-to-r from-purple-900/50 to-pink-900/50 border border-purple-500/50 rounded-xl p-6 mb-8">
+          <div className="bg-[#1f2937] border border-gray-700 rounded-[20px] p-6 mb-8">
             <div className="flex items-start gap-4">
-              <div className="bg-purple-500/20 rounded-lg p-3 flex-shrink-0">
-                <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
+              <div className="flex-shrink-0">
+                <img src="/lock.svg" alt="Lock" className="w-8 h-8" />
               </div>
               <div className="flex-1">
-                <h3 className="text-xl font-semibold text-white mb-2">Unlock Video Downloads</h3>
+                <h3 className="text-xl font-semibold text-white mb-2">Unlock video downloads</h3>
                 <p className="text-gray-300 mb-4">
-                  Upgrade to download your completed videos. <strong className="text-purple-400">Your existing {stats.completed} video{stats.completed === 1 ? '' : 's'} won't count against your new credits</strong> - they're yours to keep forever once you upgrade!
+                  Upgrade to download your completed videos. Your existing {stats.completed} videos won't count against your new credits - they're yours to keep forever once you upgrade!
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Link
                     href="/subscription"
-                    className="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-200 text-center"
+                    className="btn-primary px-6 py-3 text-center"
                   >
-                    View Pricing Plans
+                    View plans
                   </Link>
                   <Link
                     href="/subscription"
-                    className="bg-gray-800 text-gray-300 hover:bg-gray-700 px-6 py-3 rounded-lg font-medium transition-all duration-200 text-center border border-gray-600"
+                    className="btn-secondary px-6 py-3 text-center"
                   >
-                    Buy Credits Only
+                    Buy credits
                   </Link>
                 </div>
               </div>
@@ -598,12 +394,57 @@ export default function MyCreations() {
 
         {/* Content */}
         {loading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {[...Array(8)].map((_, i) => (
-              <div key={i} className="bg-gray-900 rounded-xl p-4 animate-pulse">
-                <div className="h-48 bg-gray-800 rounded-lg mb-4"></div>
-                <div className="h-4 bg-gray-800 rounded w-3/4 mb-2"></div>
-                <div className="h-3 bg-gray-800 rounded w-1/2"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="w-full max-w-sm mx-auto">
+                {/* Skeleton card container - matching AdCard design */}
+                <div className="bg-[#1f2937] rounded-[20px] border border-gray-700 flex flex-col animate-pulse">
+                  {/* Video area skeleton */}
+                  <div className="flex-shrink-0">
+                    <div className="relative rounded-t-[20px] overflow-hidden aspect-[9/16] bg-gray-800">
+                      {/* Play button skeleton */}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="bg-gray-700 rounded-full w-16 h-16 flex items-center justify-center">
+                          <div className="w-6 h-6 bg-gray-600 rounded-full"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Content area skeleton */}
+                  <div className="flex-1 p-6 flex flex-col">
+                    {/* Title skeleton */}
+                    <div className="h-6 bg-gray-800 rounded-lg w-3/4 mb-2"></div>
+
+                    {/* Metadata skeleton */}
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="h-4 bg-gray-800 rounded w-20"></div>
+                      <div className="h-4 bg-gray-800 rounded w-12"></div>
+                      <div className="h-4 bg-gray-800 rounded w-8"></div>
+                      <div className="h-4 bg-gray-800 rounded w-6"></div>
+                    </div>
+
+                    {/* Status badge skeleton */}
+                    <div className="mb-6">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 bg-gray-800 rounded-full"></div>
+                        <div className="h-4 bg-gray-800 rounded w-16"></div>
+                      </div>
+                    </div>
+
+                    {/* Buttons skeleton */}
+                    <div className="mt-auto flex flex-col gap-3">
+                      {/* Avatar button skeleton */}
+                      <div className="h-10 bg-gray-800 rounded-[15px] w-full"></div>
+                      
+                      {/* Bottom row skeleton */}
+                      <div className="flex gap-3 items-center">
+                        <div className="flex-1 h-10 bg-gray-800 rounded-[15px]"></div>
+                        <div className="h-10 w-20 bg-gray-800 rounded-[15px]"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -613,9 +454,9 @@ export default function MyCreations() {
           <div className="bg-red-900/20 border border-red-800 rounded-lg p-6 text-center">
             <p className="text-red-400 mb-4">{error}</p>
             <button
-              onClick={fetchAds}
-              className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200"
-            >
+                onClick={() => fetchAds()}
+                className="bg-gradient-to-r from-orange-600 to-orange-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all duration-200"
+              >
               Try Again
             </button>
           </div>
@@ -623,19 +464,19 @@ export default function MyCreations() {
 
         {!loading && !error && filteredAds.length === 0 && (
           <div className="text-center py-16">
-            <div className="text-6xl mb-4">🎬</div>
+            <img src="/videos.svg" alt="Videos" className="w-16 h-16 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-white mb-2">
-              {filter === 'all' ? 'No ads created yet' : `No ${filter} ads`}
+              {filter === 'all' ? 'No videos created yet' : `No ${filter} videos`}
             </h3>
             <p className="text-gray-400 mb-6">
               {filter === 'all' 
-                ? 'Start creating your first AI video ad!' 
-                : `You don't have any ${filter} ads at the moment.`}
+                ? 'Start creating your first AI video!' 
+                : `You don't have any ${filter} videos at the moment.`}
             </p>
             {filter === 'all' && (
               <Link
                 href="/dashboard"
-                className="inline-block bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+                className="btn-primary"
               >
                 Create Your First Ad
               </Link>
@@ -644,16 +485,82 @@ export default function MyCreations() {
         )}
 
         {!loading && !error && filteredAds.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredAds.map(ad => (
-              <AdCard 
-                key={ad.id} 
-                ad={ad} 
-                onDelete={handleDeleteAd} 
-                onCancel={handleCancelAd}
-                userPlan={session?.user?.plan || undefined}
-              />
-            ))}
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {filteredAds.slice(0, displayedAdsCount).map(ad => (
+                <AdCard 
+                  key={ad.id} 
+                  ad={ad} 
+                  onDelete={handleDeleteAd} 
+                  onCancel={handleCancelAd}
+                  onRetry={handleRetryAd}
+                  userPlan={session?.user?.plan || undefined}
+                />
+              ))}
+            </div>
+            
+            {/* Load more trigger */}
+            {displayedAdsCount < filteredAds.length && (
+              <div ref={loadMoreRef} className="flex justify-center py-8">
+                {loadingMore ? (
+                  <div className="flex items-center gap-2 text-gray-400">
+                    <div className="animate-spin border-2 border-orange-500 border-t-transparent rounded-full w-5 h-5"></div>
+                    Loading more videos...
+                  </div>
+                ) : (
+                  <div className="text-gray-500 text-sm">Scroll down for more videos</div>
+                )}
+              </div>
+            )}
+            
+            {/* End of list indicator */}
+            {displayedAdsCount >= filteredAds.length && filteredAds.length > 6 && (
+              <div className="text-center py-8 text-gray-500 text-sm">
+                You've reached the end • {filteredAds.length} videos total
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Custom Retry Confirmation Modal */}
+        {retryModal?.isOpen && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-[#1f2937] border border-gray-700 rounded-[20px] p-6 max-w-md w-full mx-4">
+              {/* Icon */}
+              <div className="flex justify-center mb-4">
+                <div className="w-12 h-12 bg-orange-500/20 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </div>
+              </div>
+              
+              {/* Title */}
+              <h3 className="text-xl font-semibold text-white text-center mb-2">
+                Retry Video Creation
+              </h3>
+              
+              {/* Message */}
+              <p className="text-gray-300 text-center mb-6">
+                Are you sure you want to retry <strong>"{retryModal.brandName}"</strong>? This will spend credits again and create a new video.
+              </p>
+              
+              {/* Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setRetryModal(null)}
+                  className="flex-1 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-[15px] font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmRetryAd}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-[15px] font-medium transition-all duration-200 transform hover:scale-105"
+                >
+                  Retry Video
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

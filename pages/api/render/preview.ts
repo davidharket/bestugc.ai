@@ -125,6 +125,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (url.startsWith('b-roll/')) {
         return `${EXTERNAL_API_BASE_URL}/api/serve-broll/${url.replace('b-roll/', '')}`;
       }
+      // Handle legacy /public/b-roll/ URLs (after symlink removal)
+      if (url.startsWith('/public/b-roll/')) {
+        const filename = url.replace('/public/b-roll/', '');
+        return `${EXTERNAL_API_BASE_URL}/api/serve-broll/${filename}`;
+      }
+      // Handle public/b-roll/ URLs (without leading slash)
+      if (url.startsWith('public/b-roll/')) {
+        const filename = url.replace('public/b-roll/', '');
+        return `${EXTERNAL_API_BASE_URL}/api/serve-broll/${filename}`;
+      }
       return `${EXTERNAL_API_BASE_URL}${url}`;
     };
 
@@ -155,20 +165,60 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ];
     }
 
+    // Transform all b-roll URLs in the adData before passing to Remotion
+    const transformedAdData = {
+      ...remotionAdData,
+      previewMode: true,
+      selectedBRoll: remotionAdData.selectedBRoll?.map((broll: any) => {
+        const transformedUrl = toAbsoluteUrl(broll.url);
+        console.log(`[Preview] Transforming selectedBRoll URL: "${broll.url}" -> "${transformedUrl}"`);
+        return {
+          ...broll,
+          url: transformedUrl
+        };
+      }),
+      orderedBRoll: remotionAdData.orderedBRoll?.map((broll: any) => {
+        const transformedUrl = toAbsoluteUrl(broll.url);
+        console.log(`[Preview] Transforming orderedBRoll URL: "${broll.url}" -> "${transformedUrl}"`);
+        return {
+          ...broll,
+          url: transformedUrl
+        };
+      })
+    };
+
     // Create input props for Remotion - minimal preview mode
     // For preview, use the original avatar video (not lipsync processed)
     const avatarVideoUrl = toAbsoluteUrl(avatar.src);
     
     const inputProps = {
-      adData: {
-        ...remotionAdData,
-        previewMode: true, // Enable preview mode for minimal rendering
-      },
+      adData: transformedAdData,
       timeline: finalTimeline,
       audioUrl: toAbsoluteUrl(adData.audioUrl || ''),
       processedAvatarUrl: avatarVideoUrl, // Use original avatar video for preview
       greenscreenAvatarUrl: avatarVideoUrl, // Same for greenscreen scenes
+      // Pass font styling props directly to Main composition (same as final render)
+      oneWordAtATime: adData.oneWordAtATime,
+      fontSize: adData.fontSize,
+      subtitlePosition: adData.subtitlePosition,
+      textColor: adData.textColor,
+      fontWeight: adData.fontWeight,
+      outlineWidth: adData.outlineWidth,
+      outlineColor: adData.outlineColor,
+      shadowOffsetX: adData.shadowOffsetX,
+      shadowOffsetY: adData.shadowOffsetY,
+      shadowBlur: adData.shadowBlur,
+      shadowColor: adData.shadowColor,
+      letterSpacing: adData.letterSpacing,
+      textTransform: adData.textTransform,
+      // Match the video rendering scale for consistent font sizing
+      previewScale: 0.5,
     };
+
+    console.log('[Preview] Final transformed adData before Remotion:', JSON.stringify({
+      selectedBRoll: transformedAdData.selectedBRoll,
+      orderedBRoll: transformedAdData.orderedBRoll
+    }, null, 2));
 
     // Initialize performance monitoring
     const perfMonitor = createPerformanceMonitor();
@@ -179,9 +229,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let bundleLocation: string | null = null;
     try {
       // GPU-optimized bundling for preview
-      bundleLocation = await bundle({ 
-        entryPoint: path.resolve('./remotion/index.ts'), 
-        webpackOverride: getGPUWebpackConfig(false) // Preview mode
+      bundleLocation = await bundle({
+        entryPoint: path.resolve('./remotion/index.ts'),
+        webpackOverride: getGPUWebpackConfig(false), // Preview mode
+        publicDir: path.resolve("./public-minimal"), // Use full public directory to include all assets
+        enableCaching: false, // Disable caching for speed
       });
 
       perfMonitor.logPerformance('Preview Bundle Complete');

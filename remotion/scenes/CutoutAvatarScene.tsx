@@ -1,24 +1,20 @@
 // remotion/scenes/CutoutAvatarScene.tsx
-import { AbsoluteFill, Img, OffthreadVideo, Video, useCurrentFrame, useVideoConfig, getInputProps } from 'remotion';
-import { LoopingVideo } from '../components/LoopingVideo';
+import { AbsoluteFill, OffthreadVideo, useCurrentFrame, useVideoConfig, getInputProps } from 'remotion';
+import { DualLayerBackground } from '../components/DualLayerBackground';
 import React from 'react';
 import { COMPOSITION_FPS } from '../constants';
 
-const isVideo = (url: string): boolean => {
-  if (!url) return false;
-  return url.toLowerCase().endsWith('.mp4') || url.toLowerCase().endsWith('.webm');
-};
 
 export const CutoutAvatarScene: React.FC<{
   backgroundSrc: string;
   greenscreenSrc: string;
   position: 'center' | 'left' | 'right';
   avatarStartFrom?: number;
-  backgroundVideoDurationInFrames?: number;
-}> = ({ backgroundSrc, greenscreenSrc, position, avatarStartFrom = 0, backgroundVideoDurationInFrames = 300 }) => {
+}> = ({ backgroundSrc, greenscreenSrc, position, avatarStartFrom = 0 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const inputProps = getInputProps();
+  
   
   // Check if we're in preview mode
   const isPreviewMode = (inputProps as any)?.adData?.previewMode === true;
@@ -72,25 +68,13 @@ export const CutoutAvatarScene: React.FC<{
     }
   };
 
-  const coverStyle: React.CSSProperties = {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-  };
-
   return (
     <AbsoluteFill className="bg-black">
-      {/* Background layer */}
-      {isVideo(backgroundSrc) ? (
-        <LoopingVideo 
-          src={backgroundSrc} 
-          style={coverStyle} 
-          videoDurationInFrames={backgroundVideoDurationInFrames}
-          muted 
-        />
-      ) : (
-        <Img src={backgroundSrc} style={coverStyle} />
-      )}
+      {/* Background layer with dual-layer system */}
+      <DualLayerBackground 
+        src={backgroundSrc}
+        
+      />
 
       {/* Transparent overlay */}
       <div style={getPositionStyle()}>

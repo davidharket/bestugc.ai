@@ -8,8 +8,8 @@ interface RateLimitConfig {
 }
 
 const RATE_LIMITS: Record<string, RateLimitConfig> = {
-  script_generation: { maxRequests: 10, windowMinutes: 60 }, // 10 script generations per hour
-  audio_generation: { maxRequests: 15, windowMinutes: 60 },  // 15 audio generations per hour
+  script_generation: { maxRequests: 1000, windowMinutes: 60 }, // Effectively unlimited for development
+  audio_generation: { maxRequests: 1000, windowMinutes: 60 },  // Effectively unlimited for development
 }
 
 export async function checkRateLimit(userId: string, action: string): Promise<{

@@ -156,10 +156,6 @@ const ScenePreview: React.FC<ScenePreviewProps> = ({ layout, asset, avatarSrc, i
         </div>
       )}
       
-      {/* Scene Type Label */}
-      <div className="absolute top-2 left-2 bg-black/50 text-white px-2 py-1 rounded text-xs z-20">
-        {layout.replace(/-/g, ' ')}
-      </div>
     </div>
   );
 };
