@@ -5,6 +5,7 @@ import { AdCreationProvider } from '../components/AdCreationContext'
 import { Layout } from '../components/Layout'
 import { Toaster } from 'react-hot-toast'
 import { useVisitorTracking } from '../lib/useVisitorTracking'
+import GoogleAnalytics from '../components/GoogleAnalytics'
 
 function AppContent({ Component, pageProps }: { Component: any, pageProps: any }) {
   // Initialize visitor tracking
@@ -19,11 +20,14 @@ function AppContent({ Component, pageProps }: { Component: any, pageProps: any }
 
 export default function App({ Component, pageProps: { session, ...pageProps } }: AppProps) {
   return (
-    <SessionProvider session={session}>
-      <AdCreationProvider>
-        <AppContent Component={Component} pageProps={pageProps} />
-        <Toaster />
-      </AdCreationProvider>
-    </SessionProvider>
+    <>
+      <GoogleAnalytics />
+      <SessionProvider session={session}>
+        <AdCreationProvider>
+          <AppContent Component={Component} pageProps={pageProps} />
+          <Toaster />
+        </AdCreationProvider>
+      </SessionProvider>
+    </>
   )
 } 

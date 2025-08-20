@@ -3,6 +3,7 @@ import { getProviders, signIn, ClientSafeProvider } from 'next-auth/react';
 import { GetServerSidePropsContext } from 'next';
 import Head from 'next/head';
 import { useState, useRef } from 'react';
+import { useRouter } from 'next/router';
 import Link from 'next/link';
 import ReCAPTCHA from 'react-google-recaptcha';
 
@@ -21,6 +22,7 @@ interface SignInPageProps {
 }
 
 export default function SignInPage({ providers, csrfToken }: SignInPageProps) {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');

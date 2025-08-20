@@ -8,11 +8,17 @@ import {
 import { getClientIP } from '../../../lib/rate-limit'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'GET') {
+  if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { token, email } = req.query
+  // Get token and email from query (GET) or body (POST)
+  let token, email
+  if (req.method === 'GET') {
+    ({ token, email } = req.query)
+  } else {
+    ({ token, email } = req.body)
+  }
 
   if (!token || !email || typeof token !== 'string' || typeof email !== 'string') {
     return res.status(400).json({ error: 'Missing or invalid token or email' })
@@ -57,10 +63,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       severity: 'INFO',
     })
 
-    return res.status(200).json({ 
-      success: true, 
-      message: 'Email verified successfully' 
-    })
+    if (req.method === 'GET') {
+      // For GET requests (clicking email link), redirect to verification page
+      return res.redirect(302, `/auth/verify-email?verified=true&email=${encodeURIComponent(email as string)}`)
+    } else {
+      // For POST requests (from verification page), return JSON
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Email verified successfully' 
+      })
+    }
   } catch (error) {
     console.error('Email verification error:', error)
     

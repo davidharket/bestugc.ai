@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next'
 import { prisma } from '../../../lib/prisma'
 import { 
   generateEmailVerificationToken,
+  sendVerificationEmail,
   logSecurityEvent
 } from '../../../lib/security-utils'
 import { checkIPRateLimit, incrementIPRateLimit, getClientIP } from '../../../lib/rate-limit'
@@ -71,25 +72,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Increment rate limit
     await incrementIPRateLimit(ipAddress, 'email_verification_resend')
 
-    // TODO: Send verification email here
-    // For now, we'll just return the verification link
-    const verificationUrl = `${process.env.NEXTAUTH_URL}/auth/verify-email?token=${token}&email=${encodeURIComponent(email)}`
+    // Send verification email
+    try {
+      await sendVerificationEmail(email, token)
+      
+      await logSecurityEvent({
+        userId: user.id,
+        ipAddress,
+        userAgent,
+        action: 'EMAIL_VERIFICATION_RESENT',
+        details: { email },
+        severity: 'INFO',
+      })
 
-    await logSecurityEvent({
-      userId: user.id,
-      ipAddress,
-      userAgent,
-      action: 'EMAIL_VERIFICATION_RESENT',
-      details: { email },
-      severity: 'INFO',
-    })
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Verification email sent successfully' 
+      })
+    } catch (emailError) {
+      console.error('Failed to send verification email:', emailError)
+      
+      await logSecurityEvent({
+        userId: user.id,
+        ipAddress,
+        userAgent,
+        action: 'EMAIL_VERIFICATION_RESEND_FAILED',
+        details: { 
+          email, 
+          error: emailError instanceof Error ? emailError.message : 'Unknown error' 
+        },
+        severity: 'ERROR',
+      })
 
-    return res.status(200).json({ 
-      success: true, 
-      message: 'Verification email sent',
-      // Remove this in production and send actual email
-      verificationUrl
-    })
+      return res.status(500).json({ 
+        error: 'Failed to send verification email. Please try again later.' 
+      })
+    }
   } catch (error) {
     console.error('Resend verification error:', error)
     

@@ -1,7 +1,9 @@
 import { PrismaClient } from '@prisma/client'
 import crypto from 'crypto'
+import { Resend } from 'resend'
 
 const prisma = new PrismaClient()
+const resend = new Resend(process.env.RESEND_API_KEY)
 
 export interface SecurityLogEvent {
   userId?: string
@@ -23,6 +25,69 @@ export async function logSecurityEvent(event: SecurityLogEvent): Promise<void> {
       severity: event.severity || 'INFO',
     },
   })
+}
+
+export function generateEmailVerificationToken(): string {
+  return crypto.randomBytes(32).toString('hex')
+}
+
+export async function isEmailVerificationTokenValid(email: string, token: string): Promise<boolean> {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { emailVerificationToken: true, isEmailVerified: true }
+    })
+    
+    if (!user || user.isEmailVerified) {
+      return false
+    }
+    
+    return user.emailVerificationToken === token
+  } catch (error) {
+    console.error('Token validation error:', error)
+    return false
+  }
+}
+
+export async function markEmailAsVerified(email: string): Promise<void> {
+  await prisma.user.update({
+    where: { email },
+    data: {
+      isEmailVerified: true,
+      emailVerificationToken: null
+    }
+  })
+}
+
+export async function sendVerificationEmail(email: string, token: string): Promise<void> {
+  const verificationLink = `${process.env.NEXTAUTH_URL}/api/auth/verify-email?token=${token}&email=${encodeURIComponent(email)}`
+  
+  try {
+    await resend.emails.send({
+      from: 'onboarding@resend.dev', // Using Resend's default domain for testing
+      to: email,
+      subject: 'Verify your BestUGC account',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #e85a12;">Verify Your Email</h2>
+          <p>Thanks for signing up! Please verify your email address by clicking the button below:</p>
+          <a href="${verificationLink}" style="display: inline-block; background: #e85a12; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin: 20px 0;">
+            Verify Email Address
+          </a>
+          <p style="color: #666; font-size: 14px;">
+            If the button doesn't work, copy and paste this link: <br>
+            <a href="${verificationLink}">${verificationLink}</a>
+          </p>
+          <p style="color: #666; font-size: 12px; margin-top: 40px;">
+            This link will expire in 24 hours. If you didn't create an account, please ignore this email.
+          </p>
+        </div>
+      `
+    })
+  } catch (error) {
+    console.error('Email sending error:', error)
+    throw new Error('Failed to send verification email')
+  }
 }
 
 export function generateDeviceFingerprint(req: any): string {
@@ -74,45 +139,8 @@ export async function isDeviceSuspicious(fingerprint: string): Promise<boolean> 
   if (!device) return false
 
   // Mark as suspicious if too many accounts from same device
-  const suspiciousThreshold = 3
-  return device.userCount >= suspiciousThreshold || device.isSuspicious
-}
-
-export async function generateEmailVerificationToken(): Promise<string> {
-  return crypto.randomBytes(32).toString('hex')
-}
-
-export async function isEmailVerificationTokenValid(
-  email: string,
-  token: string
-): Promise<boolean> {
-  const user = await prisma.user.findUnique({
-    where: { email },
-    select: {
-      emailVerificationToken: true,
-      emailVerificationExpires: true,
-    },
-  })
-
-  if (!user?.emailVerificationToken || !user?.emailVerificationExpires) {
-    return false
-  }
-
-  return (
-    user.emailVerificationToken === token &&
-    new Date() < user.emailVerificationExpires
-  )
-}
-
-export async function markEmailAsVerified(email: string): Promise<void> {
-  await prisma.user.update({
-    where: { email },
-    data: {
-      isEmailVerified: true,
-      emailVerificationToken: null,
-      emailVerificationExpires: null,
-    },
-  })
+  const suspiciousThreshold = 3;
+  return device.userCount >= suspiciousThreshold || device.isSuspicious;
 }
 
 export async function handleFailedLogin(email: string, ipAddress: string): Promise<{

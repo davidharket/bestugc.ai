@@ -10,7 +10,7 @@ interface RateLimitConfig {
 const RATE_LIMITS: Record<string, RateLimitConfig> = {
   script_generation: { maxRequests: 1000, windowMinutes: 60 }, // Effectively unlimited for development
   audio_generation: { maxRequests: 1000, windowMinutes: 60 },  // Effectively unlimited for development
-  account_creation: { maxRequests: 3, windowMinutes: 60 },     // 3 accounts per hour per IP
+  account_creation: { maxRequests: 20, windowMinutes: 60 },    // 20 accounts per hour per IP (increased for testing)
   email_signup: { maxRequests: 5, windowMinutes: 1440 },       // 5 signups per day per email domain
   login_attempts: { maxRequests: 10, windowMinutes: 60 },      // 10 login attempts per hour
   email_verification_resend: { maxRequests: 5, windowMinutes: 60 }, // 5 resends per hour per IP

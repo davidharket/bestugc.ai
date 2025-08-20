@@ -20,8 +20,7 @@ import {
   isDeviceSuspicious,
   handleFailedLogin,
   handleSuccessfulLogin,
-  isAccountLocked,
-  generateEmailVerificationToken
+  isAccountLocked
 } from '../../../lib/security-utils';
 import { verifyCaptcha } from '../../../lib/captcha-utils';
 import { 
@@ -104,11 +103,14 @@ export const authOptions: NextAuthOptions = {
             name: true,
             password: true,
             credits: true,
-            plan: true
+            plan: true,
+            isEmailVerified: true
           }
         });
 
         if (existingUser) {
+          // Email verification check removed - allow login without verification
+
           // Sign in existing user
           const isValidPassword = await bcrypt.compare(credentials.password, existingUser.password || '');
           
@@ -202,26 +204,25 @@ export const authOptions: NextAuthOptions = {
             throw new Error('Too many signups from this email domain. Please try again later.');
           }
 
-          // Check device fingerprint
+          // Track device fingerprint (but don't block for now)
           await trackDeviceFingerprint(deviceFingerprint, ipAddress, userAgent);
+          
+          // Log if device appears suspicious but don't block signup
           if (await isDeviceSuspicious(deviceFingerprint)) {
             await logSecurityEvent({
               ipAddress,
               userAgent,
-              action: 'SIGNUP_SUSPICIOUS_DEVICE',
+              action: 'SIGNUP_SUSPICIOUS_DEVICE_LOGGED',
               details: { 
                 email: credentials.email, 
                 deviceFingerprint: deviceFingerprint.substring(0, 16) + '...' 
               },
-              severity: 'WARNING',
+              severity: 'INFO', // Changed from WARNING to INFO
             });
-            throw new Error('Suspicious device detected. Please contact support if this is a legitimate account.');
+            // Note: Not blocking signup for suspicious devices during testing
           }
           
-          // Generate email verification token
-          const emailVerificationToken = await generateEmailVerificationToken();
-          const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-
+          // Create user without email verification
           const hashedPassword = await bcrypt.hash(credentials.password, 12);
           const newUser = await prisma.user.create({
             data: {
@@ -232,16 +233,9 @@ export const authOptions: NextAuthOptions = {
               plan: 'FREE',
               ipAddress,
               deviceFingerprint,
-              isEmailVerified: false, // Email verification will be required
-              emailVerificationToken,
-              emailVerificationExpires
+              isEmailVerified: true // Mark as verified to skip verification
             }
           });
-
-          // TODO: Send verification email
-          // For now, we'll include the verification URL in the response
-          const verificationUrl = `${process.env.NEXTAUTH_URL}/auth/verify-email?token=${emailVerificationToken}&email=${encodeURIComponent(credentials.email)}`;
-          console.log('Email verification URL:', verificationUrl);
 
           // Increment rate limits
           await incrementIPRateLimit(ipAddress, 'account_creation');
@@ -258,13 +252,15 @@ export const authOptions: NextAuthOptions = {
             },
             severity: 'INFO',
           });
+
+          // Affiliate processing
+          await processAffiliateSignup(newUser.id, ipAddress);
           
+          // Return the new user object to authenticate them immediately
           return {
             id: newUser.id,
             email: newUser.email,
             name: newUser.name,
-            credits: newUser.credits,
-            plan: newUser.plan
           };
         }
       }

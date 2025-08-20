@@ -11,7 +11,18 @@ export default function VerifyEmailPage() {
 
   useEffect(() => {
     const verifyEmail = async () => {
-      const { token, email } = router.query
+      const { token, email, verified } = router.query
+
+      // If already verified (redirected from API), show success immediately
+      if (verified === 'true') {
+        setStatus('success')
+        setMessage('Your email has been verified successfully!')
+        // Auto-redirect to dashboard after 3 seconds
+        setTimeout(() => {
+          router.push('/dashboard')
+        }, 3000)
+        return
+      }
 
       if (!token || !email) {
         setStatus('error')
@@ -26,6 +37,10 @@ export default function VerifyEmailPage() {
         if (response.ok) {
           setStatus('success')
           setMessage('Your email has been verified successfully!')
+          // Auto-redirect to dashboard after 3 seconds
+          setTimeout(() => {
+            router.push('/dashboard')
+          }, 3000)
         } else {
           setStatus('error')
           setMessage(data.error || 'Verification failed')
@@ -99,7 +114,13 @@ export default function VerifyEmailPage() {
                     </svg>
                   </div>
                   <h2 className="text-xl font-semibold text-green-400 mb-2">Success!</h2>
-                  <p className="text-gray-300 mb-6">{message}</p>
+                  <p className="text-gray-300 mb-4">{message}</p>
+                  <div className="mb-6">
+                    <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
+                      <div className="bg-orange-500 h-2 rounded-full animate-pulse" style={{ width: '100%' }}></div>
+                    </div>
+                    <p className="text-sm text-gray-400">Redirecting to dashboard in 3 seconds...</p>
+                  </div>
                   <Link
                     href="/auth/signin"
                     className="btn-primary inline-block px-6 py-3 text-center"
