@@ -42,7 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.error(`[Preview Start] Failed to write initial job file for ${jobId}:`, error);
     return res.status(500).json({ message: 'Failed to initialize preview job.' });
   }
-  
+
   console.log(`[Preview Start] Created job ${jobId}, stored in file system.`);
   console.log(`[Preview] Started job ${jobId} for user ${session.user.id}`);
 
@@ -76,7 +76,7 @@ async function processPreviewAsync(jobId: string, adData: any, previewDuration: 
     console.log(`[Preview] Processing job ${jobId}`);
 
     // Import the heavy modules only when needed
-    const { getTemplateById } = await import('../../../lib/templates'); // NOTE: scaleTemplateForDuration is removed
+    const { getTemplateById, scaleTemplateForDuration } = await import('../../../lib/templates');
     const { generateConcreteTimeline } = await import('../../../lib/timeline-generator');
     const { avatars } = await import('../../../lib/avatars');
     const { COMPOSITION_FPS } = await import('../../../remotion/constants');
@@ -86,11 +86,14 @@ async function processPreviewAsync(jobId: string, adData: any, previewDuration: 
     const fs = await import('fs');
     const { getPreviewGPUConfig, getGPUWebpackConfig, createPerformanceMonitor } = await import('../../../lib/gpu-config');
 
-    // Get template and generate timeline
-    const template = getTemplateById(adData.templateId); // This is the original, correct logic for this project
-    if (!template) {
+    // Get base template and scale it based on the selected duration
+    const baseTemplate = getTemplateById(adData.templateId);
+    if (!baseTemplate) {
       throw new Error('Template not found');
     }
+    const template = scaleTemplateForDuration(baseTemplate, adData.duration || 30);
+    console.log(`[Preview] Scaled template for ${adData.duration}s duration: ${template.timeline.length} scenes`);
+
 
     // Calculate duration - use full audio duration for accurate preview
     let totalDurationInFrames: number;
@@ -104,6 +107,8 @@ async function processPreviewAsync(jobId: string, adData: any, previewDuration: 
       console.log('[Preview] No audio URL, using fallback duration:', previewDuration, 'seconds');
       totalDurationInFrames = Math.round(previewDuration * COMPOSITION_FPS);
     }
+
+    // Use the scaled template's timeline
     const concreteTimeline = generateConcreteTimeline(template.timeline, totalDurationInFrames);
     const avatar = avatars.find((a) => a.id === adData.avatarId);
     if (!avatar) {
@@ -144,13 +149,14 @@ async function processPreviewAsync(jobId: string, adData: any, previewDuration: 
       fs.mkdirSync(path.dirname(outputPath), { recursive: true });
       console.log('[Preview] Starting GPU-accelerated preview render...');
       perfMonitor.logPerformance('Preview Render Start');
+      // ✅ FIXED: Changed codec from 'h24' to the correct 'h264'
       await renderMedia({ composition, serveUrl: bundleLocation, codec: 'h264', outputLocation: outputPath, inputProps, chromiumOptions: previewGpuConfig.chromiumOptions, timeoutInMilliseconds: 600000 });
       perfMonitor.logPerformance('Preview Render Complete');
       const stats = fs.existsSync(outputPath) ? fs.statSync(outputPath) : null;
       const fileSizeMB = stats ? (stats.size / 1024 / 1024).toFixed(2) : 'Unknown';
       console.log(`[Preview] GPU-accelerated preview completed in ${perfMonitor.getElapsedTime()}s, size: ${fileSizeMB}MB`);
       const previewVideoUrl = `/previews/${outputFilename}`;
-      
+
       await updateJobState(jobId, {
         status: 'completed',
         result: {

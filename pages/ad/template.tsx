@@ -2,7 +2,7 @@
 import React from 'react';
 import { useRouter } from 'next/router';
 import { useAdCreation } from '../../components/AdCreationContext';
-import { TEMPLATE_LIBRARY, VideoTemplate, adjustTimelineForDuration } from '../../lib/templates';
+import { TEMPLATE_LIBRARY, VideoTemplate, scaleTemplateForDuration } from '../../lib/templates';
 import { avatars } from '../../lib/avatars';
 import { useState, useEffect, useCallback } from 'react';
 import { TemplatePreviewWithSubtitles } from '../../components/TemplatePreviewWithSubtitles';
@@ -330,7 +330,7 @@ export default function SelectTemplatePage() {
 
     const allAssets = getOrderedAssets();
     const baseTemplate = TEMPLATE_LIBRARY.find(t => t.id === selectedTemplateId);
-    const selectedTemplate = baseTemplate ? adjustTimelineForDuration(baseTemplate, adData.duration || 30) : undefined;
+    const selectedTemplate = baseTemplate ? scaleTemplateForDuration(baseTemplate, adData.duration || 30) : undefined;
 
     return (
         <div className="min-h-screen bg-black text-white">

@@ -2,12 +2,12 @@
 import { Worker } from 'bullmq';
 import { PrismaClient } from '@prisma/client';
 import { AdCreationData } from '../components/AdCreationContext';
-import { getTemplateById } from '../lib/templates';
+import { getTemplateById, scaleTemplateForDuration } from '../lib/templates'; // ✅ FIXED: Import scaleTemplateForDuration
 import { generateConcreteTimeline } from '../lib/timeline-generator';
 import axios from 'axios';
 import * as fs from 'fs';
 import path from 'path';
-import { avatars } from '../lib/avatars';
+import { avatars, getAvatarFps } from '../lib/avatars';
 import { COMPOSITION_FPS } from '../remotion/constants';
 import { bundle } from '@remotion/bundler';
 import { renderMedia, selectComposition } from '@remotion/renderer';
@@ -43,8 +43,8 @@ async function runLipSync(videoUrl: string, audioUrl: string): Promise<{ jobId: 
   throw new Error(`Lip-sync job ${jobId} timed out.`);
 }
 
-async function removeBackground(localVideoPath: string): Promise<string> {
-  const response = await api.post('/api/video/remove-background', { localVideoPath });
+async function removeBackground(localVideoPath: string, fps: number = 30): Promise<string> {
+  const response = await api.post('/api/video/remove-background', { localVideoPath, fps });
   return response.data.cutoutVideoUrl;
 }
 
@@ -133,15 +133,23 @@ async function processRenderJob(adId: string, templateId: string): Promise<void>
     fs.writeFileSync(localPath, downloadResponse.data);
     const localLipSyncedVideoUrl = `/synclabs/${filename}`;
 
+    const avatarFps = getAvatarFps(adData.avatarId!);
+    log(`Using ${avatarFps} FPS for avatar ID ${adData.avatarId}`);
+
     log('6/9: Removing video background...');
-    const transparentAvatarUrl = await removeBackground(localLipSyncedVideoUrl);
+    const transparentAvatarUrl = await removeBackground(localLipSyncedVideoUrl, avatarFps);
     log('7/9: Getting video duration...');
     const durationInSeconds = await getDuration(localLipSyncedVideoUrl);
-    const totalDurationInFrames = Math.round(durationInSeconds * COMPOSITION_FPS);
+    const totalDurationInFrames = Math.round(durationInSeconds * avatarFps);
+    log(`Duration: ${durationInSeconds}s = ${totalDurationInFrames} frames at ${avatarFps} FPS`);
 
     log('8/9: Preparing for final render with Remotion...');
-    const template = getTemplateById(templateId);
-    if (!template) throw new Error(`Template with ID ${templateId} not found.`);
+    // ✅ FIXED: Get the base template, then scale it using the duration from the database.
+    const baseTemplate = getTemplateById(templateId);
+    if (!baseTemplate) throw new Error(`Template with ID ${templateId} not found.`);
+    const template = scaleTemplateForDuration(baseTemplate, adData.duration || 30);
+    log(`Scaled template for ${adData.duration}s duration: ${template.timeline.length} scenes`);
+
     const concreteTimeline = generateConcreteTimeline(template.timeline, totalDurationInFrames);
 
     const toAbsoluteUrl = (url: string) => {
@@ -185,13 +193,14 @@ async function processRenderJob(adId: string, templateId: string): Promise<void>
         letterSpacing: adData.letterSpacing,
         textTransform: adData.textTransform,
     };
-    
+
     const bundleLocation = await bundle({ entryPoint: path.resolve('./remotion/index.ts'), webpackOverride: getGPUWebpackConfig(true), publicDir: path.resolve('./public-minimal') });
 
     try {
         log('Step 8/9: Rendering primary format video (9:16)...');
         const comp916 = await selectComposition({ serveUrl: bundleLocation, id: 'Main', inputProps });
         comp916.durationInFrames = totalDurationInFrames;
+        comp916.fps = avatarFps;
         const out916 = `final-ad-${adId}-9x16.mp4`;
         const path916 = path.resolve(`./public/renders/${out916}`);
         await renderMedia({ composition: comp916, serveUrl: bundleLocation, codec: 'h264', outputLocation: path916, inputProps });
@@ -199,6 +208,8 @@ async function processRenderJob(adId: string, templateId: string): Promise<void>
 
         await prisma.ad.update({ where: { id: adId }, data: {
                 finalVideoUrl: finalUrl916,
+                lipsyncedAvatarUrl: localLipSyncedVideoUrl,
+                lipsyncedAvatarNoBgUrl: transparentAvatarUrl,
                 status: adData.enableDualFormat ? 'RENDERING' : 'COMPLETED',
         }});
         log('✅ Successfully rendered 9:16 format.');
@@ -213,13 +224,16 @@ async function processRenderJob(adId: string, templateId: string): Promise<void>
             log('Step 8.5/9: Rendering secondary format video (4:5)...');
             const comp45 = await selectComposition({ serveUrl: bundleLocation, id: 'Main4x5', inputProps });
             comp45.durationInFrames = totalDurationInFrames;
+            comp45.fps = avatarFps;
             const out45 = `final-ad-${adId}-4x5.mp4`;
             const path45 = path.resolve(`./public/renders/${out45}`);
             await renderMedia({ composition: comp45, serveUrl: bundleLocation, codec: 'h264', outputLocation: path45, inputProps });
             const finalUrl45 = `/renders/${out45}`;
-            
+
             await prisma.ad.update({ where: { id: adId }, data: {
                     finalVideoUrl4x5: finalUrl45,
+                    lipsyncedAvatarUrl: localLipSyncedVideoUrl,
+                    lipsyncedAvatarNoBgUrl: transparentAvatarUrl,
                     status: 'COMPLETED'
             }});
             log('✅ Successfully rendered 4:5 format.');

@@ -54,6 +54,11 @@ const AdCard = React.memo(function AdCard({ ad, onDelete, onCancel, onRetry, use
         return `${baseUrl}/api/serve-video/${filename}`;
       }
       
+      if (finalVideoUrl.startsWith('/synclabs/')) {
+        const filename = finalVideoUrl.replace('/synclabs/', '');
+        return `${baseUrl}/api/serve-video/synclabs/${filename}`;
+      }
+      
       return `${baseUrl}${finalVideoUrl}`;
     }
     
@@ -286,9 +291,26 @@ const AdCard = React.memo(function AdCard({ ad, onDelete, onCancel, onRetry, use
                 link.href = getVideoUrl(ad.lipsyncedAvatarUrl);
                 link.download = `${ad.brandName || 'avatar'}-avatar.mp4`;
                 link.click();
+              } else {
+                // Fallback: try to construct the SyncLabs URL based on the job ID
+                if (ad.syncLabsJobId) {
+                  const syncLabsUrl = `/synclabs/synclabs-${ad.syncLabsJobId}.mp4`;
+                  const link = document.createElement('a');
+                  link.href = getVideoUrl(syncLabsUrl);
+                  link.download = `${ad.brandName || 'avatar'}-avatar.mp4`;
+                  link.click();
+                } else {
+                  console.error('No SyncLabs video available for download');
+                  // You could show a toast error message here if you have access to toast
+                }
               }
             }}
-            className="btn-secondary px-4 py-2.5 text-sm font-normal flex items-center gap-2"
+            disabled={!ad.lipsyncedAvatarUrl && !ad.syncLabsJobId}
+            className={`px-4 py-2.5 text-sm font-normal flex items-center gap-2 ${
+              ad.lipsyncedAvatarUrl || ad.syncLabsJobId 
+                ? 'btn-secondary' 
+                : 'btn-secondary opacity-50 cursor-not-allowed'
+            }`}
             style={{ borderRadius: '15px' }}
           >
             <img src="/avatar.svg" alt="Avatar" className="w-4 h-4" />

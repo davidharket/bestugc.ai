@@ -12,7 +12,7 @@ def download_file(url, target_path):
             for chunk in r.iter_content(chunk_size=8192): f.write(chunk)
     log_progress("Download complete")
 
-def process_video(input_path, output_path):
+def process_video(input_path, output_path, target_fps=30):
     from rembg import new_session, remove
     
     session = new_session('u2net_lite', providers=['CPUExecutionProvider'])
@@ -20,7 +20,7 @@ def process_video(input_path, output_path):
     cap = cv2.VideoCapture(input_path)
     if not cap.isOpened(): raise Exception("Could not open video file.")
     
-    target_fps = 24  # Fixed: Use consistent 24fps across pipeline
+    log_progress(f"Processing video with {target_fps} FPS")
     temp_frame_dir = tempfile.mkdtemp(prefix="rembg_frames_")
     log_progress(f"Using temp directory: {temp_frame_dir}")
 
@@ -64,18 +64,29 @@ def process_video(input_path, output_path):
 
 
 def main():
-    if len(sys.argv) != 3:
-        print("Usage: python script.py <input_url> <output_path>")
+    if len(sys.argv) not in [3, 4]:
+        print("Usage: python script.py <input_source> <output_path> [fps]")
         sys.exit(1)
     
-    input_url, output_path = sys.argv[1], sys.argv[2]
-    with tempfile.NamedTemporaryFile(suffix='.mp4', delete=True) as temp_input:
-        try:
-            download_file(input_url, temp_input.name)
-            process_video(temp_input.name, output_path)
-        except Exception as e:
-            log_progress(f"❌ An error occurred: {e}")
-            sys.exit(1)
+    input_source, output_path = sys.argv[1], sys.argv[2]
+    target_fps = int(sys.argv[3]) if len(sys.argv) == 4 else 30
+    
+    try:
+        # Check if input is a URL or local file path
+        if input_source.startswith(('http://', 'https://')):
+            # It's a URL, download it first
+            with tempfile.NamedTemporaryFile(suffix='.mp4', delete=True) as temp_input:
+                download_file(input_source, temp_input.name)
+                process_video(temp_input.name, output_path, target_fps)
+        else:
+            # It's a local file path, use it directly
+            log_progress(f"Using local file: {input_source}")
+            if not os.path.exists(input_source):
+                raise Exception(f"Local file not found: {input_source}")
+            process_video(input_source, output_path, target_fps)
+    except Exception as e:
+        log_progress(f"❌ An error occurred: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

@@ -1,5 +1,6 @@
 import React from 'react';
 import { AbsoluteFill, Img, Video } from 'remotion';
+import { LoopableOffthreadVideo } from './LoopableOffthreadVideo';
 
 interface DualLayerBackgroundProps {
   src: string;
@@ -39,10 +40,11 @@ export const DualLayerBackground: React.FC<DualLayerBackgroundProps> = ({
       {/* Blurred background layer - covers entire area */}
       <AbsoluteFill>
         {isVideo(src) ? (
-          <Video 
+          <LoopableOffthreadVideo 
             src={src} 
             style={blurredBackgroundStyle}
             muted 
+            loop={true}
           />
         ) : (
           <Img src={src} style={blurredBackgroundStyle} />
@@ -52,10 +54,11 @@ export const DualLayerBackground: React.FC<DualLayerBackgroundProps> = ({
       {/* Main content layer - fits to contain */}
       <AbsoluteFill>
         {isVideo(src) ? (
-          <Video 
+          <LoopableOffthreadVideo 
             src={src} 
             style={mainImageStyle}
             muted 
+            loop={true}
           />
         ) : (
           <Img src={src} style={mainImageStyle} />

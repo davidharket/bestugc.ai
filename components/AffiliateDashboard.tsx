@@ -158,7 +158,7 @@ export default function AffiliateDashboard() {
           </p>
           <button
             onClick={registerAsAffiliate}
-            className="btn-primary px-8 py-4 text-lg"
+            className="btn-primary px-8 py-4"
           >
             Register as Affiliate
           </button>
@@ -209,10 +209,10 @@ export default function AffiliateDashboard() {
             </div>
             <button
               onClick={copyAffiliateLink}
-              className={`px-6 py-3 rounded-lg transition-all duration-200 ${
+              className={`btn-secondary px-6 py-3 transition-all duration-200 ${
                 copySuccess 
-                  ? 'bg-gray-600 text-white' 
-                  : 'bg-gray-600 hover:bg-gray-700 text-white'
+                  ? 'text-white' 
+                  : 'hover:text-white'
               }`}
             >
               {copySuccess ? 'Copied!' : 'Copy'}
@@ -228,22 +228,22 @@ export default function AffiliateDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           <div className="bg-gray-900 rounded-[20px] border border-gray-700 p-6 text-center">
             <h3 className="text-lg font-semibold text-white mb-2">Total Clicks</h3>
-            <p className="text-3xl font-bold text-white">{stats.totalClicks}</p>
+            <p className="text-3xl font-semibold text-orange-600">{stats.totalClicks}</p>
           </div>
           
           <div className="bg-gray-900 rounded-[20px] border border-gray-700 p-6 text-center">
             <h3 className="text-lg font-semibold text-white mb-2">Signups</h3>
-            <p className="text-3xl font-bold text-white">{stats.totalSignups}</p>
+            <p className="text-3xl font-semibold text-orange-600">{stats.totalSignups}</p>
           </div>
           
           <div className="bg-gray-900 rounded-[20px] border border-gray-700 p-6 text-center">
             <h3 className="text-lg font-semibold text-white mb-2">Conversion Rate</h3>
-            <p className="text-3xl font-bold text-white">{stats.conversionRate}%</p>
+            <p className="text-3xl font-semibold text-orange-600">{stats.conversionRate}%</p>
           </div>
           
           <div className="bg-gray-900 rounded-[20px] border border-gray-700 p-6 text-center">
             <h3 className="text-lg font-semibold text-white mb-2">Total Earnings</h3>
-            <p className="text-3xl font-bold text-white">{formatCurrency(stats.totalEarnings)}</p>
+            <p className="text-3xl font-semibold text-orange-600">{formatCurrency(stats.totalEarnings)}</p>
           </div>
         </div>
 

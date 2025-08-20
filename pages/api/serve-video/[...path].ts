@@ -39,13 +39,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Invalid path' });
     }
     
-    const filePath = path.join(process.cwd(), 'public', 'renders', ...videoPath);
+    // Determine if this is a SyncLabs video or a rendered video
+    const isSyncLabs = videoPath[0] === 'synclabs' || videoPath.join('/').includes('synclabs');
     
-    // Security check - ensure the file is within the renders directory
+    let filePath: string;
+    let allowedDir: string;
+    
+    if (isSyncLabs) {
+      // SyncLabs videos are stored in public/synclabs/
+      filePath = path.join(process.cwd(), 'public', 'synclabs', ...videoPath.slice(1));
+      allowedDir = path.resolve(path.join(process.cwd(), 'public', 'synclabs'));
+    } else {
+      // Rendered videos are stored in public/renders/
+      filePath = path.join(process.cwd(), 'public', 'renders', ...videoPath);
+      allowedDir = path.resolve(path.join(process.cwd(), 'public', 'renders'));
+    }
+    
+    // Security check - ensure the file is within the allowed directory
     const normalizedPath = path.resolve(filePath);
-    const rendersDir = path.resolve(path.join(process.cwd(), 'public', 'renders'));
     
-    if (!normalizedPath.startsWith(rendersDir)) {
+    if (!normalizedPath.startsWith(allowedDir)) {
       return res.status(403).json({ error: 'Access denied' });
     }
     

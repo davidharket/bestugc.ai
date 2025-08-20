@@ -6,6 +6,29 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import { PrismaAdapter } from '@next-auth/prisma-adapter';
 import { prisma } from '../../../lib/prisma';
 import { processAffiliateSignup } from '../../../lib/affiliate-utils';
+import { 
+  checkIPRateLimit, 
+  incrementIPRateLimit, 
+  checkEmailDomainRateLimit, 
+  incrementEmailDomainRateLimit,
+  getClientIP 
+} from '../../../lib/rate-limit';
+import { 
+  logSecurityEvent, 
+  generateDeviceFingerprint, 
+  trackDeviceFingerprint,
+  isDeviceSuspicious,
+  handleFailedLogin,
+  handleSuccessfulLogin,
+  isAccountLocked,
+  generateEmailVerificationToken
+} from '../../../lib/security-utils';
+import { verifyCaptcha } from '../../../lib/captcha-utils';
+import { 
+  validateAndLimitSessions, 
+  logSessionActivity,
+  detectSuspiciousSessionActivity
+} from '../../../lib/session-utils';
 import bcrypt from 'bcryptjs';
 
 // Extend the built-in session and user types to include our custom fields
@@ -35,11 +58,41 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
-        name: { label: 'Name', type: 'text' }
+        name: { label: 'Name', type: 'text' },
+        captchaToken: { label: 'CAPTCHA Token', type: 'text' }
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) {
           return null;
+        }
+
+        const ipAddress = getClientIP(req);
+        const userAgent = req?.headers?.['user-agent'];
+        const deviceFingerprint = generateDeviceFingerprint(req);
+
+        // Check if account is locked
+        if (await isAccountLocked(credentials.email)) {
+          await logSecurityEvent({
+            ipAddress,
+            userAgent,
+            action: 'LOGIN_BLOCKED_LOCKED_ACCOUNT',
+            details: { email: credentials.email },
+            severity: 'WARNING',
+          });
+          throw new Error('Account is temporarily locked due to multiple failed login attempts');
+        }
+
+        // Check IP rate limiting for login attempts
+        const ipRateLimit = await checkIPRateLimit(ipAddress, 'login_attempts');
+        if (!ipRateLimit.allowed) {
+          await logSecurityEvent({
+            ipAddress,
+            userAgent,
+            action: 'LOGIN_RATE_LIMITED',
+            details: { email: credentials.email },
+            severity: 'WARNING',
+          });
+          throw new Error('Too many login attempts from this IP address. Please try again later.');
         }
 
         // Check if user exists
@@ -58,9 +111,42 @@ export const authOptions: NextAuthOptions = {
         if (existingUser) {
           // Sign in existing user
           const isValidPassword = await bcrypt.compare(credentials.password, existingUser.password || '');
+          
           if (!isValidPassword) {
+            // Increment IP rate limit for failed login
+            await incrementIPRateLimit(ipAddress, 'login_attempts');
+            
+            // Handle failed login (increment counter, potentially lock account)
+            const lockResult = await handleFailedLogin(credentials.email, ipAddress);
+            
+            await logSecurityEvent({
+              userId: existingUser.id,
+              ipAddress,
+              userAgent,
+              action: 'LOGIN_FAILED',
+              details: { 
+                email: credentials.email,
+                attemptsRemaining: lockResult.attemptsRemaining,
+                accountLocked: lockResult.accountLocked
+              },
+              severity: 'WARNING',
+            });
+            
             return null;
           }
+
+          // Successful login
+          await handleSuccessfulLogin(credentials.email);
+          
+          await logSecurityEvent({
+            userId: existingUser.id,
+            ipAddress,
+            userAgent,
+            action: 'LOGIN_SUCCESS',
+            details: { email: credentials.email },
+            severity: 'INFO',
+          });
+
           return {
             id: existingUser.id,
             email: existingUser.email,
@@ -73,7 +159,69 @@ export const authOptions: NextAuthOptions = {
           if (!credentials.name) {
             throw new Error('Name is required for registration');
           }
+
+          // Verify CAPTCHA for signup (only if CAPTCHA is configured)
+          const captchaEnabled = process.env.RECAPTCHA_SECRET_KEY;
+          if (captchaEnabled) {
+            if (!credentials.captchaToken || !(await verifyCaptcha(credentials.captchaToken))) {
+              await logSecurityEvent({
+                ipAddress,
+                userAgent,
+                action: 'SIGNUP_CAPTCHA_FAILED',
+                details: { email: credentials.email },
+                severity: 'WARNING',
+              });
+              throw new Error('CAPTCHA verification failed. Please try again.');
+            }
+          }
+
+          // Check IP rate limiting for account creation
+          const accountCreationLimit = await checkIPRateLimit(ipAddress, 'account_creation');
+          if (!accountCreationLimit.allowed) {
+            await logSecurityEvent({
+              ipAddress,
+              userAgent,
+              action: 'SIGNUP_RATE_LIMITED',
+              details: { email: credentials.email },
+              severity: 'WARNING',
+            });
+            throw new Error('Too many accounts created from this IP address. Please try again later.');
+          }
+
+          // Check email domain rate limiting
+          const emailDomain = credentials.email.split('@')[1];
+          const emailDomainLimit = await checkEmailDomainRateLimit(emailDomain, 'email_signup');
+          if (!emailDomainLimit.allowed) {
+            await logSecurityEvent({
+              ipAddress,
+              userAgent,
+              action: 'SIGNUP_EMAIL_DOMAIN_LIMITED',
+              details: { email: credentials.email, domain: emailDomain },
+              severity: 'WARNING',
+            });
+            throw new Error('Too many signups from this email domain. Please try again later.');
+          }
+
+          // Check device fingerprint
+          await trackDeviceFingerprint(deviceFingerprint, ipAddress, userAgent);
+          if (await isDeviceSuspicious(deviceFingerprint)) {
+            await logSecurityEvent({
+              ipAddress,
+              userAgent,
+              action: 'SIGNUP_SUSPICIOUS_DEVICE',
+              details: { 
+                email: credentials.email, 
+                deviceFingerprint: deviceFingerprint.substring(0, 16) + '...' 
+              },
+              severity: 'WARNING',
+            });
+            throw new Error('Suspicious device detected. Please contact support if this is a legitimate account.');
+          }
           
+          // Generate email verification token
+          const emailVerificationToken = await generateEmailVerificationToken();
+          const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
           const hashedPassword = await bcrypt.hash(credentials.password, 12);
           const newUser = await prisma.user.create({
             data: {
@@ -81,8 +229,34 @@ export const authOptions: NextAuthOptions = {
               password: hashedPassword,
               name: credentials.name,
               credits: 30, // Initial credits
-              plan: 'FREE'
+              plan: 'FREE',
+              ipAddress,
+              deviceFingerprint,
+              isEmailVerified: false, // Email verification will be required
+              emailVerificationToken,
+              emailVerificationExpires
             }
+          });
+
+          // TODO: Send verification email
+          // For now, we'll include the verification URL in the response
+          const verificationUrl = `${process.env.NEXTAUTH_URL}/auth/verify-email?token=${emailVerificationToken}&email=${encodeURIComponent(credentials.email)}`;
+          console.log('Email verification URL:', verificationUrl);
+
+          // Increment rate limits
+          await incrementIPRateLimit(ipAddress, 'account_creation');
+          await incrementEmailDomainRateLimit(emailDomain, 'email_signup');
+
+          await logSecurityEvent({
+            userId: newUser.id,
+            ipAddress,
+            userAgent,
+            action: 'ACCOUNT_CREATED',
+            details: { 
+              email: credentials.email,
+              deviceFingerprint: deviceFingerprint.substring(0, 16) + '...'
+            },
+            severity: 'INFO',
           });
           
           return {

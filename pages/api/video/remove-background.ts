@@ -18,10 +18,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { videoUrl, localVideoPath } = req.body;
+  const { videoUrl, localVideoPath, fps } = req.body;
   if (!videoUrl && !localVideoPath) {
     return res.status(400).json({ error: 'Either videoUrl or localVideoPath is required.' });
   }
+  
+  const targetFps = fps || 30; // Default to 30 if not specified
 
   const startTime = Date.now();
   const sourceIdentifier = localVideoPath || videoUrl;
@@ -53,9 +55,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const pythonScriptPath = path.join(process.cwd(), 'scripts', 'remove_background_robust.py');
     
     console.log(`[BG-REMOVAL] 🔄 Using Python from venv: ${pythonExecutable}`);
-    console.log(`[BG-REMOVAL] 🔄 Processing with robust background removal script...`);
+    console.log(`[BG-REMOVAL] 🔄 Processing with robust background removal script at ${targetFps} FPS...`);
 
-    const pythonProcess = spawn(pythonExecutable, [pythonScriptPath, processedSourcePath, outputPath]);
+    const pythonProcess = spawn(pythonExecutable, [pythonScriptPath, processedSourcePath, outputPath, targetFps.toString()]);
 
     let lastLog = "";
     pythonProcess.stdout.on('data', (data) => {

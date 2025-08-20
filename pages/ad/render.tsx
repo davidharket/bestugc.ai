@@ -29,6 +29,7 @@ export default function RenderAdPage() {
   const [isNavigatingAway, setIsNavigatingAway] = useState(false);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [audioGenerationFailed, setAudioGenerationFailed] = useState(false);
+  const [showLargeAssetWarning, setShowLargeAssetWarning] = useState(false);
 
   const [previewState, setPreviewState] = useState<{ '9:16': PreviewState; '4:5': PreviewState }>({
     '9:16': { status: 'idle', url: null, progress: 0, stage: '' },
@@ -37,6 +38,9 @@ export default function RenderAdPage() {
 
   const generationStartedRef = useRef(false);
   const previousAvatarIdRef = useRef<number | null>(null);
+  const progressStallTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastProgressRef = useRef<number>(0);
+  const lastProgressUpdateRef = useRef<number>(Date.now());
 
   const currentFormat = adData.currentPreviewFormat || '9:16';
 
@@ -223,6 +227,31 @@ export default function RenderAdPage() {
 
   const loadingStage = getThreePartLoadingStage();
   const isAnythingProcessing = isGeneratingAudio || previewState['9:16'].status === 'processing' || previewState['4:5'].status === 'processing';
+
+  // Detect progress stall and show large asset warning
+  useEffect(() => {
+    if (isAnythingProcessing) {
+      const currentProgress = Math.round(((loadingStage.stage - 1) * 33.33) + (loadingStage.progress * 0.33));
+      
+      // If progress is the same as last time, start/continue timer
+      if (currentProgress === lastProgressRef.current) {
+        const timeSinceLastUpdate = Date.now() - lastProgressUpdateRef.current;
+        
+        // Show warning after 30 seconds of no progress
+        if (timeSinceLastUpdate > 30000 && !showLargeAssetWarning) {
+          setShowLargeAssetWarning(true);
+        }
+      } else {
+        // Progress updated, reset timer and hide warning
+        lastProgressRef.current = currentProgress;
+        lastProgressUpdateRef.current = Date.now();
+        setShowLargeAssetWarning(false);
+      }
+    } else {
+      // Not processing, hide warning
+      setShowLargeAssetWarning(false);
+    }
+  }, [isAnythingProcessing, loadingStage.stage, loadingStage.progress, showLargeAssetWarning]);
   const currentPreviewUrl = previewState[currentFormat].url;
   const areAllPreviewsDone = (adData.enableDualFormat ?
     (previewState['9:16'].status === 'completed' && previewState['4:5'].status === 'completed') :
@@ -254,6 +283,18 @@ export default function RenderAdPage() {
               </div>
               <div className="w-full bg-gray-700 rounded-full h-3 mb-4"><div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-orange-600 transition-all duration-700 ease-out" style={{ width: `${((loadingStage.stage - 1) * 33.33) + (loadingStage.progress * 0.33)}%` }}></div></div>
               <div className="text-center text-sm text-gray-400">{Math.round(((loadingStage.stage - 1) * 33.33) + (loadingStage.progress * 0.33))}% complete</div>
+              
+              {/* Large asset warning */}
+              {showLargeAssetWarning && (
+                <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-700/50 rounded-lg">
+                  <div className="flex items-center gap-2 text-yellow-400 text-sm">
+                    <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <span>Large assets detected - rendering may take longer than usual</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

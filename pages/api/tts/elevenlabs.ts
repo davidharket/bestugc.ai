@@ -6,7 +6,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]';
-import { getNorwegianVoiceId } from '../../../lib/avatars';
+import { getNorwegianVoiceId, getDutchVoiceId, getDanishVoiceId, getSwedishVoiceId, getEnglishVoiceId, getAvatarGender } from '../../../lib/avatars';
 // Rate limiting removed - TTS cache service handles deduplication
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
@@ -38,33 +38,57 @@ const ENGLISH_VOICES = {
 };
 
 function getVoiceId(language: string, gender: string, avatarId?: number): string {
-  if (language === 'no' && avatarId) {
-    // Use specific Norwegian voice mapping for this avatar
-    const norwegianVoiceId = getNorwegianVoiceId(avatarId);
-    if (norwegianVoiceId) {
-      console.log(`[TTS] Using mapped Norwegian voice ${norwegianVoiceId} for avatar ${avatarId}`);
-      return norwegianVoiceId;
+  // Convert fantasy gender to appropriate gender for voice selection
+  const actualGender = avatarId ? getAvatarGender(avatarId) : gender;
+  console.log(`[TTS] Original gender: ${gender}, Avatar ID: ${avatarId}, Final gender: ${actualGender}`);
+  
+  // Try to use specific voice mapping for this avatar first
+  if (avatarId) {
+    let specificVoiceId: string | undefined;
+    
+    switch (language) {
+      case 'no':
+        specificVoiceId = getNorwegianVoiceId(avatarId);
+        break;
+      case 'da':
+        specificVoiceId = getDanishVoiceId(avatarId);
+        break;
+      case 'sv':
+        specificVoiceId = getSwedishVoiceId(avatarId);
+        break;
+      case 'nl':
+        specificVoiceId = getDutchVoiceId(avatarId);
+        break;
+      case 'en':
+        specificVoiceId = getEnglishVoiceId(avatarId);
+        break;
+    }
+    
+    if (specificVoiceId) {
+      console.log(`[TTS] Using mapped ${language} voice ${specificVoiceId} for avatar ${avatarId}`);
+      return specificVoiceId;
     }
   }
   
+  // Fall back to random voice selection based on gender
   if (language === 'no') {
-    const voices = gender === 'male' ? NORWEGIAN_VOICES.male : NORWEGIAN_VOICES.female;
+    const voices = actualGender === 'male' ? NORWEGIAN_VOICES.male : NORWEGIAN_VOICES.female;
     return voices[Math.floor(Math.random() * voices.length)];
   }
   if (language === 'da') {
-    const voices = gender === 'male' ? DANISH_VOICES.male : DANISH_VOICES.female;
+    const voices = actualGender === 'male' ? DANISH_VOICES.male : DANISH_VOICES.female;
     return voices[Math.floor(Math.random() * voices.length)];
   }
   if (language === 'sv') {
-    const voices = gender === 'male' ? SWEDISH_VOICES.male : SWEDISH_VOICES.female;
+    const voices = actualGender === 'male' ? SWEDISH_VOICES.male : SWEDISH_VOICES.female;
     return voices[Math.floor(Math.random() * voices.length)];
   }
   if (language === 'nl') {
-    const voices = gender === 'male' ? DUTCH_VOICES.male : DUTCH_VOICES.female;
+    const voices = actualGender === 'male' ? DUTCH_VOICES.male : DUTCH_VOICES.female;
     return voices[Math.floor(Math.random() * voices.length)];
   }
   // Default to English voices
-  const voices = gender === 'male' ? ENGLISH_VOICES.male : ENGLISH_VOICES.female;
+  const voices = actualGender === 'male' ? ENGLISH_VOICES.male : ENGLISH_VOICES.female;
   return voices[Math.floor(Math.random() * voices.length)];
 }
 

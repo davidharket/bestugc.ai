@@ -122,21 +122,23 @@ export default function CreateAd() {
       setBrandName('')
       // Reset initialization flag for new scrape
       setAssetsInitialized(false)
-      setProgressStep('Analyzing product page')
+      
       try {
+        // Step 1: Analyzing product page
+        setProgressStep('Analyzing product page')
         const res = await axios.post('/api/scrape', { url: productUrl })
+        
+        // Step 2: Extracting product information
         setProgressStep('Extracting product information')
-        
-        // Small delay to show extraction step
-        await new Promise(resolve => setTimeout(resolve, 500));
-        setProgressStep('Extract images and videos')
-        
-        setScrapeResult(res.data)
-        
         // Auto-fill brand name with AI-generated product name
         if (res.data.productName && res.data.productName.trim()) {
           setBrandName(res.data.productName.trim())
         }
+        // Give time for users to see the extraction step
+        await new Promise(resolve => setTimeout(resolve, 1200));
+        
+        // Step 3: Extract images and videos
+        setProgressStep('Extract images and videos')
         
         // Auto-select scraped images and videos with consecutive ordering
         const allNewImages = res.data.images || [];
@@ -160,10 +162,10 @@ export default function CreateAd() {
         setOrderedImages(newOrderedImages);
         setOrderedVideos(newOrderedVideos);
         
-        // Delay for media extraction to show progress
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Give time for users to see the media extraction step
+        await new Promise(resolve => setTimeout(resolve, 1500));
         
-        // Fetch B-roll suggestions based on the scraped content
+        // Step 4: Finding relevant B-roll
         setProgressStep('Finding relevant B-roll')
         try {
           const brollRes = await axios.post('/api/b-roll/suggest', {
@@ -172,10 +174,32 @@ export default function CreateAd() {
             scrapedText: res.data.text
           })
           setBRollSuggestions(brollRes.data.suggestions || [])
+          // Give time to see B-roll step
+          await new Promise(resolve => setTimeout(resolve, 800));
         } catch (brollError) {
           console.warn('Failed to fetch B-roll suggestions:', brollError)
           // Don't fail the entire process if B-roll suggestions fail
+          await new Promise(resolve => setTimeout(resolve, 800));
         }
+        
+        // Step 5: Generate summary
+        setProgressStep('Generating summary')
+        setSummaryLoading(true)
+        try {
+          const summaryRes = await axios.post('/api/summarize', { text: res.data.text })
+          setSummary(summaryRes.data.summary)
+          setAdData({ summary: summaryRes.data.summary, productUrl: productUrl || undefined })
+          // Give time to see summary generation
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } catch (summaryErr: any) {
+          setSummaryError(summaryErr.response?.data?.error || 'Failed to summarize product')
+          setSummary('')
+        } finally {
+          setSummaryLoading(false)
+        }
+        
+        // Set scrape result after all processing is complete to prevent useEffect conflicts
+        setScrapeResult(res.data)
         
       } catch (err: any) {
         setError(err.response?.data?.error || 'Failed to scrape product page')
@@ -199,36 +223,9 @@ export default function CreateAd() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productUrl, adData.productUrl, adData.summary])
 
-  useEffect(() => {
-    const fetchSummary = async () => {
-      if (scrapeResult && scrapeResult.text && !error) {
-        setSummaryLoading(true)
-        setSummaryError(null)
-        setProgressStep('Generating summary')
-        try {
-          const res = await axios.post('/api/summarize', { text: scrapeResult.text })
-          setSummary(res.data.summary)
-          setAdData({ summary: res.data.summary, productUrl: productUrl || undefined })
-          
-          // Keep showing generating for a moment before completing
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        } catch (err: any) {
-          setSummaryError(err.response?.data?.error || 'Failed to summarize product')
-          setSummary('')
-        } finally {
-          setSummaryLoading(false)
-          setProgressStep('')
-        }
-      }
-    }
-    if (scrapeResult && !error) {
-      fetchSummary()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scrapeResult, error, productUrl])
 
 
-  // Helper function to reassign consecutive order numbers
+  // Helper function to reassign consecutive order numbers starting from 1
   const reassignOrderNumbers = (images: OrderedAsset[], videos: OrderedAsset[], broll: OrderedAsset[] = []) => {
     const allAssets = [...images, ...videos, ...broll].sort((a, b) => a.order - b.order);
     const updatedImages: OrderedAsset[] = [];
@@ -236,7 +233,7 @@ export default function CreateAd() {
     const updatedBRoll: OrderedAsset[] = [];
     
     allAssets.forEach((asset, index) => {
-      const updatedAsset = { ...asset, order: index + 1 };
+      const updatedAsset = { ...asset, order: index + 1 }; // Always start from 1
       if (images.some(img => img.url === asset.url)) {
         updatedImages.push(updatedAsset);
       } else if (videos.some(vid => vid.url === asset.url)) {
@@ -601,13 +598,18 @@ export default function CreateAd() {
         setUploadedImages(prev => Array.from(new Set([...prev, ...allUrls])))
         setSelectedImages(prev => Array.from(new Set([...prev, ...allUrls])))
         
-        // Assign consecutive order numbers to uploaded images
-        const startingOrder = orderedImages.length + orderedVideos.length + 1
+        // Add uploaded images and reassign all order numbers from 1
         const newOrderedImages = allUrls.map((url, index) => ({
           url,
-          order: startingOrder + index
+          order: orderedImages.length + orderedVideos.length + orderedBRoll.length + index + 1
         }))
-        setOrderedImages(prev => [...prev, ...newOrderedImages])
+        setOrderedImages(prev => {
+          const combined = [...prev, ...newOrderedImages];
+          const reassigned = reassignOrderNumbers(combined, orderedVideos, orderedBRoll);
+          setOrderedVideos(reassigned.videos);
+          setOrderedBRoll(reassigned.broll);
+          return reassigned.images;
+        })
       } catch (error) {
         console.error('Error uploading images:', error)
         alert('Failed to upload images. Please try again.')
@@ -694,13 +696,18 @@ export default function CreateAd() {
         setUploadedVideos(prev => Array.from(new Set([...prev, ...allUrls])))
         setSelectedVideos(prev => Array.from(new Set([...prev, ...allUrls])))
         
-        // Assign consecutive order numbers to uploaded videos
-        const startingOrder = orderedImages.length + orderedVideos.length + 1
+        // Add uploaded videos and reassign all order numbers from 1
         const newOrderedVideos = allUrls.map((url, index) => ({
           url,
-          order: startingOrder + index
+          order: orderedImages.length + orderedVideos.length + orderedBRoll.length + index + 1
         }))
-        setOrderedVideos(prev => [...prev, ...newOrderedVideos])
+        setOrderedVideos(prev => {
+          const combined = [...prev, ...newOrderedVideos];
+          const reassigned = reassignOrderNumbers(orderedImages, combined, orderedBRoll);
+          setOrderedImages(reassigned.images);
+          setOrderedBRoll(reassigned.broll);
+          return reassigned.videos;
+        })
       } catch (error) {
         console.error('Error uploading videos:', error)
         alert('Failed to upload videos. Please try again.')
@@ -763,26 +770,30 @@ export default function CreateAd() {
       }
 
       if (targetStepIndex >= 0) {
-        // Complete previous steps immediately
+        // Complete previous steps immediately - preserve existing completed steps
         if (targetStepIndex > currentStepIndex) {
-          const newCompleted = new Set(completedSteps);
-          for (let i = 0; i < targetStepIndex; i++) {
-            newCompleted.add(i);
-          }
-          setCompletedSteps(newCompleted);
+          setCompletedSteps(prev => {
+            const newCompleted = new Set(prev);
+            for (let i = 0; i < targetStepIndex; i++) {
+              newCompleted.add(i);
+            }
+            return newCompleted;
+          });
         }
         setCurrentStepIndex(targetStepIndex);
       }
-    }, [progressStep, currentStepIndex, completedSteps, steps]);
+    }, [progressStep, currentStepIndex, steps]);
 
     // When processing is complete, mark final step as completed
     useEffect(() => {
       if (!loading && !summaryLoading && progressStep === '') {
-        const newCompleted = new Set(completedSteps);
-        newCompleted.add(currentStepIndex);
-        setCompletedSteps(newCompleted);
+        setCompletedSteps(prev => {
+          const newCompleted = new Set(prev);
+          newCompleted.add(currentStepIndex);
+          return newCompleted;
+        });
       }
-    }, [loading, summaryLoading, progressStep, currentStepIndex, completedSteps]);
+    }, [loading, summaryLoading, progressStep, currentStepIndex]);
 
     const getStepStatus = (stepIndex: number) => {
       if (completedSteps.has(stepIndex)) return 'completed';
@@ -803,14 +814,14 @@ export default function CreateAd() {
                   <span className="text-white font-normal">{step.label}</span>
                   <div className="flex items-center">
                     {status === 'active' ? (
-                      <div className="relative w-6 h-6">
+                      <div className="relative w-4 h-4">
                         <div className="absolute inset-0 border-2 border-gray-900 rounded-full"></div>
                         <div className="absolute inset-0 border-2 border-orange-500 border-t-gray-900 rounded-full animate-spin"></div>
                       </div>
                     ) : status === 'completed' ? (
-                      <img src="/success.svg" alt="Success" className="w-6 h-6 filter brightness-0 saturate-100" style={{filter: 'invert(48%) sepia(79%) saturate(2476%) hue-rotate(86deg) brightness(118%) contrast(119%)'}} />
+                      <img src="/success.svg" alt="Success" className="w-4 h-4 filter brightness-0 saturate-100" style={{filter: 'invert(48%) sepia(79%) saturate(2476%) hue-rotate(86deg) brightness(118%) contrast(119%)'}} />
                     ) : (
-                      <div className="w-6 h-6 border-2 border-gray-600 rounded-full"></div>
+                      <div className="w-4 h-4 border-2 border-gray-600 rounded-full"></div>
                     )}
                   </div>
                 </div>

@@ -272,6 +272,48 @@ export default function FormatAd() {
               </button>
             ))}
           </div>
+          
+          {/* Asset count warning for duration */}
+          {(() => {
+            // Check if asset data is loaded (not just empty arrays from initialization)
+            const hasAssetData = adData.selectedImages !== undefined || 
+                                 adData.selectedVideos !== undefined || 
+                                 adData.selectedBRoll !== undefined;
+            
+            // Get total number of background assets
+            const totalImages = (adData.selectedImages || []).length;
+            const totalVideos = (adData.selectedVideos || []).length;
+            const totalBRoll = (adData.selectedBRoll || []).length;
+            const totalAssets = totalImages + totalVideos + totalBRoll;
+            
+            // Calculate required scenes for current duration
+            // 15s = 2 scenes, 30s = 4 scenes, 60s = 8 scenes
+            const requiredScenes = duration === 15 ? 2 : duration === 30 ? 4 : 8;
+            const hasEnoughAssets = totalAssets >= requiredScenes;
+            
+            // Only show warning if data is loaded and user has assets but not enough
+            if (hasAssetData && !hasEnoughAssets && totalAssets > 0) {
+              return (
+                <div className="mt-4 bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <svg className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <div className="text-amber-300">
+                      <div className="font-medium text-sm mb-1">Insufficient Background Assets for {duration}s Duration</div>
+                      <div className="text-xs space-y-1">
+                        <div>• You have {totalAssets} background assets, but need {requiredScenes} for a {duration}-second video</div>
+                        <div>• {duration === 15 ? '15-second videos use 2 scenes' : duration === 30 ? '30-second videos use 4 scenes' : '60-second videos use 8 scenes'}</div>
+                        <div>• Go back to asset selection to add more images or videos</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+            
+            return null;
+          })()}
         </div>
 
         {/* Language */}
@@ -379,9 +421,19 @@ export default function FormatAd() {
             Back to Asset Selection
           </button>
           <button 
-            className={`btn-primary ${!audience.trim() || userCredits < 10 ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`btn-primary ${(!audience.trim() || userCredits < 10 || (() => {
+              const hasAssetData = adData.selectedImages !== undefined || adData.selectedVideos !== undefined || adData.selectedBRoll !== undefined;
+              const totalAssets = (adData.selectedImages || []).length + (adData.selectedVideos || []).length + (adData.selectedBRoll || []).length;
+              const requiredScenes = duration === 15 ? 2 : duration === 30 ? 4 : 8;
+              return hasAssetData && totalAssets < requiredScenes && totalAssets > 0;
+            })()) ? 'opacity-50 cursor-not-allowed' : ''}`}
             onClick={() => router.push('/ad/script')}
-            disabled={!audience.trim() || userCredits < 10}
+            disabled={!audience.trim() || userCredits < 10 || (() => {
+              const hasAssetData = adData.selectedImages !== undefined || adData.selectedVideos !== undefined || adData.selectedBRoll !== undefined;
+              const totalAssets = (adData.selectedImages || []).length + (adData.selectedVideos || []).length + (adData.selectedBRoll || []).length;
+              const requiredScenes = duration === 15 ? 2 : duration === 30 ? 4 : 8;
+              return hasAssetData && totalAssets < requiredScenes && totalAssets > 0;
+            })()}
           >
             Continue to Script Generation
             <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

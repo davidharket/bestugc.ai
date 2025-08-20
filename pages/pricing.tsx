@@ -16,14 +16,14 @@ interface PricingTierProps {
 }
 
 const PricingTier = ({ title, price, originalPrice, description, features, ctaText, isPopular, credits, onClick }: PricingTierProps) => (
-  <div className={`relative border-2 rounded-[20px] p-8 transition-all duration-300 hover:scale-105 ${
+  <div className={`relative border-2 rounded-[20px] p-6 sm:p-8 transition-all duration-300 hover:scale-105 ${
     isPopular 
       ? 'border-gray-700 shadow-lg shadow-orange-500/25' 
       : 'border-gray-700 hover:border-orange-500/50'
   }`} style={{ backgroundColor: isPopular ? 'rgba(232, 90, 18, 0.05)' : '#111827' }}>
     {isPopular && (
-      <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-        <span className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-2 rounded-full text-sm font-semibold shadow-lg">
+      <div className="absolute -top-3 sm:-top-4 left-1/2 transform -translate-x-1/2">
+        <span className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 sm:px-6 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold shadow-lg">
           Most Popular
         </span>
       </div>
@@ -31,37 +31,37 @@ const PricingTier = ({ title, price, originalPrice, description, features, ctaTe
     
     <div className="text-center">
       
-      <h3 className="text-2xl font-bold text-white mb-2">{title}</h3>
-      <p className="text-gray-400 mb-6">{description}</p>
+      <h3 className="text-xl sm:text-2xl font-bold text-white mb-2">{title}</h3>
+      <p className="text-gray-400 mb-4 sm:mb-6 text-sm sm:text-base">{description}</p>
       
       <div className="mb-6">
         {originalPrice && (
           <div className="text-gray-500 line-through text-lg mb-1">{originalPrice}</div>
         )}
         <div className="flex items-baseline justify-center gap-1">
-          <span className="text-4xl font-bold text-white">{price}</span>
-          <span className="text-gray-400 text-lg">/mo</span>
+          <span className="text-3xl sm:text-4xl font-bold text-white">{price}</span>
+          <span className="text-gray-400 text-base sm:text-lg">/mo</span>
         </div>
-        <div className="inline-flex items-center px-3 py-1 rounded-full text-white text-sm font-medium mt-3" style={{ backgroundColor: isPopular ? '#e85a12' : '#374151' }}>
+        <div className="inline-flex items-center px-3 py-1 rounded-full text-white text-xs sm:text-sm font-medium mt-3" style={{ backgroundColor: isPopular ? '#e85a12' : '#374151' }}>
           {credits} Credits Included
         </div>
       </div>
     </div>
 
-    <ul className="space-y-4 mb-8">
+    <ul className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
       {features.map((feature, index) => (
         <li key={index} className="flex items-start gap-3">
-          <div className="w-5 h-5 flex items-center justify-center flex-shrink-0 mt-0.5">
-            <img src="/success.svg" alt="Included" className="w-4 h-4" />
+          <div className="w-4 sm:w-5 h-4 sm:h-5 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <img src="/success.svg" alt="Included" className="w-3 sm:w-4 h-3 sm:h-4" />
           </div>
-          <span className="text-gray-300">{feature}</span>
+          <span className="text-gray-300 text-sm sm:text-base">{feature}</span>
         </li>
       ))}
     </ul>
     
     <button 
       onClick={onClick}
-      className={`w-full py-4 px-6 rounded-[20px] text-lg transition-all duration-300 transform hover:scale-105 ${
+      className={`w-full py-3 sm:py-4 px-4 sm:px-6 rounded-[20px] text-base sm:text-lg transition-all duration-300 transform hover:scale-105 ${
         isPopular 
           ? 'btn-primary' 
           : 'btn-secondary'
@@ -170,20 +170,20 @@ export default function PricingPage() {
   return (
     <div className="bg-black text-white">
         {/* Hero Section */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
           <div className="text-center">
-            <div className="inline-flex items-center px-6 py-3 rounded-[20px] mb-8" style={{ backgroundColor: '#111827' }}>
-              <span className="text-orange-400 text-sm font-normal">Simple, Transparent Pricing</span>
+            <div className="inline-flex items-center px-4 sm:px-6 py-2 sm:py-3 rounded-[20px] mb-6 sm:mb-8" style={{ backgroundColor: '#111827' }}>
+              <span className="text-orange-400 text-xs sm:text-sm font-normal">Simple, Transparent Pricing</span>
             </div>
             
-            <h1 className="text-5xl font-bold text-white mb-6 leading-tight">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 sm:mb-6 leading-tight px-4">
               Choose the Perfect Plan for{' '}
               <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>
                 Your Business
               </span>
             </h1>
             
-            <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-8 leading-relaxed">
+            <p className="text-base sm:text-lg md:text-xl text-gray-300 max-w-3xl mx-auto mb-6 sm:mb-8 leading-relaxed px-4">
               Start free with 20 credits, then choose a plan that scales with your business. 
               No hidden fees, no long-term contracts, cancel anytime.
             </p>
@@ -191,7 +191,7 @@ export default function PricingPage() {
           </div>
 
           {/* Pricing Tiers */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
             {currentTiers.map(tier => (
               <PricingTier 
                 key={tier.title} 
@@ -202,35 +202,35 @@ export default function PricingPage() {
           </div>
 
           {/* Money Back Guarantee */}
-          <div className="text-center mt-12">
-            <div className="inline-flex items-center gap-2 rounded-[20px] border border-gray-700 px-6 py-3" style={{ backgroundColor: '#111827' }}>
-              <img src="/shield.svg" alt="" className="w-5 h-5" />
-              <span className="text-gray-300">14-day money-back guarantee</span>
+          <div className="text-center mt-8 sm:mt-12">
+            <div className="inline-flex items-center gap-2 rounded-[20px] border border-gray-700 px-4 sm:px-6 py-2 sm:py-3" style={{ backgroundColor: '#111827' }}>
+              <img src="/shield.svg" alt="" className="w-4 sm:w-5 h-4 sm:h-5" />
+              <span className="text-gray-300 text-sm sm:text-base">14-day money-back guarantee</span>
             </div>
           </div>
         </div>
 
         {/* Feature Comparison */}
-        <section className="bg-gray-900 py-20">
+        <section className="bg-gray-900 py-12 sm:py-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl font-semibold text-white mb-4">
+            <div className="text-center mb-8 sm:mb-12">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-semibold text-white mb-3 sm:mb-4">
                 Compare All{' '}
                 <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>
                   Features
                 </span>
               </h2>
-              <p className="text-gray-400">See what's included in each plan</p>
+              <p className="text-gray-400 text-sm sm:text-base">See what's included in each plan</p>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
+            <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+              <table className="w-full text-left min-w-[500px] sm:min-w-[600px]">
                 <thead>
                   <tr className="border-b border-gray-800">
-                    <th className="pb-4 text-white font-semibold">Features</th>
-                    <th className="pb-4 text-center text-white font-semibold">Basic</th>
-                    <th className="pb-4 text-center text-white font-semibold">Pro</th>
-                    <th className="pb-4 text-center text-white font-semibold">Premium</th>
+                    <th className="pb-3 sm:pb-4 text-white font-semibold text-xs sm:text-sm md:text-base pr-2 sm:pr-4">Features</th>
+                    <th className="pb-3 sm:pb-4 text-center text-white font-semibold text-xs sm:text-sm md:text-base px-1 sm:px-2">Basic</th>
+                    <th className="pb-3 sm:pb-4 text-center text-white font-semibold text-xs sm:text-sm md:text-base px-1 sm:px-2">Pro</th>
+                    <th className="pb-3 sm:pb-4 text-center text-white font-semibold text-xs sm:text-sm md:text-base px-1 sm:px-2">Premium</th>
                   </tr>
                 </thead>
                 <tbody className="text-gray-300">
@@ -238,16 +238,16 @@ export default function PricingPage() {
                     ['Monthly Credits', '100', '250', '400'],
                     ['Video Quality', 'HD (1080p)', '4K', '4K'],
                     ['Avatar Library', 'Standard', 'Premium', 'All + Custom'],
-                    ['Custom Branding', <img key="basic-branding" src="/fail.svg" alt="Not included" className="w-4 h-4 mx-auto" />, <img key="pro-branding" src="/success.svg" alt="Included" className="w-4 h-4 mx-auto" />, <img key="premium-branding" src="/success.svg" alt="Included" className="w-4 h-4 mx-auto" />],
-                    ['API Access', <img key="basic-api" src="/fail.svg" alt="Not included" className="w-4 h-4 mx-auto" />, 'Beta', 'Full'],
+                    ['Custom Branding', <img key="basic-branding" src="/fail.svg" alt="Not included" className="w-3 sm:w-4 h-3 sm:h-4 mx-auto" />, <img key="pro-branding" src="/success.svg" alt="Included" className="w-3 sm:w-4 h-3 sm:h-4 mx-auto" />, <img key="premium-branding" src="/success.svg" alt="Included" className="w-3 sm:w-4 h-3 sm:h-4 mx-auto" />],
+                    ['API Access', <img key="basic-api" src="/fail.svg" alt="Not included" className="w-3 sm:w-4 h-3 sm:h-4 mx-auto" />, 'Beta', 'Full'],
                     ['Support', 'Email', 'Priority', '24/7 Dedicated'],
-                    ['White-label', <img key="basic-white" src="/fail.svg" alt="Not included" className="w-4 h-4 mx-auto" />, <img key="pro-white" src="/fail.svg" alt="Not included" className="w-4 h-4 mx-auto" />, <img key="premium-white" src="/success.svg" alt="Included" className="w-4 h-4 mx-auto" />]
+                    ['White-label', <img key="basic-white" src="/fail.svg" alt="Not included" className="w-3 sm:w-4 h-3 sm:h-4 mx-auto" />, <img key="pro-white" src="/fail.svg" alt="Not included" className="w-3 sm:w-4 h-3 sm:h-4 mx-auto" />, <img key="premium-white" src="/success.svg" alt="Included" className="w-3 sm:w-4 h-3 sm:h-4 mx-auto" />]
                   ].map((row, index) => (
                     <tr key={index} className="border-b border-gray-800">
-                      <td className="py-4 font-medium">{row[0]}</td>
-                      <td className="py-4 text-center">{row[1]}</td>
-                      <td className="py-4 text-center">{row[2]}</td>
-                      <td className="py-4 text-center">{row[3]}</td>
+                      <td className="py-2 sm:py-3 md:py-4 font-medium text-xs sm:text-sm md:text-base pr-2 sm:pr-4">{row[0]}</td>
+                      <td className="py-2 sm:py-3 md:py-4 text-center text-xs sm:text-sm md:text-base px-1 sm:px-2">{row[1]}</td>
+                      <td className="py-2 sm:py-3 md:py-4 text-center text-xs sm:text-sm md:text-base px-1 sm:px-2">{row[2]}</td>
+                      <td className="py-2 sm:py-3 md:py-4 text-center text-xs sm:text-sm md:text-base px-1 sm:px-2">{row[3]}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -257,33 +257,33 @@ export default function PricingPage() {
         </section>
 
         {/* FAQ Section */}
-        <section className="bg-black py-20">
+        <section className="bg-black py-12 sm:py-20">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl font-semibold text-white mb-4">
+            <div className="text-center mb-8 sm:mb-12">
+              <h2 className="text-2xl sm:text-3xl font-semibold text-white mb-3 sm:mb-4">
                 Frequently Asked{' '}
                 <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>
                   Questions
                 </span>
               </h2>
-              <p className="text-gray-400">Everything you need to know about our pricing</p>
+              <p className="text-gray-400 text-sm sm:text-base">Everything you need to know about our pricing</p>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {faqData.map((faq, index) => (
                 <div key={index} className="rounded-[20px] border border-gray-700 overflow-hidden" style={{ backgroundColor: '#111827' }}>
                   <button 
                     onClick={() => setOpenFaq(openFaq === index ? null : index)}
-                    className="w-full px-6 py-5 text-left flex items-center justify-between hover:bg-gray-700 transition-all duration-300 rounded-[20px]"
+                    className="w-full px-4 sm:px-6 py-4 sm:py-5 text-left flex items-center justify-between hover:bg-gray-700 transition-all duration-300 rounded-[20px]"
                   >
-                    <span className="text-white font-normal">{faq.question}</span>
-                    <span className={`text-lg transform transition-transform duration-300 ${openFaq === index ? 'rotate-45' : ''}`} style={{ color: '#e85a12' }}>
+                    <span className="text-white font-normal text-sm sm:text-base pr-4">{faq.question}</span>
+                    <span className={`text-lg transform transition-transform duration-300 flex-shrink-0 ${openFaq === index ? 'rotate-45' : ''}`} style={{ color: '#e85a12' }}>
                       +
                     </span>
                   </button>
                   <div className={`overflow-hidden transition-all duration-300 ease-in-out ${openFaq === index ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'}`}>
-                    <div className="px-6 py-6">
-                      <p className="text-gray-300 leading-relaxed">{faq.answer}</p>
+                    <div className="px-4 sm:px-6 py-4 sm:py-6">
+                      <p className="text-gray-300 leading-relaxed text-sm sm:text-base">{faq.answer}</p>
                     </div>
                   </div>
                 </div>
@@ -293,24 +293,24 @@ export default function PricingPage() {
         </section>
 
         {/* CTA Section */}
-        <section className="bg-black py-20">
+        <section className="bg-black py-12 sm:py-20">
           <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
-            <h2 className="text-4xl font-semibold text-white mb-6">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-white mb-4 sm:mb-6">
               Ready to Start Creating?
             </h2>
-            <p className="text-xl text-gray-300 mb-8 leading-relaxed">
+            <p className="text-base sm:text-lg md:text-xl text-gray-300 mb-6 sm:mb-8 leading-relaxed">
               Join smart businesses maximizing their ad spend ROI with AI-optimized video ads for social media. 
               Start with 20 free credits—no credit card required.
             </p>
             
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center">
               <a
                 href="/dashboard"
-                className="btn-secondary"
+                className="btn-secondary w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base"
               >
                 Start Free Trial
               </a>
-              <div className="text-gray-300 text-sm">
+              <div className="text-gray-300 text-xs sm:text-sm text-center">
                 20 free credits • No credit card • 2 minutes setup
               </div>
             </div>

@@ -45,38 +45,62 @@ function generateAssetIndices(timeline: Omit<WeightedScene, 'assetIndices'>[]): 
   }));
 }
 
-// Helper function to adjust timeline based on duration for optimal pacing
-export function adjustTimelineForDuration(template: VideoTemplate, duration: number): VideoTemplate {
+// Helper function to scale template timeline based on duration - matches ageco.ai logic
+export const scaleTemplateForDuration = (template: VideoTemplate, duration: number): VideoTemplate => {
+  const baseDuration = 30; // Base template is designed for 30 seconds
   const baseScenes = template.timeline;
-  let adjustedScenes: WeightedScene[];
-
-  // Base scenes per duration - optimized for viewer engagement
-  if (duration <= 15) {
-    // 15 seconds: 3 scenes for quick pacing (5s per scene average)
-    adjustedScenes = baseScenes.slice(0, 3);
-  } else if (duration <= 30) {
-    // 30 seconds: 4 scenes for balanced pacing (7.5s per scene average)
-    adjustedScenes = baseScenes.slice(0, 4);
-  } else if (duration <= 45) {
-    // 45 seconds: 5 scenes for good retention (9s per scene average)
-    adjustedScenes = [...baseScenes, baseScenes[0]]; // Add first scene again for variety
-  } else {
-    // 60+ seconds: 6 scenes for extended content (10s per scene average)
-    adjustedScenes = [...baseScenes, baseScenes[0], baseScenes[1]]; // Add first two scenes again
+  
+  if (duration === baseDuration) {
+    // No scaling needed for 30 second duration
+    return template;
   }
+  
+  if (duration === 15) {
+    // For 15 seconds: Use first 2 scenes only
+    const scaledTimeline = baseScenes.slice(0, 2);
+    return {
+      ...template,
+      timeline: scaledTimeline,
+      description: template.description + ' (15s version)'
+    };
+  }
+  
+  if (duration === 60) {
+    // For 60 seconds: Repeat the 4-scene pattern twice (8 scenes total)
+    const scaledTimeline = [
+      ...baseScenes, // First loop (scenes 1-4)
+      ...baseScenes  // Second loop (scenes 5-8, using assets 4-7)
+    ];
+    
+    // Update asset indices for the second loop to use assets 4-7
+    // This requires users to have 8 assets to choose 60-second videos
+    const finalTimeline = scaledTimeline.map((scene, index) => {
+      if (index >= baseScenes.length) {
+        // Second loop - offset asset indices to use assets 4-7
+        const originalAssetIndex = scene.assetIndices?.[0] || 0;
+        const offsetAssetIndex = originalAssetIndex + baseScenes.length; // 0→4, 1→5, 2→6, 3→7
+        return {
+          ...scene,
+          assetIndices: [offsetAssetIndex]
+        };
+      }
+      return scene;
+    });
+    
+    return {
+      ...template,
+      timeline: finalTimeline,
+      description: template.description + ' (60s version)'
+    };
+  }
+  
+  // Fallback to original template
+  return template;
+};
 
-  // Re-balance weights for optimal viewing experience
-  const totalScenes = adjustedScenes.length;
-  adjustedScenes = adjustedScenes.map((scene, index) => ({
-    ...scene,
-    // First and last scenes get slightly more weight for impact
-    durationWeight: (index === 0 || index === totalScenes - 1) ? 4 : 3
-  }));
-
-  return {
-    ...template,
-    timeline: adjustedScenes
-  };
+// Legacy function for backwards compatibility
+export function adjustTimelineForDuration(template: VideoTemplate, duration: number): VideoTemplate {
+  return scaleTemplateForDuration(template, duration);
 }
 
 // The official library of all available video templates, using weights.

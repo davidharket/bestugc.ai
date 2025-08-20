@@ -1,24 +1,30 @@
 import { useRouter } from 'next/router';
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { useAdCreation } from '../../components/AdCreationContext';
 // This is the correct import from our shared library
-import { avatars } from '../../lib/avatars';
+import { avatars, isAvatarFree } from '../../lib/avatars';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import TTSCacheService from '../../lib/tts-cache-service';
 
-const genderOptions = ['male', 'female'];
+const genderOptions = ['male', 'female', 'fantasy'];
 const ageOptions = ['adult', 'senior'];
 const locationOptions = ['inside', 'outside'];
 
 export default function AvatarAd() {
   const router = useRouter();
+  const { data: session } = useSession();
   const { adData, setAdData } = useAdCreation();
   const [selectedAvatar, setSelectedAvatar] = useState<number | null>(adData.avatarId || null);
   const [gender, setGender] = useState<string | null>(null);
   const [age, setAge] = useState<string | null>(null);
   const [location, setLocation] = useState<string | null>(null);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  const userPlan = session?.user?.plan;
+  const isFreePlan = userPlan === 'FREE';
 
   useEffect(() => {
     setAdData({ 
@@ -77,8 +83,23 @@ export default function AvatarAd() {
     (!location || a.location === location)
   );
 
+  const handleAvatarSelect = (avatarId: number) => {
+    // Check if avatar is premium and user is on free plan
+    if (isFreePlan && !isAvatarFree(avatarId)) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    
+    setSelectedAvatar(avatarId);
+  };
+
   const handleNext = () => {
     if (selectedAvatar !== null) {
+      // Additional validation for free users
+      if (isFreePlan && !isAvatarFree(selectedAvatar)) {
+        setShowUpgradeModal(true);
+        return;
+      }
       router.push('/ad/template');
     }
   };
@@ -194,15 +215,23 @@ export default function AvatarAd() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {filteredAvatars.map(avatar => (
+              {filteredAvatars.map(avatar => {
+                const isPremium = !isAvatarFree(avatar.id);
+                const isLocked = isFreePlan && isPremium;
+                
+                return (
                 <div
                   key={avatar.id}
-                  className={`relative rounded-xl overflow-hidden cursor-pointer transition-all duration-300 hover:scale-105 ${
+                  className={`relative rounded-xl overflow-hidden transition-all duration-300 ${
+                    isLocked 
+                      ? 'cursor-pointer' 
+                      : 'cursor-pointer hover:scale-105'
+                  } ${
                     selectedAvatar === avatar.id
                       ? 'border-2 border-orange-500'
                       : 'border border-gray-700 hover:border-orange-500/50'
                   }`}
-                  onClick={() => setSelectedAvatar(avatar.id)}
+                  onClick={() => handleAvatarSelect(avatar.id)}
                 >
                   <div className="aspect-[9/16] bg-gray-800">
                     <video 
@@ -214,15 +243,52 @@ export default function AvatarAd() {
                       disablePictureInPicture
                       controlsList="nodownload nofullscreen noremoteplayback"
                       className="w-full h-full object-cover"
-                      onMouseEnter={e => e.currentTarget.play()}
+                      preload="metadata"
+                      onMouseEnter={e => {
+                        // Safe play with error handling and readiness check
+                        const video = e.currentTarget;
+                        if (video.readyState >= 2) { // HAVE_CURRENT_DATA or higher
+                          video.play().catch(error => {
+                            console.warn(`Failed to play avatar video ${avatar.src}:`, error);
+                          });
+                        }
+                      }}
                       onMouseLeave={e => { 
-                        e.currentTarget.pause(); 
-                        e.currentTarget.currentTime = 0; 
+                        try {
+                          const video = e.currentTarget;
+                          video.pause(); 
+                          video.currentTime = 0; 
+                        } catch (error) {
+                          console.warn(`Failed to pause avatar video ${avatar.src}:`, error);
+                        }
+                      }}
+                      onError={e => {
+                        console.error(`Avatar video error for ${avatar.src}:`, e);
+                        // Could show a fallback image here
+                      }}
+                      onLoadedMetadata={e => {
+                        console.log(`Avatar video ${avatar.src} metadata loaded`);
+                      }}
+                      onCanPlay={e => {
+                        console.log(`Avatar video ${avatar.src} can play`);
                       }}
                     />
                   </div>
 
-                  {selectedAvatar === avatar.id && (
+                  {/* Premium Lock Overlay */}
+                  {isLocked && (
+                    <div className="absolute bottom-2 right-2 bg-black/80 backdrop-blur-sm rounded-lg p-2 flex items-center gap-2 pointer-events-none">
+                      <div className="bg-orange-500/20 rounded-full p-1 border border-orange-500">
+                        <svg className="w-3 h-3 text-orange-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <span className="text-orange-400 text-xs font-medium">Premium</span>
+                    </div>
+                  )}
+
+                  {/* Selection Overlay */}
+                  {selectedAvatar === avatar.id && !isLocked && (
                     <div className="absolute inset-0 bg-orange-500/30 flex items-center justify-center pointer-events-none">
                       <div className="bg-orange-500 rounded-full p-3 shadow-lg">
                         <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -233,7 +299,8 @@ export default function AvatarAd() {
                   )}
 
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -262,6 +329,72 @@ export default function AvatarAd() {
             </svg>
           </button>
         </div>
+
+        {/* Premium Upgrade Modal */}
+        {showUpgradeModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-[#1f2937] border border-gray-700 rounded-[20px] p-8 max-w-md w-full mx-4">
+              {/* Icon */}
+              <div className="flex justify-center mb-6">
+                <div className="w-16 h-16 bg-orange-500/20 rounded-full flex items-center justify-center border-2 border-orange-500">
+                  <svg className="w-8 h-8 text-orange-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+              
+              {/* Title */}
+              <h3 className="text-2xl font-semibold text-white text-center mb-3">
+                Premium Avatar
+              </h3>
+              
+              {/* Message */}
+              <p className="text-gray-300 text-centered mb-6 leading-relaxed">
+                This avatar is part of our premium collection. Upgrade to any paid plan to unlock <strong>all premium avatars</strong> and create unlimited videos.
+              </p>
+              
+              {/* Features List */}
+              <div className="bg-gray-800/50 rounded-lg p-4 mb-6">
+                <ul className="space-y-2 text-sm text-gray-300">
+                  <li className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-orange-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Access to all premium avatars
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-orange-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Fantasy avatars collection
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-orange-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                    Video downloads & full controls
+                  </li>
+                </ul>
+              </div>
+              
+              {/* Buttons */}
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => window.open('/subscription', '_blank')}
+                  className="btn-primary w-full"
+                >
+                  Upgrade Now
+                </button>
+                <button
+                  onClick={() => setShowUpgradeModal(false)}
+                  className="btn-secondary w-full"
+                >
+                  Continue with Free Avatars
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -28,11 +28,12 @@ def run_command(command):
     return process
 
 def main():
-    if len(sys.argv) != 3:
-        print("Usage: python script.py <input_source> <output_path>")
+    if len(sys.argv) not in [3, 4]:
+        print("Usage: python script.py <input_source> <output_path> [fps]")
         sys.exit(1)
 
     input_source, output_path = sys.argv[1], sys.argv[2]
+    target_fps = int(sys.argv[3]) if len(sys.argv) == 4 else 24
     
     with tempfile.TemporaryDirectory() as temp_dir:
         try:
@@ -45,8 +46,7 @@ def main():
                 log_progress(f"Using local file source: {input_source}")
                 input_video_path = input_source
 
-            TARGET_FPS = 24
-            log_progress(f"OK - Enforcing standard framerate: {TARGET_FPS} FPS")
+            log_progress(f"OK - Using target framerate: {target_fps} FPS")
 
             raw_frames_dir = os.path.join(temp_dir, 'raw_frames')
             processed_frames_dir = os.path.join(temp_dir, 'processed_frames')
@@ -81,13 +81,13 @@ def main():
             
             assemble_command = [
                 'ffmpeg', '-y',
-                '-framerate', str(TARGET_FPS),
+                '-framerate', str(target_fps),
                 '-i', os.path.join(processed_frames_dir, 'frame-%06d.png'),
                 '-c:v', 'libvpx-vp9',
                 '-pix_fmt', 'yuva420p',
                 '-b:v', '1M',
                 '-crf', '30',
-                '-g', str(TARGET_FPS),
+                '-g', str(target_fps),
                 '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',
                 '-metadata:s:v:0', 'alpha_mode="1"',
                 '-an',

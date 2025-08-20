@@ -3,6 +3,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { PrismaClient } from '@prisma/client';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]';
+import { isAvatarFree } from '../../../lib/avatars';
 
 const prisma = new PrismaClient();
 
@@ -26,6 +27,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (!adData) {
     return res.status(400).json({ error: 'Missing ad data.' });
+  }
+
+  // Validate premium avatar access for free users
+  if (adData.avatarId && session.user.plan === 'FREE') {
+    const avatarId = parseInt(adData.avatarId, 10);
+    if (!isAvatarFree(avatarId)) {
+      return res.status(403).json({ 
+        error: 'Premium avatar access denied. Upgrade to a paid plan to use premium avatars.',
+        code: 'PREMIUM_AVATAR_REQUIRED' 
+      });
+    }
   }
 
   try {

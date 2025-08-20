@@ -20,6 +20,15 @@ model User {
   stripeCustomerId String?          @unique
   affiliateCode    String?          @unique // User's own affiliate code
   referredBy       String?          // Which affiliate referred this user
+  ipAddress        String?          // IP address used during registration
+  deviceFingerprint String?         // Device fingerprint for duplicate detection
+  emailVerificationToken String?    // Token for email verification
+  emailVerificationExpires DateTime? // Expiration for email verification
+  isEmailVerified  Boolean          @default(false)
+  lastLoginAt      DateTime?
+  failedLoginAttempts Int           @default(0)
+  accountLocked    Boolean          @default(false)
+  lockedUntil      DateTime?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   accounts         Account[]
@@ -32,6 +41,7 @@ model User {
   affiliate        Affiliate?       // If user is an affiliate
   referrals        Referral[]       @relation("AffiliateReferrals")
   commissions      Commission[]
+  securityLogs     SecurityLog[]
 }
 
 model Subscription {
@@ -146,6 +156,8 @@ model Session {
   sessionToken String   @unique
   userId       String
   expires      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -297,4 +309,67 @@ model AffiliateClick {
   @@index([affiliateCode])
   @@index([createdAt])
   @@index([converted])
+}
+
+// Security Models
+model IPRateLimit {
+  id          String   @id @default(cuid())
+  ipAddress   String
+  action      String
+  count       Int      @default(1)
+  windowStart DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([ipAddress, action, windowStart])
+  @@index([ipAddress, action, windowStart])
+}
+
+model EmailDomainRateLimit {
+  id          String   @id @default(cuid())
+  emailDomain String
+  action      String
+  count       Int      @default(1)
+  windowStart DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([emailDomain, action, windowStart])
+  @@index([emailDomain, action, windowStart])
+}
+
+model SecurityLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  ipAddress  String
+  userAgent  String?
+  action     String   // LOGIN_SUCCESS, LOGIN_FAILED, ACCOUNT_CREATED, RATE_LIMITED, etc.
+  details    String?  // JSON string with additional details
+  severity   String   @default("INFO") // INFO, WARNING, ERROR, CRITICAL
+  createdAt  DateTime @default(now())
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([ipAddress])
+  @@index([action])
+  @@index([createdAt])
+  @@index([severity])
+}
+
+model DeviceFingerprint {
+  id          String   @id @default(cuid())
+  fingerprint String   @unique
+  ipAddress   String
+  userAgent   String?
+  properties  String   // JSON string with browser/device properties
+  firstSeen   DateTime @default(now())
+  lastSeen    DateTime @default(now())
+  userCount   Int      @default(1) // How many users have this fingerprint
+  isSuspicious Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([fingerprint])
+  @@index([ipAddress])
+  @@index([isSuspicious])
 }

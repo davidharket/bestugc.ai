@@ -10,8 +10,6 @@ const showcaseVideos = [
   '/v1.mp4',
   '/v2.mp4',
   '/hero2.mp4',
-  '/v3.mp4',
-  '/v4.mp4',
   '/hero1.mp4',
   '/v5.mp4',
   '/v6.mp4',
@@ -112,41 +110,41 @@ export default function LandingPage() {
       
       {/* Hero Section */}
       <div className="bg-black text-white">
-        <div className="max-w-6xl mx-auto py-20 px-4 sm:px-6 lg:px-8 text-center">
+        <div className="max-w-6xl mx-auto py-12 sm:py-20 px-4 sm:px-6 lg:px-8 text-center">
           {/* Main Heading */}
-          <h1 className="text-5xl lg:text-7xl font-semibold leading-relaxed tracking-wide mb-8">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-semibold leading-tight sm:leading-relaxed tracking-wide mb-6 sm:mb-8">
             The best way to<br />
             create <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>AI videos</span>
           </h1>
           
           {/* Subtitle */}
-          <p className="text-lg text-white mb-12 max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg text-white mb-8 sm:mb-12 max-w-2xl mx-auto px-4">
             Enter your product link → Create AI videos in minutes
           </p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center mb-8 sm:mb-12 px-4">
             <button
               onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
-              className="btn-primary px-8 py-4 w-48"
+              className="btn-primary px-6 sm:px-8 py-3 sm:py-4 w-full sm:w-48 text-sm sm:text-base"
             >
               Start creating
             </button>
             
             <button
               onClick={scrollToFeatures}
-              className="btn-secondary px-8 py-4 w-48"
+              className="btn-secondary px-6 sm:px-8 py-3 sm:py-4 w-full sm:w-48 text-sm sm:text-base"
             >
               Features
             </button>
           </div>
 
           {/* Three Overlapping Phone Mockups */}
-          <div className="relative flex justify-center items-end max-w-4xl mx-auto mb-16">
-            {/* Left Phone */}
-            <div className="relative transform -rotate-12 scale-90 z-10">
-              <div className="w-64 bg-black rounded-[2.5rem] p-2 shadow-2xl border-4 border-gray-800" style={{ aspectRatio: '9/19.5' }}>
-                <div className="w-full h-full bg-black rounded-[2rem] overflow-hidden relative">
+          <div className="relative flex justify-center items-end max-w-4xl mx-auto mb-8 sm:mb-16 px-4">
+            {/* Left Phone - Hidden on mobile */}
+            <div className="hidden sm:block relative transform -rotate-12 scale-90 z-10">
+              <div className="w-48 md:w-64 bg-black rounded-[2rem] md:rounded-[2.5rem] p-1.5 md:p-2 shadow-2xl border-2 md:border-4 border-gray-800" style={{ aspectRatio: '9/19.5' }}>
+                <div className="w-full h-full bg-black rounded-[1.5rem] md:rounded-[2rem] overflow-hidden relative">
                   <video
                     className="w-full h-full object-cover"
                     autoPlay
@@ -159,8 +157,8 @@ export default function LandingPage() {
                     {/* Fallback for unsupported browsers */}
                     <div className="w-full h-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
                       <div className="text-white text-center">
-                        <div className="text-2xl mb-2">🎬</div>
-                        <div className="text-sm">Video Preview</div>
+                        <div className="text-lg md:text-2xl mb-1 md:mb-2">🎬</div>
+                        <div className="text-xs md:text-sm">Video Preview</div>
                       </div>
                     </div>
                   </video>
@@ -171,9 +169,9 @@ export default function LandingPage() {
             </div>
 
             {/* Center Phone */}
-            <div className="relative z-20 mx-4">
-              <div className="w-72 bg-black rounded-[2.5rem] p-2 shadow-2xl border-4 border-gray-800" style={{ aspectRatio: '9/19.5' }}>
-                <div className="w-full h-full bg-black rounded-[2rem] overflow-hidden relative">
+            <div className="relative z-20 mx-2 sm:mx-4">
+              <div className="w-56 sm:w-64 md:w-72 bg-black rounded-[2rem] md:rounded-[2.5rem] p-1.5 md:p-2 shadow-2xl border-2 md:border-4 border-gray-800" style={{ aspectRatio: '9/19.5' }}>
+                <div className="w-full h-full bg-black rounded-[1.5rem] md:rounded-[2rem] overflow-hidden relative">
                   <video
                     className="w-full h-full object-cover"
                     autoPlay
@@ -194,8 +192,8 @@ export default function LandingPage() {
                     {/* Fallback for unsupported browsers */}
                     <div className="w-full h-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
                       <div className="text-white text-center">
-                        <div className="text-2xl mb-2">🎬</div>
-                        <div className="text-sm">Video Preview</div>
+                        <div className="text-lg md:text-2xl mb-1 md:mb-2">🎬</div>
+                        <div className="text-xs md:text-sm">Video Preview</div>
                       </div>
                     </div>
                   </video>
@@ -205,10 +203,10 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Right Phone */}
-            <div className="relative transform rotate-12 scale-90 z-10">
-              <div className="w-64 bg-black rounded-[2.5rem] p-2 shadow-2xl border-4 border-gray-800" style={{ aspectRatio: '9/19.5' }}>
-                <div className="w-full h-full bg-black rounded-[2rem] overflow-hidden relative">
+            {/* Right Phone - Hidden on mobile */}
+            <div className="hidden sm:block relative transform rotate-12 scale-90 z-10">
+              <div className="w-48 md:w-64 bg-black rounded-[2rem] md:rounded-[2.5rem] p-1.5 md:p-2 shadow-2xl border-2 md:border-4 border-gray-800" style={{ aspectRatio: '9/19.5' }}>
+                <div className="w-full h-full bg-black rounded-[1.5rem] md:rounded-[2rem] overflow-hidden relative">
                   <video
                     className="w-full h-full object-cover"
                     autoPlay
@@ -229,8 +227,8 @@ export default function LandingPage() {
                     {/* Fallback for unsupported browsers */}
                     <div className="w-full h-full bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
                       <div className="text-white text-center">
-                        <div className="text-2xl mb-2">🎬</div>
-                        <div className="text-sm">Video Preview</div>
+                        <div className="text-lg md:text-2xl mb-1 md:mb-2">🎬</div>
+                        <div className="text-xs md:text-sm">Video Preview</div>
                       </div>
                     </div>
                   </video>
@@ -242,19 +240,19 @@ export default function LandingPage() {
           </div>
 
           {/* Social Proof */}
-          <div className="flex items-center justify-center gap-6 flex-wrap">
-            <div className="flex items-center gap-4">
-              <div className="flex -space-x-4">
-                <img src="/socialproof1.png" alt="User testimonial" className="w-12 h-12 rounded-full" />
-                <img src="/socialproof2.png" alt="User testimonial" className="w-12 h-12 rounded-full" />
-                <img src="/socialproof3.png" alt="User testimonial" className="w-12 h-12 rounded-full" />
-                <img src="/socialproof4.png" alt="User testimonial" className="w-12 h-12 rounded-full" />
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 flex-wrap px-4">
+            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
+              <div className="flex -space-x-3 sm:-space-x-4">
+                <img src="/socialproof1.png" alt="User testimonial" className="w-10 sm:w-12 h-10 sm:h-12 rounded-full border-black" />
+                <img src="/socialproof2.png" alt="User testimonial" className="w-10 sm:w-12 h-10 sm:h-12 rounded-full border-black" />
+                <img src="/socialproof3.png" alt="User testimonial" className="w-10 sm:w-12 h-10 sm:h-12 rounded-full border-black" />
+                <img src="/socialproof4.png" alt="User testimonial" className="w-10 sm:w-12 h-10 sm:h-12 rounded-full border-black" />
               </div>
-              <div className="flex items-center gap-3">
-                <span className="text-white font-normal">Loved by 100+ businesses</span>
+              <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3 text-center sm:text-left">
+                <span className="text-white font-normal text-sm sm:text-base">Loved by 100+ businesses</span>
                 <div className="flex items-center gap-1">
                   {[...Array(5)].map((_, i) => (
-                    <img key={i} src="/star.svg" alt="Star rating" className="w-4 h-4" />
+                    <img key={i} src="/star.svg" alt="Star rating" className="w-3 sm:w-4 h-3 sm:h-4" />
                   ))}
                 </div>
               </div>
@@ -264,66 +262,66 @@ export default function LandingPage() {
       </div>
 
       {/* How It Works Section */}
-      <section id="features" className="bg-black py-20">
+      <section id="features" className="bg-black py-12 sm:py-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           
-          <div className="relative space-y-24">
-            {/* Vertical connecting lines */}
-            <div className="absolute left-4 top-16 bottom-36 w-px bg-white opacity-30"></div>
+          <div className="relative space-y-12 sm:space-y-24">
+            {/* Vertical connecting lines - hidden on mobile */}
+            <div className="hidden lg:block absolute left-4 top-16 bottom-36 w-px bg-white opacity-30"></div>
             
             {/* Step 1: Enter any link */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center animate-on-scroll animate-slide-in-left">
-              <div className="relative">
-                <h2 className="text-3xl lg:text-4xl font-semibold text-white mb-4">
-                  <span className="bg-black px-2 py-1 mr-2">1.</span> Enter any <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>link</span>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-12 items-center animate-on-scroll animate-slide-in-left">
+              <div className="relative text-center lg:text-left">
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white mb-3 sm:mb-4">
+                  <span className="bg-black px-2 py-1 mr-2 rounded">1.</span> Enter any <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>link</span>
                 </h2>
-                <p className="text-lg text-white pl-14">
-                  Enter anything from a product link,<br></br> to a real estate listing
+                <p className="text-base sm:text-lg text-white pl-0 lg:pl-14">
+                  Enter anything from a product link to a real estate listing
                 </p>
               </div>
-              <div className="animate-on-scroll animate-slide-in-right" style={{ animationDelay: '0.2s' }}>
+              <div className="animate-on-scroll animate-slide-in-right order-first lg:order-last" style={{ animationDelay: '0.2s' }}>
                 <img 
                   src="/image1-section1.png" 
                   alt="Enter any link interface"
-                  className="w-full max-w-lg ml-auto rounded-2xl"
+                  className="w-full max-w-sm sm:max-w-lg mx-auto lg:ml-auto rounded-xl sm:rounded-2xl shadow-lg"
                 />
               </div>
             </div>
 
             {/* Step 2: Get AI generated scripts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center animate-on-scroll animate-slide-in-left" style={{ animationDelay: '0.3s' }}>
-              <div className="relative">
-                <h2 className="text-3xl lg:text-4xl font-semibold text-white mb-4">
-                  <span className="bg-black px-2 py-1 mr-2">2.</span>Get AI generated <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>scripts</span>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-12 items-center animate-on-scroll animate-slide-in-left" style={{ animationDelay: '0.3s' }}>
+              <div className="relative text-center lg:text-left">
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white mb-3 sm:mb-4">
+                  <span className="bg-black px-2 py-1 mr-2 rounded">2.</span>Get AI generated <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>scripts</span>
                 </h2>
-                <p className="text-lg text-white pl-14">
-                  Get several scripts that you can use,<br></br>or edit to your needs
+                <p className="text-base sm:text-lg text-white pl-0 lg:pl-14">
+                  Get several scripts that you can use or edit to your needs
                 </p>
               </div>
-              <div className="animate-on-scroll animate-slide-in-right" style={{ animationDelay: '0.5s' }}>
+              <div className="animate-on-scroll animate-slide-in-right order-first lg:order-last" style={{ animationDelay: '0.5s' }}>
                 <img 
                   src="/image2-section1.png" 
                   alt="AI generated scripts interface"
-                  className="w-full max-w-lg ml-auto rounded-2xl"
+                  className="w-full max-w-sm sm:max-w-lg mx-auto lg:ml-auto rounded-xl sm:rounded-2xl shadow-lg"
                 />
               </div>
             </div>
 
             {/* Step 3: Select an AI Avatar */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center animate-on-scroll animate-slide-in-left" style={{ animationDelay: '0.6s' }}>
-              <div className="relative">
-                <h2 className="text-3xl lg:text-4xl font-semibold text-white mb-4">
-                  <span className="bg-black px-2 py-1 mr-2">3.</span>Select an <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>AI Avatar</span>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-12 items-center animate-on-scroll animate-slide-in-left" style={{ animationDelay: '0.6s' }}>
+              <div className="relative text-center lg:text-left">
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-white mb-3 sm:mb-4">
+                  <span className="bg-black px-2 py-1 mr-2 rounded">3.</span>Select an <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>AI Avatar</span>
                 </h2>
-                <p className="text-lg text-white pl-14">
-                  Select from our vast library of<br></br>AI avatars
+                <p className="text-base sm:text-lg text-white pl-0 lg:pl-14">
+                  Select from our vast library of AI avatars
                 </p>
               </div>
-              <div className="animate-on-scroll animate-slide-in-right" style={{ animationDelay: '0.8s' }}>
+              <div className="animate-on-scroll animate-slide-in-right order-first lg:order-last" style={{ animationDelay: '0.8s' }}>
                 <img 
                   src="/image3-section1.png" 
                   alt="AI Avatar selection interface"
-                  className="w-full max-w-lg ml-auto rounded-2xl"
+                  className="w-full max-w-sm sm:max-w-lg mx-auto lg:ml-auto rounded-xl sm:rounded-2xl shadow-lg"
                 />
               </div>
             </div>
@@ -332,19 +330,19 @@ export default function LandingPage() {
       </section>
 
       {/* Generate Videos Section */}
-      <section className="bg-black py-20">
+      <section className="bg-black py-12 sm:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-4xl lg:text-5xl font-semibold text-white mb-16">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-white mb-8 sm:mb-16">
             Generate <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>Videos</span>
           </h2>
           
           {/* Infinite Scrolling Avatar Videos */}
-          <div className="relative mb-16 overflow-hidden">
-            <div className="flex gap-4 animate-scroll-left">
-              {/* First set of videos */}
-              {showcaseVideos.slice(0, 5).map((video, index) => (
+          <div className="relative mb-8 sm:mb-16 overflow-hidden">
+            <div className="flex gap-3 sm:gap-4 animate-scroll-left">
+              {/* First set of videos - show all videos */}
+              {showcaseVideos.map((video, index) => (
                 <div key={index} className="relative group flex-shrink-0">
-                  <div className="w-48 rounded-2xl overflow-hidden border-2 border-gray-700 group-hover:border-orange-clean transition-all duration-300" style={{ backgroundColor: '#111827', aspectRatio: '9/16' }}>
+                  <div className="w-32 sm:w-40 md:w-48 rounded-xl sm:rounded-2xl overflow-hidden border-2 border-gray-700 group-hover:border-orange-clean transition-all duration-300" style={{ backgroundColor: '#111827', aspectRatio: '9/16' }}>
                     <video
                       src={video}
                       className="w-full h-full object-cover"
@@ -358,10 +356,10 @@ export default function LandingPage() {
                   </div>
                 </div>
               ))}
-              {/* Duplicate set for infinite effect */}
-              {showcaseVideos.slice(0, 5).map((video, index) => (
+              {/* Duplicate set for infinite effect - show all videos */}
+              {showcaseVideos.map((video, index) => (
                 <div key={`duplicate-${index}`} className="relative group flex-shrink-0">
-                  <div className="w-48 rounded-2xl overflow-hidden border-2 border-gray-700 group-hover:border-orange-clean transition-all duration-300" style={{ backgroundColor: '#111827', aspectRatio: '9/16' }}>
+                  <div className="w-32 sm:w-40 md:w-48 rounded-xl sm:rounded-2xl overflow-hidden border-2 border-gray-700 group-hover:border-orange-clean transition-all duration-300" style={{ backgroundColor: '#111827', aspectRatio: '9/16' }}>
                     <video
                       src={video}
                       className="w-full h-full object-cover"
@@ -381,10 +379,10 @@ export default function LandingPage() {
           {/* CTA Button */}
           <button
             onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
-            className="btn-primary px-8 py-4 gap-2"
+            className="btn-primary px-6 sm:px-8 py-3 sm:py-4 gap-2 text-sm sm:text-base"
           >
             Get started
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3 sm:w-4 h-3 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
@@ -392,14 +390,14 @@ export default function LandingPage() {
       </section>
 
       {/* Comparison Section */}
-      <section className="py-20" style={{ backgroundColor: '#111827' }}>
+      <section className="py-12 sm:py-20" style={{ backgroundColor: '#111827' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-16">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-16">
             {/* No back and forth with creators */}
             <div className="text-center">
-              <h3 className="text-white text-lg mb-8">No back and fourth with creators</h3>
-              <div className="flex justify-center items-center mb-4 h-48">
+              <h3 className="text-white text-base sm:text-lg mb-4 sm:mb-8 px-2">No back and fourth with creators</h3>
+              <div className="flex justify-center items-center mb-4 h-32 sm:h-48">
                 <img 
                   src="/nobackandforthwithcreators.png" 
                   alt="No back and forth with creators comparison"
@@ -410,8 +408,8 @@ export default function LandingPage() {
 
             {/* Use minutes instead of months */}
             <div className="text-center">
-              <h3 className="text-white text-lg mb-8">Use minutes instead of months</h3>
-              <div className="flex justify-center items-center mb-4 h-48">
+              <h3 className="text-white text-base sm:text-lg mb-4 sm:mb-8 px-2">Use minutes instead of months</h3>
+              <div className="flex justify-center items-center mb-4 h-32 sm:h-48">
                 <img 
                   src="/minutesinsteadofmonths.png" 
                   alt="Minutes instead of months comparison"
@@ -422,8 +420,8 @@ export default function LandingPage() {
 
             {/* For 5% of the cost */}
             <div className="text-center">
-              <h3 className="text-white text-lg mb-8">For 5% of the cost</h3>
-              <div className="flex justify-center items-center mb-4 h-48">
+              <h3 className="text-white text-base sm:text-lg mb-4 sm:mb-8 px-2">For 5% of the cost</h3>
+              <div className="flex justify-center items-center mb-4 h-32 sm:h-48">
                 <img 
                   src="/5percentofthecost.png" 
                   alt="5% of the cost comparison"
@@ -436,13 +434,13 @@ export default function LandingPage() {
       </section>
 
       {/* FAQ Section */}
-      <section className="bg-black py-20">
+      <section className="bg-black py-12 sm:py-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-4xl lg:text-5xl font-semibold text-white text-center mb-16">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-white text-center mb-8 sm:mb-16">
             Have questions?
           </h2>
           
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {[
               {
                 question: "What is Best UGC?",
@@ -469,19 +467,19 @@ export default function LandingPage() {
                 answer: "Yes! You can customize and edit any of the AI-generated scripts to match your brand voice and specific messaging needs."
               }
             ].map((faq, index) => (
-              <div key={index} className="rounded-xl border border-gray-700 overflow-hidden" style={{ backgroundColor: '#111827' }}>
+              <div key={index} className="rounded-lg sm:rounded-xl border border-gray-700 overflow-hidden" style={{ backgroundColor: '#111827' }}>
                 <button 
                   onClick={() => setExpandedFaq(expandedFaq === index ? null : index)}
-                  className="w-full px-6 py-5 text-left flex items-center justify-between hover:bg-gray-700 transition-all duration-300 rounded-xl"
+                  className="w-full px-4 sm:px-6 py-4 sm:py-5 text-left flex items-center justify-between hover:bg-gray-700 transition-all duration-300 rounded-lg sm:rounded-xl"
                 >
-                  <span className="text-white font-normal">{faq.question}</span>
-                  <span className={`text-orange-clean text-lg transform transition-transform duration-300 ${expandedFaq === index ? 'rotate-45' : ''}`}>
+                  <span className="text-white font-normal text-sm sm:text-base pr-4">{faq.question}</span>
+                  <span className={`text-orange-clean text-lg sm:text-xl transform transition-transform duration-300 flex-shrink-0 ${expandedFaq === index ? 'rotate-45' : ''}`}>
                     +
                   </span>
                 </button>
                 <div className={`overflow-hidden transition-all duration-300 ease-in-out ${expandedFaq === index ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'}`}>
-                  <div className="px-6 py-6">
-                    <p className="text-white leading-relaxed">{faq.answer}</p>
+                  <div className="px-4 sm:px-6 py-4 sm:py-6">
+                    <p className="text-white leading-relaxed text-sm sm:text-base">{faq.answer}</p>
                   </div>
                 </div>
               </div>
@@ -491,24 +489,24 @@ export default function LandingPage() {
       </section>
 
       {/* Final CTA */}
-      <section className="bg-black py-20">
+      <section className="bg-black py-12 sm:py-20">
         <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
-          <h2 className="text-4xl font-semibold text-white mb-6">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-semibold text-white mb-4 sm:mb-6">
             Ready to Create Your First AI Video Ad?
           </h2>
-          <p className="text-lg text-white mb-8 leading-relaxed">
+          <p className="text-base sm:text-lg text-white mb-6 sm:mb-8 leading-relaxed">
             Join forward-thinking businesses maximizing ROI with AI-powered video ads optimized for social media conversions. 
             Start free, scale unlimited.
           </p>
           
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center">
             <button
               onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
-              className="btn-secondary"
+              className="btn-secondary w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base"
             >
               Get Started - It's Free
             </button>
-            <div className="text-white text-lg">
+            <div className="text-white text-sm sm:text-lg text-center">
               No credit card required • 20 free credits
             </div>
           </div>

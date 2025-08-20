@@ -53,7 +53,7 @@ async function runRenderTest() {
   // This function doesn't need to change.
   function generateUserRequestedTimeline(assets) {
     console.log(`🎨 Generating user-requested 13-part timeline...`);
-    const fps = 24; // Fixed: Use consistent 24fps
+    const fps = 30; // Fixed: Use consistent 30fps to match avatar videos
     const timeline = [
       { layout: 'avatar-with-corner-image', duration: 5 * fps, assetIndices: [0] },
       { layout: 'fullscreen-avatar',        duration: 5 * fps, assetIndices: [] },

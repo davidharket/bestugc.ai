@@ -3,7 +3,8 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/[...nextauth]';
 import { PrismaClient } from '@prisma/client';
-import { renderQueue } from '../../../lib/queue'; // <-- Import the BullMQ queue
+import { renderQueue } from '../../../lib/queue'; // Your BullMQ queue
+import { randomUUID } from 'crypto';
 
 const prisma = new PrismaClient();
 
@@ -39,16 +40,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // Determine credit cost based on dual format
       const creditCost = ad.enableDualFormat ? 15 : 10;
-      
-      // First, check if user has enough credits and deduct credits for video creation
+
+      // First, check if user has enough credits
       const user = await tx.user.findUnique({
         where: { id: session.user!.id },
         select: { credits: true }
       });
 
       if (!user || user.credits < creditCost) {
-        throw new Error(`Insufficient credits. You need at least ${creditCost} credits to create ${ad.enableDualFormat ? 'dual format videos' : 'a video'}.`);
+        throw new Error(`Insufficient credits. You need at least ${creditCost} credits.`);
       }
+
+      // ✅ FIXED: Generate a new, truly unique job ID for every request
+      const uniqueJobId = randomUUID();
+
+      // Add a job to the BullMQ queue with our custom, guaranteed-unique ID
+      const job = await renderQueue.add('render-video-job', {
+          adId: adId,
+          templateId: templateId,
+      }, {
+        jobId: uniqueJobId // Use the new UUID as the BullMQ job ID
+      });
 
       // Deduct credits from user's balance
       const updatedUser = await tx.user.update({
@@ -56,18 +68,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         data: { credits: { decrement: creditCost } }
       });
 
-      // Add a job to the BullMQ queue
-      const job = await renderQueue.add('render-video-job', {
-          adId: adId,
-          templateId: templateId,
-      });
-
-      // Update the Ad record with the BullMQ job ID for tracking and reset status if it was failed
+      // ✅ FIXED: Update the Ad record with the new, unique job ID and set status to PENDING
       await tx.ad.update({
         where: { id: adId },
-        data: { 
-          inngestRunId: job.id, // We can reuse the same DB field for the job ID
-          status: 'QUEUED' // Reset status to QUEUED for retry cases
+        data: {
+          inngestRunId: uniqueJobId, // Store the unique ID in the database
+          status: 'PENDING'
         },
       });
 
@@ -78,22 +84,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log(`[API] Job ${job.id} added to the render queue for Ad ID: ${adId}. ${result.creditCost} credits deducted from user ${session.user!.id}`);
 
+    // Return a success response
     return res.status(202).json({
       message: 'Video rendering job accepted.',
       adId: adId,
       jobId: job.id,
       updatedCredits: result.updatedCredits,
-      triggerFrequentPolling: true, // Signal frontend to start frequent polling
     });
 
   } catch (error: any) {
     console.error('Failed to add job to render queue:', error);
-    
-    // Check if it's a credit-related error
+
     if (error.message?.includes('Insufficient credits')) {
       return res.status(400).json({ message: error.message });
     }
-    
+
+    // This will catch the unique constraint error and other issues
     return res.status(500).json({ message: 'Failed to start render job' });
   }
 }

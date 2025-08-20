@@ -2,8 +2,9 @@
 import { getProviders, signIn, ClientSafeProvider } from 'next-auth/react';
 import { GetServerSidePropsContext } from 'next';
 import Head from 'next/head';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import Link from 'next/link';
+import ReCAPTCHA from 'react-google-recaptcha';
 
 const GoogleIcon = () => (
   <svg className="h-5 w-5" viewBox="0 0 48 48">
@@ -22,22 +23,48 @@ interface SignInPageProps {
 export default function SignInPage({ providers, csrfToken }: SignInPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingProvider, setLoadingProvider] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const recaptchaRef = useRef<ReCAPTCHA>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
+    // Validate password confirmation for signup
+    if (isSignUp && password !== confirmPassword) {
+      setError('Passwords do not match');
+      setIsLoading(false);
+      return;
+    }
+
+    // Password strength validation for signup
+    if (isSignUp && password.length < 8) {
+      setError('Password must be at least 8 characters long');
+      setIsLoading(false);
+      return;
+    }
+
+    // CAPTCHA validation for signup (only if CAPTCHA is enabled)
+    const captchaEnabled = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+    if (isSignUp && captchaEnabled && !captchaToken) {
+      setError('Please complete the CAPTCHA verification');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const result = await signIn('credentials', {
         email,
         password,
         name: isSignUp ? name : undefined,
+        captchaToken: isSignUp ? captchaToken : undefined,
         redirect: false,
       });
 
@@ -76,16 +103,16 @@ export default function SignInPage({ providers, csrfToken }: SignInPageProps) {
       
       <div className="bg-black text-white min-h-screen">
         {/* Hero Section with Sign In Form */}
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <div className="text-center mb-12">
-            <h1 className="text-5xl lg:text-7xl font-semibold leading-relaxed tracking-wide mb-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-20">
+          <div className="text-center mb-8 sm:mb-12">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-semibold leading-tight sm:leading-relaxed tracking-wide mb-6 sm:mb-8">
               {isSignUp ? 'Join ' : 'Let\'s create some '}
               <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>
                 videos
               </span>
             </h1>
             
-            <p className="text-lg text-white mb-12 max-w-2xl mx-auto">
+            <p className="text-base sm:text-lg text-white mb-8 sm:mb-12 max-w-2xl mx-auto px-4">
               {isSignUp 
                 ? 'Create your account and start making AI video ads in minutes' 
                 : 'Sign in to continue creating high-converting AI video ads'
@@ -95,7 +122,7 @@ export default function SignInPage({ providers, csrfToken }: SignInPageProps) {
 
           {/* Sign In Form Card */}
           <div className="max-w-md mx-auto">
-            <div className="rounded-[20px] border border-gray-700 p-8" style={{ backgroundColor: '#111827' }}>
+            <div className="rounded-[20px] border border-gray-700 p-6 sm:p-8" style={{ backgroundColor: '#111827' }}>
               
               {/* Google Sign In Button */}
               {oauthProviders && oauthProviders.map((provider) => (
@@ -181,6 +208,35 @@ export default function SignInPage({ providers, csrfToken }: SignInPageProps) {
                   />
                 </div>
 
+                {isSignUp && (
+                  <div>
+                    <input
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      type="password"
+                      autoComplete="new-password"
+                      required={isSignUp}
+                      className="w-full bg-black border border-gray-700 rounded-[15px] px-4 py-3 text-white placeholder-gray-500 focus:border-orange-500 focus:outline-none transition-colors"
+                      placeholder="Confirm your password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      disabled={isLoading}
+                    />
+                  </div>
+                )}
+
+                {isSignUp && process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && (
+                  <div className="flex justify-center">
+                    <ReCAPTCHA
+                      ref={recaptchaRef}
+                      sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
+                      onChange={(token) => setCaptchaToken(token)}
+                      onExpired={() => setCaptchaToken(null)}
+                      theme="dark"
+                    />
+                  </div>
+                )}
+
                 {error && (
                   <div className="text-red-400 text-sm text-center bg-red-900/20 border border-red-800 rounded-[15px] p-3">
                     {error}
@@ -215,6 +271,11 @@ export default function SignInPage({ providers, csrfToken }: SignInPageProps) {
                     setError('');
                     setName('');
                     setPassword('');
+                    setConfirmPassword('');
+                    setCaptchaToken(null);
+                    if (recaptchaRef.current) {
+                      recaptchaRef.current.reset();
+                    }
                   }}
                   className="text-orange-400 hover:text-orange-300 text-sm transition-colors"
                 >
@@ -231,8 +292,8 @@ export default function SignInPage({ providers, csrfToken }: SignInPageProps) {
             </div>
 
             {/* Footer Text */}
-            <div className="text-center mt-8 space-y-4">
-              <p className="text-xs text-gray-500">
+            <div className="text-center mt-6 sm:mt-8 space-y-3 sm:space-y-4">
+              <p className="text-xs text-gray-500 px-4">
                 By signing in, you agree to our{' '}
                 <Link href="/terms" className="text-orange-400 hover:text-orange-300 transition-colors">
                   Terms of Service
@@ -243,7 +304,7 @@ export default function SignInPage({ providers, csrfToken }: SignInPageProps) {
                 </Link>
               </p>
               
-              <div className="flex items-center justify-center gap-2 text-sm text-gray-400">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 text-sm text-gray-400">
                 <span>New to Best UGC?</span>
                 <Link href="/" className="text-orange-400 hover:text-orange-300 font-normal transition-colors">
                   Learn more
@@ -252,21 +313,21 @@ export default function SignInPage({ providers, csrfToken }: SignInPageProps) {
             </div>
 
             {/* Social Proof */}
-            <div className="text-center mt-8">
-              <div className="flex items-center justify-center gap-4 mb-4">
-                <div className="flex -space-x-4">
-                  <img src="/socialproof1.png" alt="User testimonial" className="w-10 h-10 rounded-full" />
-                  <img src="/socialproof2.png" alt="User testimonial" className="w-10 h-10 rounded-full" />
-                  <img src="/socialproof3.png" alt="User testimonial" className="w-10 h-10 rounded-full" />
-                  <img src="/socialproof4.png" alt="User testimonial" className="w-10 h-10 rounded-full" />
+            <div className="text-center mt-6 sm:mt-8">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-4">
+                <div className="flex -space-x-3 sm:-space-x-4">
+                  <img src="/socialproof1.png" alt="User testimonial" className="w-8 sm:w-10 h-8 sm:h-10 rounded-full border-2 border-black" />
+                  <img src="/socialproof2.png" alt="User testimonial" className="w-8 sm:w-10 h-8 sm:h-10 rounded-full border-2 border-black" />
+                  <img src="/socialproof3.png" alt="User testimonial" className="w-8 sm:w-10 h-8 sm:h-10 rounded-full border-2 border-black" />
+                  <img src="/socialproof4.png" alt="User testimonial" className="w-8 sm:w-10 h-8 sm:h-10 rounded-full border-2 border-black" />
                 </div>
-                <div>
-                  <div className="flex items-center gap-1 mb-1">
+                <div className="text-center sm:text-left">
+                  <div className="flex items-center justify-center sm:justify-start gap-1 mb-1">
                     {[...Array(5)].map((_, i) => (
-                      <img key={i} src="/star.svg" alt="Star rating" className="w-4 h-4" />
+                      <img key={i} src="/star.svg" alt="Star rating" className="w-3 sm:w-4 h-3 sm:h-4" />
                     ))}
                   </div>
-                  <span className="text-gray-400 text-sm">Loved by 100+ businesses</span>
+                  <span className="text-gray-400 text-xs sm:text-sm">Loved by 100+ businesses</span>
                 </div>
               </div>
             </div>
