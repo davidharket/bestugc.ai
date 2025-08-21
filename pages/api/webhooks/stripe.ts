@@ -14,9 +14,9 @@ const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
 
 // Define credit amounts for plans and top-ups
 const PLAN_CREDITS: Record<string, number> = {
-  BASIC: 100,    // Corresponds to 499kr plan
-  PRO: 250,      // Corresponds to 999kr plan
-  PREMIUM: 400,  // Corresponds to 1499kr plan
+  BASIC: 100,    // Corresponds to $49.90 plan
+  PRO: 250,      // Corresponds to $99.90 plan
+  PREMIUM: 400,  // Corresponds to $149.90 plan
 }
 
 const CREDIT_TOPUP_AMOUNTS: Record<string, number> = {

@@ -8,6 +8,7 @@ interface ScrapeResult {
   text: string
   images: string[]
   videos: string[]
+  screenshots: string[]
   productName?: string
   rawProductName?: string
 }
@@ -98,6 +99,7 @@ export default function CreateAd() {
           text: adData.summary || '',
           images: allImages,
           videos: allVideos,
+          screenshots: [],
           productName: adData.brandName
         })
       }
@@ -140,27 +142,25 @@ export default function CreateAd() {
         // Step 3: Extract images and videos
         setProgressStep('Extract images and videos')
         
-        // Auto-select scraped images and videos with consecutive ordering
+        // Start with all assets deselected - user will click to select in order
         const allNewImages = res.data.images || [];
         const allNewVideos = res.data.videos || [];
+        const allNewScreenshots = res.data.screenshots || [];
         
-        // Select all scraped assets
-        setSelectedImages(allNewImages);
-        setSelectedVideos(allNewVideos);
+        console.log('[CreateAd] Scraper response:', {
+          images: allNewImages.length,
+          videos: allNewVideos.length,
+          screenshots: allNewScreenshots.length,
+          screenshotUrls: allNewScreenshots
+        });
         
-        // Create ordered assets with consecutive numbering starting from 1
-        const newOrderedImages = allNewImages.map((url: string, index: number) => ({
-          url,
-          order: index + 1
-        }));
+        // Keep selection arrays empty initially
+        setSelectedImages([]);
+        setSelectedVideos([]);
         
-        const newOrderedVideos = allNewVideos.map((url: string, index: number) => ({
-          url,
-          order: allNewImages.length + index + 1
-        }));
-        
-        setOrderedImages(newOrderedImages);
-        setOrderedVideos(newOrderedVideos);
+        // Keep ordered arrays empty initially
+        setOrderedImages([]);
+        setOrderedVideos([]);
         
         // Give time for users to see the media extraction step
         await new Promise(resolve => setTimeout(resolve, 1500));
@@ -922,8 +922,24 @@ export default function CreateAd() {
           <div className="mb-6">
             <h3 className="text-lg font-medium text-white mb-3">Images</h3>
             <div className="flex flex-wrap gap-3">
-              {/* Uploaded Images */}
-              {[...(scrapeResult?.images || []), ...uploadedImages].map((src, i) => (
+              {/* All Images (scraped + screenshots + uploaded) */}
+              {(() => {
+                const scrapedImages = scrapeResult?.images || [];
+                const screenshots = scrapeResult?.screenshots || [];
+                const uploaded = uploadedImages;
+                const allDisplayImages = [...scrapedImages, ...screenshots, ...uploaded];
+                
+                console.log('[CreateAd] Image display breakdown:', {
+                  scrapedImages: scrapedImages.length,
+                  screenshots: screenshots.length,
+                  screenshotPaths: screenshots,
+                  uploaded: uploaded.length,
+                  totalImages: allDisplayImages.length,
+                  allPaths: allDisplayImages
+                });
+                
+                return allDisplayImages;
+              })().map((src, i) => (
                 <div 
                   key={i} 
                   className={`relative rounded-lg overflow-hidden transition-all duration-200 ${

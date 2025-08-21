@@ -86,22 +86,22 @@ export default function GoogleAnalytics() {
 
       {/* Cookie Consent Banner */}
       {bannerVisible && (
-        <div className="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-orange-500 p-4 z-50">
-          <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="text-white text-sm flex-1">
+        <div className="fixed bottom-0 left-0 right-0 bg-black border-t border-gray-700 p-3 z-50">
+          <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="text-white text-xs flex-1">
               <strong className="text-orange-500">Cookie Consent</strong>
               <p className="mt-1">We use cookies to enhance your experience and analyze our traffic. Choose your preferences below.</p>
             </div>
             <div className="flex gap-2 flex-shrink-0">
               <button
                 onClick={rejectAll}
-                className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition-colors"
+                className="px-2 py-1 text-xs bg-gray-800 text-gray-300 border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors"
               >
                 Reject All
               </button>
               <button
                 onClick={acceptAll}
-                className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm transition-colors"
+                className="px-2 py-1 text-xs bg-orange-500 text-white border border-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
               >
                 Accept All
               </button>

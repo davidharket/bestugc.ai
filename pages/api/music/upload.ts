@@ -10,6 +10,8 @@ import { nanoid } from 'nanoid';
 export const config = {
   api: {
     bodyParser: false,
+    responseLimit: false,
+    externalResolver: true,
   },
 };
 
@@ -22,9 +24,18 @@ const ALLOWED_AUDIO_TYPES = [
   'audio/webm',        // .webm
 ];
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit for audio files
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB limit for audio files
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // Set CORS and upload headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }

@@ -13,14 +13,14 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 // Stripe Price IDs for plans and credit top-ups
 const PLAN_PRICE_IDS: Record<string, string> = {
-  BASIC: 'price_1RmVP7Cse2bWjZUuxe6qVDXR',    // Basic subscription plan
-  PRO: 'price_1RmVPaCse2bWjZUuF1QNnBf0',      // Pro subscription plan
+  BASIC: 'price_1Ry9mQCse2bWjZUuxN76oRUW',    // Basic subscription plan - Updated USD pricing
+  PRO: 'price_1Ry9lgCse2bWjZUuXwjZomol',      // Pro subscription plan - Updated USD pricing
   PREMIUM: 'price_1RmVPmCse2bWjZUu54p90iVP',  // Premium subscription plan
 };
 
 const CREDIT_TOPUP_PRICE_IDS: Record<string, string> = {
   TOPUP_10: 'price_1RmVQ2Cse2bWjZUuC8icXn8n',  // 10 credits
-  TOPUP_20: 'price_1RmVQGCse2bWjZUuXGghklOL',  // 20 credits
+  TOPUP_20: 'price_1Ry9juCse2bWjZUuvQiDZKHl',  // 20 credits - Updated USD pricing
   TOPUP_30: 'price_1RmVQpCse2bWjZUuA12G3RxE',  // 30 credits
 };
 

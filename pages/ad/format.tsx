@@ -13,11 +13,11 @@ const formatOptions = [
 ]
 const durationOptions = [15, 30, 60]
 const languageOptions = [
+  { label: 'English', value: 'en', flag: '/assets/flags-new/us.png' },
   { label: 'Norwegian', value: 'no', flag: '/assets/flags-new/no.png' },
   { label: 'Danish', value: 'da', flag: '/assets/flags-new/dk.png' },
   { label: 'Swedish', value: 'sv', flag: '/assets/flags-new/se.png' },
   { label: 'Dutch', value: 'nl', flag: '/assets/flags-new/nl.png' },
-  { label: 'English', value: 'en', flag: '/assets/flags-new/us.png' },
 ]
 
 // Custom SVG components for aspect ratios
@@ -268,7 +268,7 @@ export default function FormatAd() {
                 onClick={() => setDuration(opt)}
                 type="button"
               >
-                {opt} sec
+                {opt === 15 ? '2 scenes' : opt === 30 ? '4 scenes' : '8 scenes'}
               </button>
             ))}
           </div>

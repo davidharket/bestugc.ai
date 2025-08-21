@@ -318,10 +318,10 @@ export default function SignInPage({ providers, csrfToken }: SignInPageProps) {
             <div className="text-center mt-6 sm:mt-8">
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-4">
                 <div className="flex -space-x-3 sm:-space-x-4">
-                  <img src="/socialproof1.png" alt="User testimonial" className="w-8 sm:w-10 h-8 sm:h-10 rounded-full border-2 border-black" />
-                  <img src="/socialproof2.png" alt="User testimonial" className="w-8 sm:w-10 h-8 sm:h-10 rounded-full border-2 border-black" />
-                  <img src="/socialproof3.png" alt="User testimonial" className="w-8 sm:w-10 h-8 sm:h-10 rounded-full border-2 border-black" />
-                  <img src="/socialproof4.png" alt="User testimonial" className="w-8 sm:w-10 h-8 sm:h-10 rounded-full border-2 border-black" />
+                  <img src="/socialproof1.png" alt="User testimonial" className="w-8 sm:w-10 h-8 sm:h-10 rounded-full" />
+                  <img src="/socialproof2.png" alt="User testimonial" className="w-8 sm:w-10 h-8 sm:h-10 rounded-full" />
+                  <img src="/socialproof3.png" alt="User testimonial" className="w-8 sm:w-10 h-8 sm:h-10 rounded-full" />
+                  <img src="/socialproof4.png" alt="User testimonial" className="w-8 sm:w-10 h-8 sm:h-10 rounded-full" />
                 </div>
                 <div className="text-center sm:text-left">
                   <div className="flex items-center justify-center sm:justify-start gap-1 mb-1">

@@ -61,22 +61,66 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const processedText = truncateIntelligently(text);
 
+  // Clean the content to avoid content policy issues
+  const cleanContent = (content: string): string => {
+    return content
+      // Remove potentially problematic URLs and references
+      .replace(/https?:\/\/[^\s]+/g, '[URL]')
+      // Remove email addresses
+      .replace(/[^\s]+@[^\s]+\.[^\s]+/g, '[EMAIL]')
+      // Remove phone numbers
+      .replace(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g, '[PHONE]')
+      // Remove excessive special characters that might trigger filters
+      .replace(/[^\w\s.,!?()-]/g, ' ')
+      // Clean up multiple spaces
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  const cleanedText = cleanContent(processedText);
+
   try {
     const completion = await client.chat.completions.create({
-      // The `model` property is required by the SDK's type definitions.
-      // Its value should be the deployment name, which is now guaranteed to be a string.
       model: AZURE_OPENAI_DEPLOYMENT_NAME,
       messages: [
-        { role: 'system', content: 'Provide an accurate and factual summary of the following product information. Focus on describing the product and its features clearly and objectively. Do not use sales language, persuasion, or emojis. End with a complete sentence. If the content appears truncated, focus on the most relevant product details available.' },
-        { role: 'user', content: processedText },
+        { 
+          role: 'system', 
+          content: 'You are a professional product analyst. Provide a clear, factual summary of product information. Focus only on legitimate business product features and benefits. Use neutral, professional language. Do not use markdown formatting, bullet points, or special characters. Write in plain text paragraphs only.' 
+        },
+        { 
+          role: 'user', 
+          content: `Please provide a professional summary of this product information:\n\n${cleanedText}` 
+        },
       ],
-      max_tokens: 500,
-      temperature: 0.7,
+      max_tokens: 300,
+      temperature: 0.3,
     })
-    const summary = completion.choices[0]?.message?.content || ''
-    res.status(200).json({ summary })
+    const rawSummary = completion.choices[0]?.message?.content || ''
+    
+    // Remove markdown formatting
+    const cleanSummary = rawSummary
+      .replace(/\*\*(.*?)\*\*/g, '$1')  // Remove bold **text**
+      .replace(/\*(.*?)\*/g, '$1')      // Remove italic *text*
+      .replace(/#{1,6}\s*/g, '')        // Remove headers
+      .replace(/^\s*[-*+]\s+/gm, '')    // Remove bullet points
+      .replace(/^\s*\d+\.\s+/gm, '')    // Remove numbered lists
+      .replace(/`([^`]+)`/g, '$1')      // Remove code blocks
+      .replace(/\n{3,}/g, '\n\n')       // Limit to max 2 newlines
+      .trim();
+    
+    res.status(200).json({ summary: cleanSummary })
   } catch (error: any) {
     console.error('Azure OpenAI Error:', error);
+    
+    // If content filtering fails, provide a basic fallback
+    if (error.code === 'content_filter') {
+      const basicSummary = text.substring(0, 200).replace(/[^\w\s.,!?()-]/g, ' ').trim() + '...';
+      return res.status(200).json({ 
+        summary: basicSummary,
+        note: 'Summary generated from basic text processing due to content policy restrictions.'
+      });
+    }
+    
     res.status(500).json({ error: 'Failed to summarize with Azure OpenAI', details: error.message })
   }
 } 

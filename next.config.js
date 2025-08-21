@@ -9,6 +9,7 @@ const nextConfig = {
     },
   },
   
+  
   // Configure API routes and video headers
   async headers() {
     return [

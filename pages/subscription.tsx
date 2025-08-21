@@ -11,8 +11,8 @@ const plans = [
   {
     id: 'BASIC',
     name: 'Basic',
-    price: '499kr',
-    priceNum: 499,
+    price: '$49.90',
+    priceNum: 49.90,
     credits: 100,
     savings: '0% savings',
     features: [
@@ -28,8 +28,8 @@ const plans = [
   {
     id: 'PRO',
     name: 'Pro',
-    price: '999kr',
-    priceNum: 999,
+    price: '$99.90',
+    priceNum: 99.90,
     credits: 250,
     savings: '20% savings',
     features: [
@@ -46,8 +46,8 @@ const plans = [
   {
     id: 'PREMIUM',
     name: 'Premium',
-    price: '1499kr',
-    priceNum: 1499,
+    price: '$149.90',
+    priceNum: 149.90,
     credits: 400,
     savings: '33% savings',
     features: [
@@ -67,25 +67,25 @@ const creditPacks = [
   {
     id: 'TOPUP_10',
     name: '10 Credits',
-    price: '49kr',
+    price: '$4.90',
     credits: 10,
-    pricePerCredit: '4.9kr'
+    pricePerCredit: '$0.49'
   },
   {
     id: 'TOPUP_20',
     name: '20 Credits',
-    price: '89kr',
+    price: '$8.90',
     credits: 20,
-    pricePerCredit: '4.5kr',
+    pricePerCredit: '$0.45',
     popular: true,
     savings: 'Save 10%'
   },
   {
     id: 'TOPUP_30',
     name: '30 Credits',
-    price: '119kr',
+    price: '$11.90',
     credits: 30,
-    pricePerCredit: '4.0kr',
+    pricePerCredit: '$0.40',
     savings: 'Save 20%'
   }
 ]
@@ -197,8 +197,8 @@ export default function Subscription() {
     try {
       await updateSubscription(async () => {
         const { data } = await axios.post('/api/stripe/checkout-sessions', {
-          items: [{ id: itemId }],
-          currentCredits: user.credits
+          itemType: 'plan',
+          itemId: itemId
         });
         
         if (data.url) {

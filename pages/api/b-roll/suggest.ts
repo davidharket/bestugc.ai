@@ -34,6 +34,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(400).json({ error: 'Product description or scraped text is required' });
   }
 
+  // Clean content to avoid content policy issues
+  const cleanContent = (content: string): string => {
+    return content
+      .replace(/https?:\/\/[^\s]+/g, '[URL]')
+      .replace(/[^\s]+@[^\s]+\.[^\s]+/g, '[EMAIL]')
+      .replace(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g, '[PHONE]')
+      .replace(/[^\w\s.,!?()-]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
   try {
     const availableBRoll = getBRollVideos();
     
@@ -41,38 +52,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ suggestions: [] });
     }
 
-    const content = productDescription || scrapedText || '';
-    const name = productName || 'product';
+    const content = cleanContent(productDescription || scrapedText || '');
+    const name = (productName || 'product').replace(/[^\w\s-]/g, ' ').trim();
 
-    const prompt = `You are helping select relevant B-roll video footage for a marketing video about "${name}".
+    const prompt = `Select relevant video footage for a business product presentation about "${name}".
 
-Product context: ${content.substring(0, 2000)}
+Product information: ${content.substring(0, 1500)}
 
-Available B-roll videos (filename without .mp4 extension):
+Available videos:
 ${availableBRoll.join('\n')}
 
-Select up to 5 B-roll videos that would be most relevant and effective for marketing this product. Consider:
-1. Visual relevance to the product or its use case
-2. Emotional appeal and engagement
-3. Professional quality for marketing
-4. Variety in content types (people, lifestyle, product context, etc.)
+Choose up to 5 videos that best match this product for professional marketing use. Consider visual relevance and business appeal.
 
-Return only the filenames (without .mp4) in order of relevance, separated by newlines.`;
+List only the video filenames, one per line.`;
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4',
       messages: [
         {
           role: 'system',
-          content: 'You are an expert video marketing consultant specializing in B-roll selection. Respond with only the selected video filenames, one per line, in order of relevance.'
+          content: 'You are a professional video production assistant. Select appropriate business video footage based on product context. Respond only with video filenames, one per line.'
         },
         {
           role: 'user',
           content: prompt
         }
       ],
-      max_tokens: 200,
-      temperature: 0.3,
+      max_tokens: 150,
+      temperature: 0.2,
     });
 
     const suggestions = response.choices[0]?.message?.content
@@ -85,8 +92,23 @@ Return only the filenames (without .mp4) in order of relevance, separated by new
       suggestions: suggestions.map(filename => `b-roll/${filename}.mp4`)
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error suggesting B-roll:', error);
+    
+    // Fallback: if content filtering fails, return random selection
+    if (error.code === 'content_filter') {
+      const availableBRoll = getBRollVideos();
+      const randomSuggestions = availableBRoll
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 3)
+        .map(filename => `b-roll/${filename}.mp4`);
+      
+      return res.status(200).json({ 
+        suggestions: randomSuggestions,
+        note: 'Random selection due to content policy restrictions'
+      });
+    }
+    
     return res.status(500).json({ error: 'Failed to suggest B-roll videos' });
   }
 }

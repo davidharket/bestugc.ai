@@ -3,7 +3,14 @@ import crypto from 'crypto'
 import { Resend } from 'resend'
 
 const prisma = new PrismaClient()
-const resend = new Resend(process.env.RESEND_API_KEY)
+
+// Initialize Resend only when needed to avoid API key errors
+const getResendClient = () => {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error('RESEND_API_KEY environment variable is not set')
+  }
+  return new Resend(process.env.RESEND_API_KEY)
+}
 
 export interface SecurityLogEvent {
   userId?: string
@@ -63,6 +70,7 @@ export async function sendVerificationEmail(email: string, token: string): Promi
   const verificationLink = `${process.env.NEXTAUTH_URL}/api/auth/verify-email?token=${token}&email=${encodeURIComponent(email)}`
   
   try {
+    const resend = getResendClient()
     await resend.emails.send({
       from: 'onboarding@resend.dev', // Using Resend's default domain for testing
       to: email,

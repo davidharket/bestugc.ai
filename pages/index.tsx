@@ -249,7 +249,7 @@ export default function LandingPage() {
                 <img src="/socialproof4.png" alt="User testimonial" className="w-10 sm:w-12 h-10 sm:h-12 rounded-full border-black" />
               </div>
               <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3 text-center sm:text-left">
-                <span className="text-white font-normal text-sm sm:text-base">Loved by 100+ businesses</span>
+                <span className="text-white font-normal text-sm sm:text-base">Over 500+ videos created</span>
                 <div className="flex items-center gap-1">
                   {[...Array(5)].map((_, i) => (
                     <img key={i} src="/star.svg" alt="Star rating" className="w-3 sm:w-4 h-3 sm:h-4" />
@@ -262,7 +262,7 @@ export default function LandingPage() {
       </div>
 
       {/* How It Works Section */}
-      <section id="features" className="bg-black py-12 sm:py-20">
+      <section ref={featuresRef} id="features" className="bg-black py-12 sm:py-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           
           <div className="relative space-y-12 sm:space-y-24">

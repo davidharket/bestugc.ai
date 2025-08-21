@@ -114,7 +114,7 @@ export default function PricingPage() {
   const monthlyTiers = [
     {
       title: 'Basic',
-      price: '499kr',
+      price: '$49.90',
       description: 'Perfect for testing and small businesses getting started with AI video ads.',
       features: [
         '100 Credits per month',
@@ -130,7 +130,7 @@ export default function PricingPage() {
     },
     {
       title: 'Pro',
-      price: '999kr',
+      price: '$99.90',
       description: 'For growing businesses that need more scale and advanced features.',
       features: [
         '250 Credits per month',
@@ -148,7 +148,7 @@ export default function PricingPage() {
     },
     {
       title: 'Premium',
-      price: '1499kr',
+      price: '$149.90',
       description: 'The ultimate package for agencies and high-volume content creators.',
       features: [
         '400 Credits per month',

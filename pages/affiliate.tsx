@@ -27,10 +27,10 @@ export default function AffiliatePage() {
   const [proReferrals, setProReferrals] = useState(3);
   const [premiumReferrals, setPremiumReferrals] = useState(2);
   
-  // Plan prices (converted from kr to $ for commission calculation)
-  const basicPrice = 49; // 499kr ≈ $49
-  const proPrice = 99; // 999kr ≈ $99  
-  const premiumPrice = 149; // 1499kr ≈ $149
+  // Plan prices in USD for commission calculation
+  const basicPrice = 49.90; // $49.90
+  const proPrice = 99.90; // $99.90  
+  const premiumPrice = 149.90; // $149.90
   
   const calculateEarnings = () => {
     const basicEarnings = basicReferrals * basicPrice * 0.1;
@@ -234,40 +234,42 @@ export default function AffiliatePage() {
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="py-20" style={{ backgroundColor: '#111827' }}>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl lg:text-5xl font-semibold text-white mb-4">
-              What they're{' '}
-              <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>
-                saying
-              </span>
-            </h2>
-          </div>
+      {/* Testimonials - Hidden for now */}
+      {false && (
+        <section className="py-20" style={{ backgroundColor: '#111827' }}>
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl lg:text-5xl font-semibold text-white mb-4">
+                What they're{' '}
+                <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>
+                  saying
+                </span>
+              </h2>
+            </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <div key={index} className="rounded-[20px] border border-gray-700 p-6 bg-black">
-                <div className="flex items-center gap-4 mb-4">
-                  <img 
-                    src={testimonial.image} 
-                    alt={testimonial.name}
-                    className="w-12 h-12 rounded-full"
-                  />
-                  <div>
-                    <div className="text-white font-semibold">{testimonial.name}</div>
-                    <div className="text-gray-400 text-sm">{testimonial.title}</div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {testimonials.map((testimonial, index) => (
+                <div key={index} className="rounded-[20px] border border-gray-700 p-6 bg-black">
+                  <div className="flex items-center gap-4 mb-4">
+                    <img 
+                      src={testimonial.image} 
+                      alt={testimonial.name}
+                      className="w-12 h-12 rounded-full"
+                    />
+                    <div>
+                      <div className="text-white font-semibold">{testimonial.name}</div>
+                      <div className="text-gray-400 text-sm">{testimonial.title}</div>
+                    </div>
                   </div>
+                  <p className="text-gray-300 leading-relaxed">
+                    "{testimonial.content}"
+                  </p>
                 </div>
-                <p className="text-gray-300 leading-relaxed">
-                  "{testimonial.content}"
-                </p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* CTA Section */}
       <section className="bg-black py-20" id="signup">

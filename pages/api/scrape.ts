@@ -70,6 +70,7 @@ import { URL } from 'url';
 import crypto from 'crypto';
 import { spawn } from 'child_process';
 import * as cheerio from 'cheerio';
+import { chromium } from 'playwright';
 
 // Helper functions (no changes)
 const reencodeVideo = (inputPath: string, outputPath: string): Promise<void> => {
@@ -89,6 +90,86 @@ const reencodeVideo = (inputPath: string, outputPath: string): Promise<void> => 
 };
 const ensureDirExists = (dirPath: string) => { if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true }); };
 const getFileExtension = (url: string): string => { try { return path.extname(new URL(url).pathname).replace(/(\?.*)$/, '') || '.jpg'; } catch { return '.jpg'; }};
+
+// Screenshot capture function
+const captureScreenshots = async (pageUrl: string, uploadPath: string, scrapeId: string): Promise<string[]> => {
+  const screenshots: string[] = [];
+  let browser = null;
+  
+  try {
+    console.log('[Scraper] Starting screenshot capture...');
+    
+    // Parse URLs
+    const fullUrl = pageUrl.startsWith('http') ? pageUrl : `https://${pageUrl}`;
+    const parsedUrl = new URL(fullUrl);
+    const baseUrl = `${parsedUrl.protocol}//${parsedUrl.host}`;
+    
+    console.log(`[Scraper] Full URL: ${fullUrl}, Base URL: ${baseUrl}`);
+    
+    // Launch browser
+    browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
+    });
+    
+    // Screenshot configurations
+    const configs = [
+      { url: fullUrl, viewport: { width: 1200, height: 800 }, filename: 'screenshot-desktop-full.png' },
+      { url: fullUrl, viewport: { width: 375, height: 667 }, filename: 'screenshot-mobile-full.png' },
+      { url: baseUrl, viewport: { width: 1200, height: 800 }, filename: 'screenshot-desktop-base.png' },
+      { url: baseUrl, viewport: { width: 375, height: 667 }, filename: 'screenshot-mobile-base.png' }
+    ];
+    
+    // Capture screenshots
+    for (const config of configs) {
+      try {
+        console.log(`[Scraper] Capturing ${config.filename} for ${config.url}...`);
+        
+        const page = await context.newPage();
+        await page.setViewportSize(config.viewport);
+        
+        // Navigate with timeout
+        await page.goto(config.url, { 
+          waitUntil: 'networkidle', 
+          timeout: 30000 
+        });
+        
+        // Wait a bit for dynamic content
+        await page.waitForTimeout(2000);
+        
+        // Take screenshot of viewport only (hero section)
+        const screenshotPath = path.join(uploadPath, config.filename);
+        await page.screenshot({ 
+          path: screenshotPath,
+          fullPage: false,
+          type: 'png'
+        });
+        
+        await page.close();
+        screenshots.push(`/uploads/scraped/${scrapeId}/${config.filename}`);
+        console.log(`[Scraper] ✅ Screenshot saved: ${config.filename}`);
+        
+      } catch (error: any) {
+        console.warn(`[Scraper] ⚠️ Failed to capture ${config.filename}: ${error.message}`);
+        // Continue with other screenshots even if one fails
+      }
+    }
+    
+  } catch (error: any) {
+    console.error('[Scraper] Screenshot capture failed:', error.message);
+  } finally {
+    if (browser) {
+      try {
+        await browser.close();
+      } catch (error) {
+        console.warn('[Scraper] Failed to close browser:', error);
+      }
+    }
+  }
+  
+  console.log(`[Scraper] Screenshot capture completed. Captured ${screenshots.length}/4 screenshots`);
+  return screenshots;
+};
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -111,6 +192,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const scrapeId = crypto.randomBytes(8).toString('hex');
     const baseUploadPath = path.join(process.cwd(), 'public', 'uploads', 'scraped', scrapeId);
     ensureDirExists(baseUploadPath);
+
+    // Start screenshot capture in parallel with media scraping
+    const screenshotPromise = captureScreenshots(pageUrl, baseUploadPath, scrapeId);
 
     const downloadedImages: string[] = [];
     const processedUrls = new Set<string>();
@@ -171,6 +255,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
     }
 
+    // Wait for screenshots to complete
+    const screenshots = await screenshotPromise;
+
     const endTime = Date.now();
     console.log(`[Scraper] Scraping finished in ${(endTime - startTime) / 1000} seconds.`);
 
@@ -178,6 +265,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       text: cleanedText,
       images: downloadedImages,
       videos: downloadedVideos,
+      screenshots: screenshots,
       productName: rawProductName,
     });
 

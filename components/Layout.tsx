@@ -191,9 +191,6 @@ export const Layout = ({ children }: { children: ReactNode }) => {
                       <Link href="/pricing" className="text-gray-300 hover:text-orange-400  px-3 py-2 rounded-md text-sm font-normal transition-all duration-200">
                         Pricing
                       </Link>
-                      <Link href="/language" className="text-gray-300 hover:text-orange-400 px-3 py-2 rounded-md text-sm font-normal transition-all duration-200">
-                        Language
-                      </Link>
                     </>
                   )}
                 </div>
@@ -290,9 +287,6 @@ export const Layout = ({ children }: { children: ReactNode }) => {
                     </Link>
                     <Link href="/pricing" className="block text-gray-300 hover:text-orange-400  px-3 py-2 rounded-md text-base font-normal">
                       Pricing
-                    </Link>
-                    <Link href="/language" className="block text-gray-300 hover:text-orange-400  px-3 py-2 rounded-md text-base font-normal">
-                      Language
                     </Link>
                     <button onClick={() => signIn()} className="btn-secondary w-full text-base">
                       Login

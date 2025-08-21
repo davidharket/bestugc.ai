@@ -14,13 +14,13 @@ const creditPacks = [
   {
     id: 'TOPUP_10',
     name: '10 Credits',
-    price: '49kr',
+    price: '$4.90',
     credits: 10
   },
   {
     id: 'TOPUP_20',
     name: '20 Credits',
-    price: '89kr',
+    price: '$8.90',
     credits: 20,
     popular: true,
     savings: '10% savings'
@@ -28,7 +28,7 @@ const creditPacks = [
   {
     id: 'TOPUP_30',
     name: '30 Credits',
-    price: '119kr',
+    price: '$11.90',
     credits: 30,
     savings: '20% savings'
   }

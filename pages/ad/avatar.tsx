@@ -10,7 +10,6 @@ import TTSCacheService from '../../lib/tts-cache-service';
 
 const genderOptions = ['male', 'female', 'fantasy'];
 const ageOptions = ['adult', 'senior'];
-const locationOptions = ['inside', 'outside'];
 
 export default function AvatarAd() {
   const router = useRouter();
@@ -19,7 +18,6 @@ export default function AvatarAd() {
   const [selectedAvatar, setSelectedAvatar] = useState<number | null>(adData.avatarId || null);
   const [gender, setGender] = useState<string | null>(null);
   const [age, setAge] = useState<string | null>(null);
-  const [location, setLocation] = useState<string | null>(null);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
@@ -79,8 +77,7 @@ export default function AvatarAd() {
 
   const filteredAvatars = avatars.filter(a =>
     (!gender || a.gender === gender) &&
-    (!age || a.age === age) &&
-    (!location || a.location === location)
+    (!age || a.age === age)
   );
 
   const handleAvatarSelect = (avatarId: number) => {
@@ -163,28 +160,6 @@ export default function AvatarAd() {
                     }`}
                     style={{ backgroundColor: '#111827' }}
                     onClick={() => setAge(age === opt ? null : opt)}
-                    type="button"
-                  >
-                    {opt.charAt(0).toUpperCase() + opt.slice(1)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Location Filter */}
-            <div>
-              <label className="block text-gray-300 font-normal mb-3">Location</label>
-              <div className="flex gap-2">
-                {locationOptions.map(opt => (
-                  <button
-                    key={opt}
-                    className={`px-3 py-2 text-sm border border-gray-600 rounded-[10px] text-gray-300 transition-colors duration-200 ${
-                      location === opt
-                        ? 'border-orange-500'
-                        : 'hover:border-orange-500'
-                    }`}
-                    style={{ backgroundColor: '#111827' }}
-                    onClick={() => setLocation(location === opt ? null : opt)}
                     type="button"
                   >
                     {opt.charAt(0).toUpperCase() + opt.slice(1)}
