@@ -146,9 +146,15 @@ export default function ScriptAdPage() {
         {loading && (
           <div className="card mb-8">
             <div className="flex items-center justify-center py-12">
-              <div className="flex items-center gap-3">
-                <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-orange-500"></div>
-                <span className="text-orange-400 text-lg">Generating script variations...</span>
+              <div className="flex flex-col items-center gap-4">
+                <div className="relative">
+                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-700"></div>
+                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-t-orange-500 absolute top-0 left-0"></div>
+                </div>
+                <div className="text-center">
+                  <span className="text-orange-400 text-lg font-medium">Generating script variations...</span>
+                  <p className="text-gray-400 text-sm mt-1">Creating personalized scripts for your product</p>
+                </div>
               </div>
             </div>
           </div>

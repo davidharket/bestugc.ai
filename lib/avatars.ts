@@ -21,6 +21,17 @@ export interface Avatar {
   // Define and export the list of avatars.
   // This is the single source of truth for the entire application.
   export const avatars: Avatar[] = [
+    // New Free Avatars (displayed first)
+    { id: 26, src: '/avatars/female-blonde-inside-new.mp4', gender: 'female', hair: 'blonde', number: 1, age: 'adult', location: 'inside', label: 'Female Blonde (New)', norwegianVoiceId: 'b3jcIbyC3BSnaRu8avEk' },
+    { id: 27, src: '/avatars/female-blonde2-inside-new.mp4', gender: 'female', hair: 'blonde', number: 2, age: 'adult', location: 'inside', label: 'Female Blonde 2 (New)', norwegianVoiceId: 'b3jcIbyC3BSnaRu8avEk' },
+    { id: 28, src: '/avatars/female-blonde3-senior-inside-new.mp4', gender: 'female', hair: 'blonde', number: 3, age: 'senior', location: 'inside', label: 'Female Blonde 3 Senior (New)', norwegianVoiceId: 'uNsWM1StCcpydKYOjKyu' },
+    { id: 29, src: '/avatars/female-blonde4-adult-inside-new.mp4', gender: 'female', hair: 'blonde', number: 4, age: 'adult', location: 'inside', label: 'Female Blonde 4 (New)', norwegianVoiceId: 'b3jcIbyC3BSnaRu8avEk' },
+    { id: 30, src: '/avatars/female-blonde5-adult-inside-new.mp4', gender: 'female', hair: 'blonde', number: 5, age: 'adult', location: 'inside', label: 'Female Blonde 5 (New)', norwegianVoiceId: 'b3jcIbyC3BSnaRu8avEk' },
+    { id: 31, src: '/avatars/female-brunette-inside-new.mp4', gender: 'female', hair: 'brunette', number: 1, age: 'adult', location: 'inside', label: 'Female Brunette (New)', norwegianVoiceId: 'uNsWM1StCcpydKYOjKyu' },
+    { id: 32, src: '/avatars/male-brunette-adult-inside-new.mp4', gender: 'male', hair: 'brunette', number: 1, age: 'adult', location: 'inside', label: 'Male Brunette 1 (New)', norwegianVoiceId: 'CMVyxPycEkgLpEF85ShA' },
+    { id: 33, src: '/avatars/male-brunette2-adult-inside-new.mp4', gender: 'male', hair: 'brunette', number: 2, age: 'adult', location: 'inside', label: 'Male Brunette 2 (New)', norwegianVoiceId: '9pRpxWU0T7UFt2oEMH6n' },
+    { id: 34, src: '/avatars/male-brunette3-adult-inside-new.mp4', gender: 'male', hair: 'brunette', number: 3, age: 'adult', location: 'inside', label: 'Male Brunette 3 (New)', norwegianVoiceId: 'xu4HzZYeAR4ynjjVC7cm' },
+
     // Female Adults
     { id: 1, src: '/avatars/female-blonde-adult-inside.mp4', gender: 'female', hair: 'blonde', number: 1, age: 'adult', location: 'inside', label: 'Female Blonde 1 (Adult, Inside)', norwegianVoiceId: 'b3jcIbyC3BSnaRu8avEk' }, // FREE
     { id: 2, src: '/avatars/female-blonde2-adult-inside.mp4', gender: 'female', hair: 'blonde', number: 2, age: 'adult', location: 'inside', label: 'Female Blonde 2 (Adult, Inside)', norwegianVoiceId: 'b3jcIbyC3BSnaRu8avEk', isPremium: true },
@@ -157,6 +168,8 @@ export function getPremiumAvatars(): Avatar[] {
 export function getAvatarFps(avatarId: number): number {
   // 30 FPS avatars (Veo3/newer generation)
   const fps30Avatars = [
+    // New avatars (all 30 FPS)
+    26, 27, 28, 29, 30, 31, 32, 33, 34,
     // Fantasy avatars
     21, 22, 23, 24, 25, // benjamin-franklin, cleopatra, dracula, roman-soldier, wizard
     // Specific newer avatars

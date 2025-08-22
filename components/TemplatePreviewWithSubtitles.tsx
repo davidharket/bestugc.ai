@@ -250,16 +250,16 @@ const ScenePreview: React.FC<{
         return {
           container: baseContainer,
           avatar: `${avatarStyle} h-full w-full`,
-          asset: "w-full h-full rounded-lg border-2 border-white/20",
-          assetContainer: "absolute top-2 right-2 w-1/3 h-1/3 z-10"
+          asset: "w-full h-full object-cover",
+          assetContainer: "absolute bottom-3 left-3 w-1/2 aspect-square z-10 rounded-2xl overflow-hidden shadow-xl border-2 border-white/90"
         };
       
       case 'split-screen-top-asset':
         return {
           container: baseContainer,
-          avatar: `${avatarStyle} h-full w-full`,
+          avatar: `${avatarStyle} h-auto w-full min-h-full z-5`,
           asset: "w-full h-full",
-          assetContainer: "absolute top-0 left-0 w-full h-1/2"
+          assetContainer: "absolute top-0 left-0 w-full h-1/2 z-1 overflow-hidden"
         };
       
       case 'buildup-collage':
@@ -358,19 +358,49 @@ const ScenePreview: React.FC<{
           autoPlay
           playsInline
           preload="auto"
-          style={{ pointerEvents: 'none' }}
+          style={{ 
+            pointerEvents: 'none',
+            ...(layout === 'split-screen-top-asset' ? { bottom: '-200px' } : {})
+          }}
         />
       )}
       
       {/* Asset Layer */}
       {asset && styles.assetContainer && (
         <div className={styles.assetContainer}>
-          <DualLayerBackgroundDiv 
-            src={asset} 
-            className={styles.asset}
-            enableDualLayout={enableDualLayout}
-            secondarySrc={secondaryAsset}
-          />
+          {layout === 'avatar-with-corner-asset' ? (
+            // Corner asset: Direct background without blurred layer
+            <div 
+              className={styles.asset}
+              style={{
+                backgroundImage: isVideo(asset) ? 'none' : `url(${asset})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat'
+              }}
+            >
+              {isVideo(asset) && (
+                <video
+                  src={asset}
+                  className="w-full h-full object-cover"
+                  muted
+                  loop
+                  autoPlay
+                  playsInline
+                  preload="auto"
+                  style={{ pointerEvents: 'none' }}
+                />
+              )}
+            </div>
+          ) : (
+            // Regular asset: Use dual layer background (avatar z-index handles split-screen clean cut)
+            <DualLayerBackgroundDiv 
+              src={asset} 
+              className={styles.asset}
+              enableDualLayout={enableDualLayout}
+              secondarySrc={secondaryAsset}
+            />
+          )}
         </div>
       )}
       
@@ -603,7 +633,7 @@ export const TemplatePreviewWithSubtitles: React.FC<TemplatePreviewWithSubtitles
   const enableDualLayout = assets.length >= 2;
   const secondaryAsset = enableDualLayout && currentScene.assetIndices && currentScene.assetIndices[1] !== undefined
     ? assets[currentScene.assetIndices[1]]
-    : (enableDualLayout && assets.length >= 2 ? assets[1] : undefined);
+    : (enableDualLayout ? sceneAsset : undefined); // Use same asset as primary for blur background
 
   const getSubtitlePositionStyle = () => {
     switch (subtitlePosition) {

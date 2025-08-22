@@ -172,11 +172,11 @@ export const Layout = ({ children }: { children: ReactNode }) => {
                       <Link href="/creations" className={`${router.pathname === '/creations' ? 'text-orange-400 bg-gray-900' : 'text-gray-300 hover:text-orange-400 '} px-3 py-2 rounded-md text-sm font-normal transition-all duration-200`}>
                         Creations
                       </Link>
-                      <Link href="/subscription" className={`${router.pathname === '/subscription' ? 'text-orange-400 bg-gray-900' : 'text-gray-300 hover:text-orange-400 '} px-3 py-2 rounded-md text-sm font-normal transition-all duration-200`}>
-                        Account
-                      </Link>
                       <Link href="/affiliate-dashboard" className={`${router.pathname === '/affiliate-dashboard' ? 'text-orange-400 bg-gray-900' : 'text-gray-300 hover:text-orange-400 '} px-3 py-2 rounded-md text-sm font-normal transition-all duration-200`}>
                         Affiliate
+                      </Link>
+                      <Link href="/subscription" className={`${router.pathname === '/subscription' ? 'text-orange-400 bg-gray-900' : 'text-gray-300 hover:text-orange-400 '} px-3 py-2 rounded-md text-sm font-normal transition-all duration-200`}>
+                        Account
                       </Link>
                     </>
                   ) : (
@@ -218,10 +218,24 @@ export const Layout = ({ children }: { children: ReactNode }) => {
 
 
                   {/* Create Button */}
-                  <Link href="/dashboard" className="btn-primary px-6 py-3 text-sm flex items-center gap-2 rounded-[15px]">
-                    <img src="/ai-star.svg" alt="AI" className="w-4 h-4" />
-                    Create
-                  </Link>
+                  {(() => {
+                    const isInAdCreationPipeline = router.pathname.startsWith('/ad/');
+                    return isInAdCreationPipeline ? (
+                      <button 
+                        disabled 
+                        className="btn-primary px-6 py-3 text-sm flex items-center gap-2 rounded-[15px] opacity-50 cursor-not-allowed"
+                        title="Complete your current video creation to start a new one"
+                      >
+                        <img src="/ai-star.svg" alt="AI" className="w-4 h-4" />
+                        Create
+                      </button>
+                    ) : (
+                      <Link href="/dashboard" className="btn-primary px-6 py-3 text-sm flex items-center gap-2 rounded-[15px]">
+                        <img src="/ai-star.svg" alt="AI" className="w-4 h-4" />
+                        Create
+                      </Link>
+                    );
+                  })()}
 
                 </div>
               ) : (

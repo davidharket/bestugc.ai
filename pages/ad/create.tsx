@@ -1,5 +1,6 @@
 import { useRouter } from 'next/router'
 import { useEffect, useRef, useState } from 'react'
+import Head from 'next/head'
 import axios from 'axios'
 import { useAdCreation, AdCreationData, OrderedAsset } from '../../components/AdCreationContext'
 import imageCompression from 'browser-image-compression'
@@ -139,13 +140,23 @@ export default function CreateAd() {
         // Give time for users to see the extraction step
         await new Promise(resolve => setTimeout(resolve, 1200));
         
-        // Step 3: Extract images and videos
-        setProgressStep('Extract images and videos')
-        
-        // Start with all assets deselected - user will click to select in order
+        // Step 3: Extract images
+        setProgressStep('Extracting images')
         const allNewImages = res.data.images || [];
+        // Give time to see image extraction
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        // Step 4: Extract videos  
+        setProgressStep('Extracting videos')
         const allNewVideos = res.data.videos || [];
+        // Give time to see video extraction
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        // Step 5: Extract screenshots
+        setProgressStep('Extracting screenshots')
         const allNewScreenshots = res.data.screenshots || [];
+        // Give time to see screenshot extraction
+        await new Promise(resolve => setTimeout(resolve, 600));
         
         console.log('[CreateAd] Scraper response:', {
           images: allNewImages.length,
@@ -165,7 +176,7 @@ export default function CreateAd() {
         // Give time for users to see the media extraction step
         await new Promise(resolve => setTimeout(resolve, 1500));
         
-        // Step 4: Finding relevant B-roll
+        // Step 6: Finding relevant B-roll
         setProgressStep('Finding relevant B-roll')
         try {
           const brollRes = await axios.post('/api/b-roll/suggest', {
@@ -182,7 +193,7 @@ export default function CreateAd() {
           await new Promise(resolve => setTimeout(resolve, 800));
         }
         
-        // Step 5: Generate summary
+        // Step 7: Generate summary
         setProgressStep('Generating summary')
         setSummaryLoading(true)
         try {
@@ -744,99 +755,21 @@ export default function CreateAd() {
 
   // Loading Screen Component
   const LoadingScreen = () => {
-    const [currentStepIndex, setCurrentStepIndex] = useState(0);
-    const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
-    
-    // Define the steps in order - mapped to actual operations
-    const steps = [
-      { key: 'analyzing', label: 'Analyzing product page', triggers: ['Analyzing'] },
-      { key: 'extracting', label: 'Extracting product information', triggers: ['Extracting'] },
-      { key: 'downloading', label: 'Extract images and videos', triggers: ['Extract'] }, // This is the media downloading step
-      { key: 'finding', label: 'Finding relevant B-roll', triggers: ['Finding'] },
-      { key: 'generating', label: 'Generating summary', triggers: ['Generating', 'Finalizing'] }
-    ];
-
-    // Handle step progression
-    useEffect(() => {
-      if (!progressStep) return;
-
-      // Find which step should be active based on progressStep
-      let targetStepIndex = -1;
-      for (let i = 0; i < steps.length; i++) {
-        if (steps[i].triggers.some(trigger => progressStep.includes(trigger))) {
-          targetStepIndex = i;
-          break;
-        }
-      }
-
-      if (targetStepIndex >= 0) {
-        // Complete previous steps immediately - preserve existing completed steps
-        if (targetStepIndex > currentStepIndex) {
-          setCompletedSteps(prev => {
-            const newCompleted = new Set(prev);
-            for (let i = 0; i < targetStepIndex; i++) {
-              newCompleted.add(i);
-            }
-            return newCompleted;
-          });
-        }
-        setCurrentStepIndex(targetStepIndex);
-      }
-    }, [progressStep, currentStepIndex, steps]);
-
-    // When processing is complete, mark final step as completed
-    useEffect(() => {
-      if (!loading && !summaryLoading && progressStep === '') {
-        setCompletedSteps(prev => {
-          const newCompleted = new Set(prev);
-          newCompleted.add(currentStepIndex);
-          return newCompleted;
-        });
-      }
-    }, [loading, summaryLoading, progressStep, currentStepIndex]);
-
-    const getStepStatus = (stepIndex: number) => {
-      if (completedSteps.has(stepIndex)) return 'completed';
-      if (stepIndex === currentStepIndex && progressStep) return 'active';
-      return 'pending';
-    };
-
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="max-w-2xl mx-auto px-4 text-center w-full">
+      <div className="h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold text-white mb-6">Analysing your link</h1>
           
-          <div className="space-y-6">
-            {steps.map((step, index) => {
-              const status = getStepStatus(index);
-              
-              return (
-                <div key={step.key} className="flex items-center justify-between p-6 bg-gray-900 rounded-[20px] border border-gray-700 w-full">
-                  <span className="text-white font-normal">{step.label}</span>
-                  <div className="flex items-center">
-                    {status === 'active' ? (
-                      <div className="relative w-4 h-4">
-                        <div className="absolute inset-0 border-2 border-gray-900 rounded-full"></div>
-                        <div className="absolute inset-0 border-2 border-orange-500 border-t-gray-900 rounded-full animate-spin"></div>
-                      </div>
-                    ) : status === 'completed' ? (
-                      <img src="/success.svg" alt="Success" className="w-4 h-4 filter brightness-0 saturate-100" style={{filter: 'invert(48%) sepia(79%) saturate(2476%) hue-rotate(86deg) brightness(118%) contrast(119%)'}} />
-                    ) : (
-                      <div className="w-4 h-4 border-2 border-gray-600 rounded-full"></div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+          {/* Spinner */}
+          <div className="relative w-16 h-16 mx-auto mb-4">
+            <div className="absolute inset-0 border-4 border-gray-700 rounded-full"></div>
+            <div className="absolute inset-0 border-4 border-orange-500 border-t-gray-700 rounded-full animate-spin"></div>
           </div>
           
-          {productUrl && (
-            <div className="mt-8 p-4 bg-gray-900 rounded-[20px] border border-gray-700">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-400">Processing:</span>
-                <span className="font-mono text-orange-400 break-all text-xs">{productUrl}</span>
-              </div>
-            </div>
-          )}
+          {/* Current stage text */}
+          <p className="text-lg text-gray-300">
+            {progressStep || 'Getting started...'}
+          </p>
         </div>
       </div>
     );
@@ -1182,50 +1115,51 @@ export default function CreateAd() {
                   );
                 })}
               </div>
-              
-              {/* Video preview modal */}
-              {previewingVideo && (
-                <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setPreviewingVideo(null)}>
-                  <div className="relative max-w-4xl max-h-full">
-                    <video 
-                      src={previewingVideo.startsWith('b-roll/') ? `/api/serve-broll/${previewingVideo.replace('b-roll/', '')}` : previewingVideo}
-                      className="w-full h-auto max-h-[80vh] rounded-lg"
-                      controls
-                      autoPlay
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <button
-                      className="absolute top-2 right-2 w-8 h-8 bg-black/70 rounded-full flex items-center justify-center text-white hover:bg-black/90 transition-colors"
-                      onClick={() => setPreviewingVideo(null)}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              )}
 
-              {/* Image preview modal */}
-              {previewingImage && (
-                <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setPreviewingImage(null)}>
-                  <div className="relative max-w-4xl max-h-full">
-                    <img 
-                      src={previewingImage}
-                      alt="Preview"
-                      className="w-full h-auto max-h-[90vh] rounded-lg object-contain"
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    <button
-                      className="absolute top-2 right-2 w-8 h-8 bg-black/70 rounded-full flex items-center justify-center text-white hover:bg-black/90 transition-colors"
-                      onClick={() => setPreviewingImage(null)}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </div>
+
+        {/* Image preview modal */}
+        {previewingImage && (
+          <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setPreviewingImage(null)}>
+            <div className="relative max-w-4xl max-h-full">
+              <img 
+                src={previewingImage}
+                alt="Preview"
+                className="w-full h-auto max-h-[90vh] rounded-lg object-contain"
+                onClick={(e) => e.stopPropagation()}
+              />
+              <button
+                className="absolute top-2 right-2 w-8 h-8 bg-black/70 rounded-full flex items-center justify-center text-white hover:bg-black/90 transition-colors"
+                onClick={() => setPreviewingImage(null)}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Video preview modal */}
+        {previewingVideo && (
+          <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setPreviewingVideo(null)}>
+            <div className="relative max-w-4xl max-h-full">
+              <video 
+                src={previewingVideo.startsWith('b-roll/') ? `/api/serve-broll/${previewingVideo.replace('b-roll/', '')}` : previewingVideo}
+                className="w-full h-auto max-h-[80vh] rounded-lg"
+                controls
+                autoPlay
+                onClick={(e) => e.stopPropagation()}
+              />
+              <button
+                className="absolute top-2 right-2 w-8 h-8 bg-black/70 rounded-full flex items-center justify-center text-white hover:bg-black/90 transition-colors"
+                onClick={() => setPreviewingVideo(null)}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Product Details */}
         <div className="card mb-8">

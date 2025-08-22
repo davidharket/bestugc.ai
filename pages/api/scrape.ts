@@ -95,6 +95,7 @@ const getFileExtension = (url: string): string => { try { return path.extname(ne
 const captureScreenshots = async (pageUrl: string, uploadPath: string, scrapeId: string): Promise<string[]> => {
   const screenshots: string[] = [];
   let browser = null;
+  let configs: any[] = [];
   
   try {
     console.log('[Scraper] Starting screenshot capture...');
@@ -112,13 +113,24 @@ const captureScreenshots = async (pageUrl: string, uploadPath: string, scrapeId:
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
     });
     
-    // Screenshot configurations
-    const configs = [
-      { url: fullUrl, viewport: { width: 1200, height: 800 }, filename: 'screenshot-desktop-full.png' },
-      { url: fullUrl, viewport: { width: 375, height: 667 }, filename: 'screenshot-mobile-full.png' },
-      { url: baseUrl, viewport: { width: 1200, height: 800 }, filename: 'screenshot-desktop-base.png' },
-      { url: baseUrl, viewport: { width: 375, height: 667 }, filename: 'screenshot-mobile-base.png' }
-    ];
+    // Screenshot configurations - avoid duplicates when fullUrl equals baseUrl
+    const isBaseUrlOnly = fullUrl === baseUrl || fullUrl === `${baseUrl}/`;
+    
+    if (isBaseUrlOnly) {
+      // Only take base screenshots if the provided URL is just the base domain
+      configs = [
+        { url: baseUrl, viewport: { width: 1200, height: 800 }, filename: 'screenshot-desktop-base.png' },
+        { url: baseUrl, viewport: { width: 375, height: 667 }, filename: 'screenshot-mobile-base.png' }
+      ];
+    } else {
+      // Take both full and base screenshots for specific product pages
+      configs = [
+        { url: fullUrl, viewport: { width: 1200, height: 800 }, filename: 'screenshot-desktop-full.png' },
+        { url: fullUrl, viewport: { width: 375, height: 667 }, filename: 'screenshot-mobile-full.png' },
+        { url: baseUrl, viewport: { width: 1200, height: 800 }, filename: 'screenshot-desktop-base.png' },
+        { url: baseUrl, viewport: { width: 375, height: 667 }, filename: 'screenshot-mobile-base.png' }
+      ];
+    }
     
     // Capture screenshots
     for (const config of configs) {
@@ -128,14 +140,14 @@ const captureScreenshots = async (pageUrl: string, uploadPath: string, scrapeId:
         const page = await context.newPage();
         await page.setViewportSize(config.viewport);
         
-        // Navigate with timeout
+        // Navigate with shorter timeout
         await page.goto(config.url, { 
-          waitUntil: 'networkidle', 
-          timeout: 30000 
+          waitUntil: 'domcontentloaded', 
+          timeout: 15000 
         });
         
-        // Wait a bit for dynamic content
-        await page.waitForTimeout(2000);
+        // Wait briefly for dynamic content
+        await page.waitForTimeout(1000);
         
         // Take screenshot of viewport only (hero section)
         const screenshotPath = path.join(uploadPath, config.filename);
@@ -167,9 +179,12 @@ const captureScreenshots = async (pageUrl: string, uploadPath: string, scrapeId:
     }
   }
   
-  console.log(`[Scraper] Screenshot capture completed. Captured ${screenshots.length}/4 screenshots`);
+  console.log(`[Scraper] Screenshot capture completed. Captured ${screenshots.length}/${configs.length} screenshots`);
   return screenshots;
 };
+
+// Global map to track active scrapes and prevent duplicates
+const activeScrapes = new Map<string, Promise<any>>();
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -177,11 +192,56 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { url: pageUrl } = req.body;
   if (!pageUrl || typeof pageUrl !== 'string') return res.status(400).json({ error: 'Missing or invalid url' });
 
+  // Check if this URL is already being scraped
+  if (activeScrapes.has(pageUrl)) {
+    console.log(`[Scraper] Duplicate request detected for ${pageUrl}, waiting for existing scrape...`);
+    try {
+      const result = await activeScrapes.get(pageUrl);
+      if (!res.headersSent) {
+        res.status(200).json(result);
+      }
+      return;
+    } catch (error: any) {
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to scrape page', details: error.message });
+      }
+      return;
+    }
+  }
+
   const startTime = Date.now();
-  console.log(`[Scraper] Starting axios scrape for: ${pageUrl}`);
+  const scrapeTimeout = 90000; // 90 seconds max
+  console.log(`[Scraper] Starting scrape for: ${pageUrl}`);
+
+  // Create the scraping promise
+  const scrapePromise = performScraping(pageUrl, startTime);
+  activeScrapes.set(pageUrl, scrapePromise);
+
+  // Create a timeout promise
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error('Scrape timeout after 90 seconds')), scrapeTimeout);
+  });
 
   try {
-    const { data: html } = await axios.get(pageUrl, { timeout: 30000, headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36' } });
+    // Race the scraping operation against the timeout
+    const result = await Promise.race([scrapePromise, timeoutPromise]);
+    if (!res.headersSent) {
+      res.status(200).json(result);
+    }
+  } catch (error: any) {
+    console.error('[Scraper] Scraping failed:', error.message);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to scrape page', details: error.message });
+    }
+  } finally {
+    // Clean up the active scrape
+    activeScrapes.delete(pageUrl);
+  }
+}
+
+async function performScraping(pageUrl: string, startTime: number) {
+  try {
+    const { data: html } = await axios.get(pageUrl, { timeout: 15000, headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36' } });
     const $ = cheerio.load(html);
 
     console.log('[Scraper] Extracting text and product name...');
@@ -197,43 +257,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const screenshotPromise = captureScreenshots(pageUrl, baseUploadPath, scrapeId);
 
     const downloadedImages: string[] = [];
-    const processedUrls = new Set<string>();
-    const imageLimit = 10;
-    const imageElements = $('img').get();
-    console.log(`[Scraper] Found ${imageElements.length} image elements. Processing up to ${imageLimit}...`);
-
-    for (const el of imageElements) {
-        if (downloadedImages.length >= imageLimit) {
-            console.log('[Scraper] Reached image limit. Stopping image processing.');
-            break;
-        }
-
-        // ✅ THE FIX: Check for lazy-loading attributes first!
-        const imageSrc = $(el).attr('data-src') || $(el).attr('data-lazy-src') || $(el).attr('src');
-
-        if (imageSrc && (imageSrc.startsWith('http') || imageSrc.startsWith('/'))) {
-            try {
-                const absoluteSrc = new URL(imageSrc, pageUrl).toString();
-                if (processedUrls.has(absoluteSrc)) continue;
-                processedUrls.add(absoluteSrc);
-
-                const imageResponse = await axios.get(absoluteSrc, { responseType: 'arraybuffer', timeout: 30000 });
-                if (imageResponse.headers['content-length'] && parseInt(imageResponse.headers['content-length']) < 20000) continue;
-
-                const filename = `${crypto.randomBytes(6).toString('hex')}${getFileExtension(absoluteSrc)}`;
-                fs.writeFileSync(path.join(baseUploadPath, filename), imageResponse.data);
-                downloadedImages.push(`/uploads/scraped/${scrapeId}/${filename}`);
-                console.log(`[Scraper] Downloaded image ${downloadedImages.length}/${imageLimit}: ${filename}`); // ✅ Added success log
-            } catch (imgError: any) {
-                // ✅ Improved error logging
-                console.warn(`[Scraper] Could not download image from ${imageSrc}: ${imgError.message}`);
-            }
-        }
-    }
-
-    // Video scraping logic (no changes needed here, it was already working)
     const downloadedVideos: string[] = [];
+    const processedUrls = new Set<string>();
+    const imageLimit = 8;
     const videoLimit = 3;
+    const maxVideoSize = 20 * 1024 * 1024; // 20MB
+
+    // Process videos first
+    console.log('[Scraper] Processing videos...');
     const videoElements = $('video source[src], video[src]').get();
     for (const el of videoElements) {
         if (downloadedVideos.length >= videoLimit) break;
@@ -243,16 +274,116 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 const absoluteSrc = new URL(src, pageUrl).toString();
                 if (processedUrls.has(absoluteSrc)) continue;
                 processedUrls.add(absoluteSrc);
+                
+                // Check video size first
+                const headResponse = await axios.head(absoluteSrc, { timeout: 5000 });
+                const contentLength = parseInt(headResponse.headers['content-length'] || '0');
+                if (contentLength > maxVideoSize) {
+                    console.log(`[Scraper] Skipping large video (${(contentLength / 1024 / 1024).toFixed(1)}MB): ${src}`);
+                    continue;
+                }
+                
                 const tempFilename = `temp_${crypto.randomBytes(6).toString('hex')}.mp4`;
                 const finalFilename = `${crypto.randomBytes(6).toString('hex')}.mp4`;
                 const tempPath = path.join(baseUploadPath, tempFilename);
                 const finalPath = path.join(baseUploadPath, finalFilename);
-                const videoResponse = await axios.get(absoluteSrc, { responseType: 'arraybuffer', timeout: 30000 });
+                const videoResponse = await axios.get(absoluteSrc, { responseType: 'arraybuffer', timeout: 15000 });
                 fs.writeFileSync(tempPath, videoResponse.data);
                 await reencodeVideo(tempPath, finalPath);
                 downloadedVideos.push(`/uploads/scraped/${scrapeId}/${finalFilename}`);
-            } catch (vidError) { console.warn(`[Scraper] Failed to process video ${src}:`, vidError); }
+                console.log(`[Scraper] Downloaded video ${downloadedVideos.length}/${videoLimit}: ${finalFilename}`);
+            } catch (vidError) { 
+                console.warn(`[Scraper] Failed to process video ${src}:`, vidError); 
+            }
         }
+    }
+
+    // Process images after videos
+    console.log('[Scraper] Processing images...');
+    const imageElements = $('img').get();
+    console.log(`[Scraper] Found ${imageElements.length} image elements. Processing up to ${imageLimit}...`);
+
+    // Process images sequentially to avoid counting failed images towards limit
+    let processedCount = 0;
+    
+    for (const el of imageElements) {
+      if (downloadedImages.length >= imageLimit) {
+        console.log(`[Scraper] Reached image limit (${imageLimit}). Stopping image processing.`);
+        break;
+      }
+
+      processedCount++;
+      if (processedCount > imageElements.length * 0.8) {
+        console.log('[Scraper] Processed 80% of images, stopping to avoid excessive processing.');
+        break;
+      }
+
+      const imageSrc = $(el).attr('data-src') || $(el).attr('data-lazy-src') || $(el).attr('src');
+      if (!imageSrc) continue;
+
+      // Skip obvious non-product images
+      if (imageSrc.includes('/flags/') || imageSrc.includes('icon') || imageSrc.includes('logo')) {
+        console.log(`[Scraper] Skipping non-product image: ${imageSrc}`);
+        continue;
+      }
+
+      // Log the found image source for debugging
+      console.log(`[Scraper] Found image src: ${imageSrc}`);
+
+      try {
+        let absoluteSrc: string;
+        
+        // Handle different URL formats
+        if (imageSrc.startsWith('http')) {
+          absoluteSrc = imageSrc;
+        } else if (imageSrc.startsWith('//')) {
+          absoluteSrc = `https:${imageSrc}`;
+        } else if (imageSrc.startsWith('/')) {
+          const baseUrl = new URL(pageUrl);
+          absoluteSrc = `${baseUrl.origin}${imageSrc}`;
+        } else {
+          // Relative URL
+          absoluteSrc = new URL(imageSrc, pageUrl).toString();
+        }
+
+        console.log(`[Scraper] Resolved absolute URL: ${absoluteSrc}`);
+
+        if (processedUrls.has(absoluteSrc)) {
+          console.log(`[Scraper] Skipping duplicate URL: ${absoluteSrc}`);
+          continue;
+        }
+        processedUrls.add(absoluteSrc);
+
+        const imageResponse = await axios.get(absoluteSrc, { 
+          responseType: 'arraybuffer', 
+          timeout: 12000,
+          headers: { 
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
+          }
+        });
+        
+        // Check if response has actual image data
+        if (!imageResponse.data || imageResponse.data.byteLength < 1000) {
+          console.log(`[Scraper] Image too small or empty: ${absoluteSrc}`);
+          continue; // Continue to next image instead of counting this as processed
+        }
+
+        // Relaxed size filter - images smaller than 5KB are likely icons/placeholders
+        const contentLength = parseInt(imageResponse.headers['content-length'] || '0') || imageResponse.data.byteLength;
+        if (contentLength < 5000) {
+          console.log(`[Scraper] Skipping small image (${contentLength} bytes): ${absoluteSrc}`);
+          continue; // Continue to next image instead of counting this as processed
+        }
+
+        const filename = `${crypto.randomBytes(6).toString('hex')}${getFileExtension(absoluteSrc)}`;
+        fs.writeFileSync(path.join(baseUploadPath, filename), imageResponse.data);
+        downloadedImages.push(`/uploads/scraped/${scrapeId}/${filename}`);
+        console.log(`[Scraper] ✅ Downloaded image ${downloadedImages.length}/${imageLimit}: ${filename} (${contentLength} bytes)`);
+        
+      } catch (imgError: any) {
+        console.warn(`[Scraper] Could not download image from ${imageSrc}: ${imgError.message}`);
+        // Don't continue here - network errors shouldn't skip the slot
+      }
     }
 
     // Wait for screenshots to complete
@@ -261,16 +392,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const endTime = Date.now();
     console.log(`[Scraper] Scraping finished in ${(endTime - startTime) / 1000} seconds.`);
 
-    res.status(200).json({ 
+    return {
       text: cleanedText,
       images: downloadedImages,
       videos: downloadedVideos,
       screenshots: screenshots,
       productName: rawProductName,
-    });
+    };
 
   } catch (error: any) {
     console.error('[Scraper] Scraping failed:', error.message);
-    res.status(500).json({ error: 'Failed to scrape page', details: error.message });
+    throw error;
   }
 }

@@ -110,7 +110,7 @@ const AdCard = React.memo(function AdCard({ ad, onDelete, onCancel, onRetry, use
               src={currentVideoUrl}
               className="w-full h-full object-cover"
               playsInline
-              autoPlay={false} // Don't autoplay, just show first frame
+              autoPlay={userPlan === 'FREE'} // Autoplay for free users, just show first frame for paid users
               loop={userPlan === 'FREE'}
               muted={isMuted}
               controls={userPlan !== 'FREE'}
@@ -124,7 +124,7 @@ const AdCard = React.memo(function AdCard({ ad, onDelete, onCancel, onRetry, use
               onEnded={() => setIsPlaying(false)}
             />
 
-            {/* Play button overlay for free users */}
+            {/* Play button overlay for free users - only show if video is paused */}
             {userPlan === 'FREE' && !isPlaying && hasVideoLoaded && (
               <button
                 onClick={togglePlay}

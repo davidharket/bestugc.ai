@@ -260,6 +260,28 @@ export default function RenderAdPage() {
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white mb-2">Preview Video - Step 4</h1>
+          <p className="text-gray-400 mb-4">Preview how your avatar, music, and fonts will look in the final video</p>
+          
+          {/* Preview Information Card */}
+          <div className="bg-blue-900/20 border border-blue-600/40 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              <div className="text-blue-300">
+                <div className="font-medium text-sm mb-1">Video Preview</div>
+                <div className="text-xs space-y-1">
+                  <div>• This is a <strong>preview render</strong> showing avatar positioning, music, and font styling</div>
+                  <div>• Final video quality and lip-sync accuracy will be higher in the production render</div>
+                  <div>• Click "Create Final Video" to generate the high-quality version for download</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         {isAnythingProcessing && (
           <div className="flex justify-center">
             <div className="bg-gray-900 border border-gray-800 rounded-[15px] p-8 w-full max-w-6xl">

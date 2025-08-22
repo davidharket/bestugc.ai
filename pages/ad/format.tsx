@@ -76,7 +76,7 @@ export default function FormatAd() {
   const [duration, setDuration] = useState(adData.duration || 15)
   const [language, setLanguage] = useState(adData.language || 'no')
   const [audience, setAudience] = useState(adData.audience || '')
-  const [userCredits, setUserCredits] = useState<number>(0)
+  const [userCredits, setUserCredits] = useState<number | null>(null)
   const [formatSelectionOrder, setFormatSelectionOrder] = useState<string[]>([adData.format || '9:16'])
 
   const [aiAudienceSuggestions, setAiAudienceSuggestions] = useState<string[]>([])
@@ -98,7 +98,7 @@ export default function FormatAd() {
       } else {
         // Check if adding this format would require dual format (15 credits)
         const wouldBeDualFormat = prev.length >= 1
-        if (wouldBeDualFormat && userCredits < 15) {
+        if (wouldBeDualFormat && (userCredits === null || userCredits < 15)) {
           // Insufficient credits for dual format - replace oldest selected format
           const oldestFormat = formatSelectionOrder[0]
           const newFormats = prev.filter(f => f !== oldestFormat).concat(formatValue)
@@ -235,7 +235,7 @@ export default function FormatAd() {
 
 
           {/* No Credits Warning */}
-          {userCredits < 10 && (
+          {userCredits !== null && userCredits < 10 && (
             <div className="bg-red-600/20 border border-red-600/40 rounded-lg p-4">
               <div className="flex items-start gap-3">
                 <svg className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -244,7 +244,7 @@ export default function FormatAd() {
                 <div className="text-red-300">
                   <div className="font-medium text-sm mb-1">Insufficient Credits</div>
                   <div className="text-xs space-y-1">
-                    <div>• You have {userCredits} credits, but need at least 10 credits to create a video</div>
+                    <div>• You have {userCredits || 0} credits, but need at least 10 credits to create a video</div>
                     <div>• Please purchase more credits to continue</div>
                   </div>
                 </div>
@@ -421,14 +421,14 @@ export default function FormatAd() {
             Back to Asset Selection
           </button>
           <button 
-            className={`btn-primary ${(!audience.trim() || userCredits < 10 || (() => {
+            className={`btn-primary ${(!audience.trim() || (userCredits !== null && userCredits < 10) || (() => {
               const hasAssetData = adData.selectedImages !== undefined || adData.selectedVideos !== undefined || adData.selectedBRoll !== undefined;
               const totalAssets = (adData.selectedImages || []).length + (adData.selectedVideos || []).length + (adData.selectedBRoll || []).length;
               const requiredScenes = duration === 15 ? 2 : duration === 30 ? 4 : 8;
               return hasAssetData && totalAssets < requiredScenes && totalAssets > 0;
             })()) ? 'opacity-50 cursor-not-allowed' : ''}`}
             onClick={() => router.push('/ad/script')}
-            disabled={!audience.trim() || userCredits < 10 || (() => {
+            disabled={!audience.trim() || (userCredits !== null && userCredits < 10) || (() => {
               const hasAssetData = adData.selectedImages !== undefined || adData.selectedVideos !== undefined || adData.selectedBRoll !== undefined;
               const totalAssets = (adData.selectedImages || []).length + (adData.selectedVideos || []).length + (adData.selectedBRoll || []).length;
               const requiredScenes = duration === 15 ? 2 : duration === 30 ? 4 : 8;

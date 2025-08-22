@@ -182,6 +182,154 @@ export const TEMPLATE_LIBRARY: VideoTemplate[] = [
       { layout: 'small-cutout-bottom-right', durationWeight: 3 },
     ]),
   },
+  // NEW STORYTELLING FLOW TEMPLATES
+  {
+    id: 'fullscreen-opener',
+    name: 'Full Screen Opener',
+    description: 'Start with full avatar hook, transition to corner product showcase.',
+    timeline: generateAssetIndices([
+      { layout: 'fullscreen-avatar', durationWeight: 4 },
+      { layout: 'small-cutout-bottom-right', durationWeight: 4 },
+      { layout: 'small-cutout-bottom-left', durationWeight: 3 },
+      { layout: 'small-cutout-center', durationWeight: 3 },
+    ]),
+  },
+  {
+    id: 'product-focus',
+    name: 'Product Focus',
+    description: 'Lead with product showcase, add avatar commentary throughout.',
+    timeline: generateAssetIndices([
+      { layout: 'fullscreen-asset', durationWeight: 4 },
+      { layout: 'small-cutout-bottom-right', durationWeight: 4 },
+      { layout: 'small-cutout-top-left', durationWeight: 3 },
+      { layout: 'fullscreen-avatar', durationWeight: 3 },
+    ]),
+  },
+  {
+    id: 'corner-flip',
+    name: 'Corner Flip',
+    description: 'Left side introduction, flip to right side for solution and CTA.',
+    timeline: generateAssetIndices([
+      { layout: 'small-cutout-bottom-left', durationWeight: 4 },
+      { layout: 'small-cutout-top-left', durationWeight: 3 },
+      { layout: 'small-cutout-bottom-right', durationWeight: 4 },
+      { layout: 'small-cutout-top-right', durationWeight: 3 },
+    ]),
+  },
+  // NEW DYNAMIC FLOW TEMPLATES
+  {
+    id: 'tilted-energy',
+    name: 'Tilted Energy',
+    description: 'Dynamic tilted movement with strong fullscreen finish.',
+    timeline: generateAssetIndices([
+      { layout: 'small-cutout-center-tilted-left', durationWeight: 4 },
+      { layout: 'small-cutout-center-tilted-right', durationWeight: 4 },
+      { layout: 'small-cutout-bottom-left', durationWeight: 3 },
+      { layout: 'fullscreen-avatar', durationWeight: 3 },
+    ]),
+  },
+  {
+    id: 'corner-journey',
+    name: 'Corner Journey',
+    description: 'Complete corner exploration from top-left to bottom-left.',
+    timeline: generateAssetIndices([
+      { layout: 'small-cutout-top-left', durationWeight: 3 },
+      { layout: 'small-cutout-top-right', durationWeight: 4 },
+      { layout: 'small-cutout-bottom-right', durationWeight: 4 },
+      { layout: 'small-cutout-bottom-left', durationWeight: 3 },
+    ]),
+  },
+  {
+    id: 'build-to-fullscreen',
+    name: 'Build to Fullscreen',
+    description: 'Progressive size increase ending with powerful fullscreen avatar.',
+    timeline: generateAssetIndices([
+      { layout: 'small-cutout-center', durationWeight: 3 },
+      { layout: 'small-cutout-bottom-right-no-padding', durationWeight: 4 },
+      { layout: 'cutout-center-over-asset', durationWeight: 4 },
+      { layout: 'fullscreen-avatar', durationWeight: 3 },
+    ]),
+  },
+  // NEW PROFESSIONAL TEMPLATES
+  {
+    id: 'clean-professional',
+    name: 'Clean Professional',
+    description: 'Business-like flow with context introduction and confident close.',
+    timeline: generateAssetIndices([
+      { layout: 'avatar-with-corner-asset', durationWeight: 4 },
+      { layout: 'small-cutout-bottom-right', durationWeight: 4 },
+      { layout: 'small-cutout-bottom-left', durationWeight: 3 },
+      { layout: 'fullscreen-avatar', durationWeight: 3 },
+    ]),
+  },
+  {
+    id: 'split-screen-story',
+    name: 'Split Screen Story',
+    description: 'Narrative structure with split-screen setup and avatar resolution.',
+    timeline: generateAssetIndices([
+      { layout: 'split-screen-top-asset', durationWeight: 4 },
+      { layout: 'small-cutout-bottom-left', durationWeight: 3 },
+      { layout: 'small-cutout-bottom-right', durationWeight: 4 },
+      { layout: 'fullscreen-avatar', durationWeight: 3 },
+    ]),
+  },
+  // NEW CREATIVE TEMPLATES
+  {
+    id: 'asset-corner-focus',
+    name: 'Asset Corner Focus',
+    description: 'Avatar introduction leading to product corner reveal and showcase.',
+    timeline: generateAssetIndices([
+      { layout: 'small-cutout-bottom-right', durationWeight: 3 },
+      { layout: 'avatar-with-corner-asset', durationWeight: 4 },
+      { layout: 'small-cutout-top-left', durationWeight: 4 },
+      { layout: 'fullscreen-asset', durationWeight: 3 },
+    ]),
+  },
+  // NEW FULLSCREEN ASSET FOCUSED TEMPLATES
+  {
+    id: 'fullscreen-alternating',
+    name: 'Fullscreen Alternating',
+    description: 'Alternating between fullscreen avatar and fullscreen product focus.',
+    timeline: generateAssetIndices([
+      { layout: 'fullscreen-avatar', durationWeight: 4 },
+      { layout: 'fullscreen-asset', durationWeight: 4 },
+      { layout: 'small-cutout-center', durationWeight: 3 },
+      { layout: 'fullscreen-asset', durationWeight: 3 },
+    ]),
+  },
+  {
+    id: 'asset-showcase',
+    name: 'Asset Showcase',
+    description: 'Heavy product focus with fullscreen assets and minimal avatar.',
+    timeline: generateAssetIndices([
+      { layout: 'fullscreen-asset', durationWeight: 4 },
+      { layout: 'fullscreen-asset', durationWeight: 4 },
+      { layout: 'small-cutout-bottom-left', durationWeight: 3 },
+      { layout: 'fullscreen-asset', durationWeight: 3 },
+    ]),
+  },
+  {
+    id: 'product-heavy',
+    name: 'Product Heavy',
+    description: 'Maximum product visibility with fullscreen assets dominating the flow.',
+    timeline: generateAssetIndices([
+      { layout: 'small-cutout-bottom-right', durationWeight: 3 },
+      { layout: 'fullscreen-asset', durationWeight: 4 },
+      { layout: 'fullscreen-asset', durationWeight: 4 },
+      { layout: 'small-cutout-center', durationWeight: 3 },
+    ]),
+  },
+  {
+    id: 'immersive-product',
+    name: 'Immersive Product',
+    description: 'Immersive product experience with strategic avatar commentary.',
+    timeline: generateAssetIndices([
+      { layout: 'fullscreen-asset', durationWeight: 4 },
+      { layout: 'small-cutout-center', durationWeight: 3 },
+      { layout: 'fullscreen-asset', durationWeight: 4 },
+      { layout: 'fullscreen-avatar', durationWeight: 3 },
+    ]),
+  },
 ];
 
 // A helper function to easily find a template by its ID, now correctly EXPORTED.

@@ -16,6 +16,99 @@ import MusicUploader from '../../components/MusicUploader';
 import customMusicManager, { CustomMusic } from '../../lib/custom-music-loader';
 import customFontManager, { CustomFont } from '../../lib/custom-font-loader';
 
+// Video Thumbnail Component for generating thumbnails without loading full video
+const VideoThumbnail: React.FC<{ src: string; className: string; index: number }> = ({ src, className, index }) => {
+  const [thumbnailUrl, setThumbnailUrl] = React.useState<string>('');
+  const [showVideo, setShowVideo] = React.useState(false);
+  const videoRef = React.useRef<HTMLVideoElement>(null);
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+
+  React.useEffect(() => {
+    const generateThumbnail = () => {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      if (!video || !canvas) return;
+
+      const context = canvas.getContext('2d');
+      if (!context) return;
+
+      // Set canvas size to match video aspect ratio
+      canvas.width = 160;
+      canvas.height = 160;
+
+      // Draw the current frame to canvas
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // Convert canvas to blob URL
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          setThumbnailUrl(url);
+        }
+      }, 'image/jpeg', 0.8);
+    };
+
+    const handleLoadedData = () => {
+      const video = videoRef.current;
+      if (video) {
+        // Seek to 1 second or 10% of video duration, whichever is smaller
+        video.currentTime = Math.min(1, video.duration * 0.1);
+      }
+    };
+
+    const handleSeeked = () => {
+      generateThumbnail();
+    };
+
+    const video = videoRef.current;
+    if (video) {
+      video.addEventListener('loadeddata', handleLoadedData);
+      video.addEventListener('seeked', handleSeeked);
+
+      return () => {
+        video.removeEventListener('loadeddata', handleLoadedData);
+        video.removeEventListener('seeked', handleSeeked);
+        if (thumbnailUrl) {
+          URL.revokeObjectURL(thumbnailUrl);
+        }
+      };
+    }
+  }, [src]);
+
+  return (
+    <>
+      {/* Hidden video for thumbnail generation */}
+      <video
+        ref={videoRef}
+        src={src}
+        muted
+        preload="metadata"
+        style={{ display: 'none' }}
+        crossOrigin="anonymous"
+      />
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
+      
+      {/* Display thumbnail or fallback */}
+      {thumbnailUrl ? (
+        <img 
+          src={thumbnailUrl} 
+          alt={`Video thumbnail ${index + 1}`}
+          className={className}
+        />
+      ) : (
+        <div className={`${className} bg-gray-800 flex items-center justify-center`}>
+          <div className="text-center">
+            <svg className="w-8 h-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.5a2.5 2.5 0 010 5H9m4.5-5H15a2.5 2.5 0 010 5h-1.5m-4-5v5" />
+            </svg>
+            <span className="text-xs text-gray-400">Video</span>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
 // UPDATED: Added the missing 5 music tracks from your public/music directory
 const BACKGROUND_MUSIC_OPTIONS = [
   { id: 'none', name: 'No Background Music', url: '', description: 'Pure voice focus' },
@@ -512,13 +605,10 @@ export default function SelectTemplatePage() {
                                                     {/* Asset Media */}
                                                     <div className="relative w-full h-full">
                                                         {isVideo ? (
-                                                            <video
+                                                            <VideoThumbnail
                                                                 src={asset}
                                                                 className="w-full h-full object-cover"
-                                                                muted
-                                                                loop
-                                                                playsInline
-                                                                poster={asset.replace('.mp4', '-thumbnail.jpg')}
+                                                                index={index}
                                                             />
                                                         ) : (
                                                             <img
@@ -582,9 +672,6 @@ export default function SelectTemplatePage() {
                                                 </svg>
                                                 Reset Order
                                             </button>
-                                            <div className="text-xs text-gray-500">
-                                                Drag assets to reposition • First asset appears first in your video
-                                            </div>
                                         </div>
                                         <div className="text-xs text-gray-400">
                                             {selectedTemplate && (
