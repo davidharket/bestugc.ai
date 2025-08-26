@@ -14,7 +14,8 @@ yarn-error.log*
 .env.development.local
 .env.test.local
 .env.production.local
-
+.tmp
+temp/*
 # Database
 prisma/dev.db
 prisma/dev.db-journal
