@@ -7,6 +7,7 @@ import { CreditsPopup } from './CreditsPopup';
 import { useRefreshableSession } from '../lib/session-refresh';
 import { useAffiliateTracking } from '../lib/affiliate-middleware';
 import { useAffiliateAttribution } from '../hooks/useAffiliateAttribution';
+import BarLoader from './BarLoader';
 
 export const Layout = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
@@ -59,8 +60,15 @@ export const Layout = ({ children }: { children: ReactNode }) => {
     };
   }, [refreshUserData, triggerFrequentPolling, isRefreshing]); // Added isRefreshing to dependencies
 
-  // Handle router changes - simplified to prevent tab switching issues
+  // Handle router changes - disabled on test pages and ad/images pipelines to prevent tab switching issues
   useEffect(() => {
+    // Skip router event handling on test pages, ad pipeline, and images pipeline entirely
+    if (router.pathname.startsWith('/test') || 
+        router.pathname.startsWith('/ad/') || 
+        router.pathname.startsWith('/images/')) {
+      return;
+    }
+
     const handleRouteChangeStart = (url: string) => {
       // Only show loader for actual navigation, not tab switching
       if (document.hidden) return; // Don't trigger on hidden tab
@@ -75,10 +83,15 @@ export const Layout = ({ children }: { children: ReactNode }) => {
         return currentBase !== newBase;
       })();
       
-      // Very conservative loader - only for different pages
+      // Very conservative loader - only for different pages with delay
       if (isActualRouteChange && isDifferentPage) {
         setIsTransitioning(true);
-        setShowExtendedLoader(true);
+        // Only show loader if navigation takes longer than 300ms
+        setTimeout(() => {
+          if (isTransitioning) {
+            setShowExtendedLoader(true);
+          }
+        }, 300);
       }
     };
 
@@ -112,7 +125,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
       router.events.off('routeChangeError', handleRouteChangeError);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [router.asPath]); // Only depend on actual path, not showExtendedLoader
+  }, [router.asPath, router.pathname]); // Added router.pathname to dependencies
 
   interface UserSession {
     name?: string | null;
@@ -130,27 +143,12 @@ export const Layout = ({ children }: { children: ReactNode }) => {
     plan: freshPlan !== null ? freshPlan : (baseUser?.plan || 'FREE')
   };
 
-  // Show fullscreen loading when session is loading or during transitions
-  if (status === 'loading' || showExtendedLoader) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin border-4 border-orange-500 border-t-transparent rounded-full w-12 h-12"></div>
-          {showExtendedLoader && (
-            <div className="text-gray-400 text-sm animate-pulse">
-              {isTransitioning ? 'Loading...' : 'Preparing dashboard...'}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-black text-white">
 
       {/* Navigation Bar */}
-      <header className="fixed top-6 left-14 right-14 z-50 px-4 sm:px-6 lg:px-8">
+      <header className="fixed top-6 left-4 right-4 md:left-14 md:right-14 z-50 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
           <nav className="bg-black/80 backdrop-blur-md border border-gray-700 rounded-2xl px-6 py-3">
             <div className="flex items-center justify-between h-15">
@@ -171,6 +169,9 @@ export const Layout = ({ children }: { children: ReactNode }) => {
                       </Link>
                       <Link href="/creations" className={`${router.pathname === '/creations' ? 'text-orange-400 bg-gray-900' : 'text-gray-300 hover:text-orange-400 '} px-3 py-2 rounded-md text-sm font-normal transition-all duration-200`}>
                         Creations
+                      </Link>
+                      <Link href="/images" className={`${router.pathname === '/images' || router.pathname.startsWith('/images/') ? 'text-orange-400 bg-gray-900' : 'text-gray-300 hover:text-orange-400 '} px-3 py-2 rounded-md text-sm font-normal transition-all duration-200`}>
+                        Images
                       </Link>
                       <Link href="/affiliate-dashboard" className={`${router.pathname === '/affiliate-dashboard' ? 'text-orange-400 bg-gray-900' : 'text-gray-300 hover:text-orange-400 '} px-3 py-2 rounded-md text-sm font-normal transition-all duration-200`}>
                         Affiliate
@@ -219,12 +220,12 @@ export const Layout = ({ children }: { children: ReactNode }) => {
 
                   {/* Create Button */}
                   {(() => {
-                    const isInAdCreationPipeline = router.pathname.startsWith('/ad/');
-                    return isInAdCreationPipeline ? (
+                    const isInCreationPipeline = router.pathname.startsWith('/ad/') || router.pathname.startsWith('/images/');
+                    return isInCreationPipeline ? (
                       <button 
                         disabled 
                         className="btn-primary px-6 py-3 text-sm flex items-center gap-2 rounded-[15px] opacity-50 cursor-not-allowed"
-                        title="Complete your current video creation to start a new one"
+                        title="Complete your current creation to start a new one"
                       >
                         <img src="/ai-star.svg" alt="AI" className="w-4 h-4" />
                         Create
@@ -279,6 +280,9 @@ export const Layout = ({ children }: { children: ReactNode }) => {
                     </Link>
                     <Link href="/creations" className={`block ${router.pathname === '/creations' ? 'text-orange-400 bg-gray-900' : 'text-gray-300 hover:text-orange-400 '} px-3 py-2 rounded-md text-base font-normal`}>
                       My Creations
+                    </Link>
+                    <Link href="/images" className={`block ${router.pathname === '/images' || router.pathname.startsWith('/images/') ? 'text-orange-400 bg-gray-900' : 'text-gray-300 hover:text-orange-400 '} px-3 py-2 rounded-md text-base font-normal`}>
+                      Images
                     </Link>
                     <Link href="/subscription" className={`block ${router.pathname === '/subscription' ? 'text-orange-400 bg-gray-900' : 'text-gray-300 hover:text-orange-400 '} px-3 py-2 rounded-md text-base font-normal`}>
                       Account

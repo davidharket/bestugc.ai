@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Head from 'next/head'
 import Link from 'next/link'
+import { GetServerSidePropsContext } from 'next'
+import { getServerSession } from 'next-auth/next'
+import { authOptions } from '../api/auth/[...nextauth]'
 
 export default function VerifyEmailRequiredPage() {
   const router = useRouter()
@@ -107,4 +110,23 @@ export default function VerifyEmailRequiredPage() {
       </div>
     </>
   )
+}
+
+export async function getServerSideProps(context: GetServerSidePropsContext) {
+  // Check if user is already authenticated
+  const session = await getServerSession(context.req, context.res, authOptions);
+  
+  if (session) {
+    // User is already logged in, redirect to dashboard
+    return {
+      redirect: {
+        destination: '/dashboard',
+        permanent: false,
+      },
+    };
+  }
+
+  return {
+    props: {},
+  };
 }

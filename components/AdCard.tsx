@@ -2,6 +2,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { Ad } from '../types/Ad';
+import BarLoader from './BarLoader';
 
 const AdCard = React.memo(function AdCard({ ad, onDelete, onCancel, onRetry, userPlan }: { 
   ad: Ad; 
@@ -174,7 +175,7 @@ const AdCard = React.memo(function AdCard({ ad, onDelete, onCancel, onRetry, use
     if (ad.status === 'PENDING' || ad.status === 'RENDERING' || ad.status === 'QUEUED') {
       return (
         <div className={`relative rounded-t-[20px] overflow-hidden ${currentFormat === '4:5' ? 'aspect-[4/5]' : 'aspect-[9/16]'} bg-black flex items-center justify-center`}>
-          <div className="animate-spin border-4 border-orange-500 border-t-transparent rounded-full w-16 h-16"></div>
+          <BarLoader size="xl" />
         </div>
       );
     }

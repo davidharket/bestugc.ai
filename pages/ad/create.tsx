@@ -2,8 +2,13 @@ import { useRouter } from 'next/router'
 import { useEffect, useRef, useState } from 'react'
 import Head from 'next/head'
 import axios from 'axios'
+import { useSession, signIn } from 'next-auth/react'
+import { GetServerSideProps } from 'next'
+import { getServerSession } from 'next-auth/next'
+import { authOptions } from '../api/auth/[...nextauth]'
 import { useAdCreation, AdCreationData, OrderedAsset } from '../../components/AdCreationContext'
 import imageCompression from 'browser-image-compression'
+import BarLoader from '../../components/BarLoader'
 
 interface ScrapeResult {
   text: string
@@ -16,7 +21,31 @@ interface ScrapeResult {
 
 export default function CreateAd() {
   const router = useRouter()
+  const { data: session, status } = useSession()
   const { adData, setAdData } = useAdCreation()
+
+  // Authentication check
+  useEffect(() => {
+    if (status === 'loading') return // Still loading
+    if (status === 'unauthenticated') {
+      signIn()
+      return
+    }
+  }, [status])
+
+  // Show loading while authenticating
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <BarLoader size="lg" />
+      </div>
+    )
+  }
+
+  // Redirect if not authenticated
+  if (status === 'unauthenticated') {
+    return null
+  }
   const [productUrl, setProductUrl] = useState<string | null>(adData.productUrl || null)
   const [scrapeResult, setScrapeResult] = useState<ScrapeResult | null>(null)
   const [loading, setLoading] = useState(false)
@@ -157,13 +186,6 @@ export default function CreateAd() {
         const allNewScreenshots = res.data.screenshots || [];
         // Give time to see screenshot extraction
         await new Promise(resolve => setTimeout(resolve, 600));
-        
-        console.log('[CreateAd] Scraper response:', {
-          images: allNewImages.length,
-          videos: allNewVideos.length,
-          screenshots: allNewScreenshots.length,
-          screenshotUrls: allNewScreenshots
-        });
         
         // Keep selection arrays empty initially
         setSelectedImages([]);
@@ -555,7 +577,6 @@ export default function CreateAd() {
             
             try {
               fileToUpload = await imageCompression(file, options)
-              console.log(`Compressed ${file.name}: ${(file.size/1024/1024).toFixed(1)}MB → ${(fileToUpload.size/1024/1024).toFixed(1)}MB`)
             } catch (compressionError) {
               console.warn('Compression failed:', compressionError)
             }
@@ -753,21 +774,20 @@ export default function CreateAd() {
     }
   }, [showPromo, originalPrice, promoPrice])
 
-  // Loading Screen Component
+  // Loading Screen Component - Full Screen Overlay
   const LoadingScreen = () => {
     return (
-      <div className="h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-white mb-6">Analysing your link</h1>
+      <div className="fixed inset-0 bg-black text-white flex items-center justify-center z-50">
+        <div className="text-center max-w-4xl mx-auto px-6">
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-12 text-center whitespace-nowrap">Analysing your link</h1>
           
-          {/* Spinner */}
-          <div className="relative w-16 h-16 mx-auto mb-4">
-            <div className="absolute inset-0 border-4 border-gray-700 rounded-full"></div>
-            <div className="absolute inset-0 border-4 border-orange-500 border-t-gray-700 rounded-full animate-spin"></div>
+          {/* Loader */}
+          <div className="flex justify-center mb-12">
+            <BarLoader size="xl" />
           </div>
           
           {/* Current stage text */}
-          <p className="text-lg text-gray-300">
+          <p className="text-lg md:text-xl text-gray-300 leading-relaxed text-center">
             {progressStep || 'Getting started...'}
           </p>
         </div>
@@ -784,11 +804,11 @@ export default function CreateAd() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Describe your video</h1>
-          <p className="text-gray-400">Set up your product information and assets</p>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Describe your video</h1>
+          <p className="text-sm sm:text-base text-gray-400">Set up your product information and assets</p>
         </div>
 
         {/* Error Display */}
@@ -808,30 +828,34 @@ export default function CreateAd() {
           </p>
           
           {/* Asset Control Buttons */}
-          <div className="flex flex-wrap gap-3 mb-6">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-3 mb-6">
             <button 
-              className="btn-secondary text-sm" 
+              className="btn-secondary text-xs sm:text-sm px-3 sm:px-4 py-2" 
               onClick={handleSelectAllImages}
             >
-              Select all images
+              <span className="hidden sm:inline">Select all images</span>
+              <span className="sm:hidden">All images</span>
             </button>
             <button 
-              className="btn-secondary text-sm" 
+              className="btn-secondary text-xs sm:text-sm px-3 sm:px-4 py-2" 
               onClick={handleDeselectAllImages}
             >
-              Deselect all images
+              <span className="hidden sm:inline">Deselect all images</span>
+              <span className="sm:hidden">None</span>
             </button>
             <button 
-              className="btn-secondary text-sm" 
+              className="btn-secondary text-xs sm:text-sm px-3 sm:px-4 py-2" 
               onClick={handleSelectAllVideos}
             >
-              Select all videos
+              <span className="hidden sm:inline">Select all videos</span>
+              <span className="sm:hidden">All videos</span>
             </button>
             <button 
-              className="btn-secondary text-sm" 
+              className="btn-secondary text-xs sm:text-sm px-3 sm:px-4 py-2" 
               onClick={handleDeselectAllVideos}
             >
-              Deselect all videos
+              <span className="hidden sm:inline">Deselect all videos</span>
+              <span className="sm:hidden">None</span>
             </button>
             {bRollSuggestions.length > 0 && (
               <>
@@ -853,23 +877,27 @@ export default function CreateAd() {
           
           {/* Images */}
           <div className="mb-6">
-            <h3 className="text-lg font-medium text-white mb-3">Images</h3>
-            <div className="flex flex-wrap gap-3">
+            <h3 className="text-base sm:text-lg font-medium text-white mb-2">Images</h3>
+            {(() => {
+              const totalAssets = selectedImages.length + selectedVideos.length + selectedBRoll.length;
+              return (
+                <div className={`mb-3 p-3 rounded-lg border ${totalAssets >= 4 ? 'bg-green-900/20 border-green-700' : 'bg-orange-900/20 border-orange-700'}`}>
+                  <p className={`text-sm ${totalAssets >= 4 ? 'text-green-300' : 'text-orange-300'}`}>
+                    {totalAssets >= 4 
+                      ? `✓ You have selected ${totalAssets} assets (${selectedImages.length} images, ${selectedVideos.length} videos, ${selectedBRoll.length} B-roll)`
+                      : `Select at least 4 assets to continue (${totalAssets}/4 selected). This can be any combination of images, videos, or B-roll content.`
+                    }
+                  </p>
+                </div>
+              );
+            })()}
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 sm:gap-3">
               {/* All Images (scraped + screenshots + uploaded) */}
               {(() => {
                 const scrapedImages = scrapeResult?.images || [];
                 const screenshots = scrapeResult?.screenshots || [];
                 const uploaded = uploadedImages;
                 const allDisplayImages = [...scrapedImages, ...screenshots, ...uploaded];
-                
-                console.log('[CreateAd] Image display breakdown:', {
-                  scrapedImages: scrapedImages.length,
-                  screenshots: screenshots.length,
-                  screenshotPaths: screenshots,
-                  uploaded: uploaded.length,
-                  totalImages: allDisplayImages.length,
-                  allPaths: allDisplayImages
-                });
                 
                 return allDisplayImages;
               })().map((src, i) => (
@@ -884,7 +912,7 @@ export default function CreateAd() {
                   }`}
                   onClick={(loading || summaryLoading) ? undefined : () => handleImageSelect(src)}
                 >
-                  <img src={src} alt={`Asset ${i+1}`} className="w-24 h-24 object-cover" />
+                  <img src={src} alt={`Asset ${i+1}`} className="w-full aspect-square object-cover" />
                   
                   {/* Preview button */}
                   <button
@@ -915,12 +943,12 @@ export default function CreateAd() {
                 return (
                   <div 
                     key={tempKey}
-                    className="relative w-24 h-24 border border-gray-700 rounded-lg overflow-hidden bg-gray-900"
+                    className="relative aspect-square border border-gray-700 rounded-lg overflow-hidden bg-gray-900"
                   >
                     {/* Upload progress background */}
                     <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
                       <div className="text-center">
-                        <div className="w-6 h-6 border-2 border-gray-600 border-t-orange-500 rounded-full animate-spin mx-auto mb-1"></div>
+                        <BarLoader size="sm" className="mx-auto mb-1" />
                         <div className="text-xs text-gray-400 truncate px-1">{fileName.substring(0, 8)}...</div>
                       </div>
                     </div>
@@ -969,8 +997,8 @@ export default function CreateAd() {
           
           {/* Videos */}
           <div>
-            <h3 className="text-lg font-medium text-white mb-3">Videos</h3>
-            <div className="flex flex-wrap gap-3">
+            <h3 className="text-base sm:text-lg font-medium text-white mb-3">Videos</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
               {/* Uploaded Videos */}
               {[...(scrapeResult?.videos || []), ...uploadedVideos].map((src, i) => (
                 <div 
@@ -984,7 +1012,7 @@ export default function CreateAd() {
                   }`}
                   onClick={(loading || summaryLoading) ? undefined : () => handleVideoSelect(src)}
                 >
-                  <video src={src} className="w-32 h-20 object-cover" muted />
+                  <video src={src} className="w-full aspect-video object-cover" muted />
                   
                   {/* Preview button */}
                   <button
@@ -1015,12 +1043,12 @@ export default function CreateAd() {
                 return (
                   <div 
                     key={tempKey}
-                    className="relative w-32 h-20 border border-gray-700 rounded-lg overflow-hidden bg-gray-900"
+                    className="relative aspect-video border border-gray-700 rounded-lg overflow-hidden bg-gray-900"
                   >
                     {/* Upload progress background */}
                     <div className="absolute inset-0 bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
                       <div className="text-center">
-                        <div className="w-8 h-8 border-2 border-gray-600 border-t-orange-500 rounded-full animate-spin mx-auto mb-2"></div>
+                        <BarLoader size="md" className="mx-auto mb-2" />
                         <div className="text-xs text-gray-400 truncate px-1">{fileName}</div>
                       </div>
                     </div>
@@ -1193,9 +1221,9 @@ export default function CreateAd() {
                 maxLength={1000} 
                 placeholder="Describe your product"
               />
-              <div className="flex justify-between items-center mt-2">
-                <span className="text-gray-500 text-sm">This description will be used to generate your ad script</span>
-                <span className="text-gray-500 text-sm">{summary.length}/1000</span>
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-2 gap-1 sm:gap-0">
+                <span className="text-gray-500 text-xs sm:text-sm">This description will be used to generate your ad script</span>
+                <span className="text-gray-500 text-xs sm:text-sm">{summary.length}/1000</span>
               </div>
             </div>
           </div>
@@ -1224,7 +1252,7 @@ export default function CreateAd() {
                     </svg>
                   )}
                 </div>
-                <span className="text-lg font-normal text-white ml-3">Add promotional information</span>
+                <span className="text-base sm:text-lg font-normal text-white ml-3">Add promotional information</span>
               </label>
             </div>
           </div>
@@ -1275,11 +1303,11 @@ export default function CreateAd() {
               {promoSuggestions.length > 0 && (
                 <div>
                   <label className="block text-gray-300 font-normal mb-2">Quick suggestions</label>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1 sm:gap-2">
                     {promoSuggestions.map((suggestion, i) => (
                       <button 
                         key={i} 
-                        className="px-3 py-2 text-sm border border-gray-600 rounded-[10px] text-gray-300 hover:border-orange-500 transition-colors duration-200" 
+                        className="px-2 sm:px-3 py-1 sm:py-2 text-xs sm:text-sm border border-gray-600 rounded-[10px] text-gray-300 hover:border-orange-500 transition-colors duration-200" 
                         style={{ backgroundColor: '#111827' }}
                         type="button" 
                         onClick={() => setPromoDetails(suggestion)}
@@ -1295,18 +1323,47 @@ export default function CreateAd() {
         </div>
 
         {/* Continue Button */}
-        <div className="flex justify-end">
-          <button 
-            className="btn-primary"
-            onClick={() => router.push('/ad/format')}
-          >
-            Continue to Format Selection
-            <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
+        <div className="flex justify-center sm:justify-end">
+          {(() => {
+            const totalAssets = selectedImages.length + selectedVideos.length + selectedBRoll.length;
+            const hasMinimumAssets = totalAssets >= 4;
+            
+            return (
+              <button 
+                className={`btn-primary w-full sm:w-auto px-6 sm:px-8 py-3 ${!hasMinimumAssets ? 'opacity-50 cursor-not-allowed' : ''}`}
+                onClick={() => hasMinimumAssets && router.push('/ad/format')}
+                disabled={!hasMinimumAssets}
+              >
+                <span className="hidden sm:inline">Continue to Format Selection</span>
+                <span className="sm:hidden">Continue</span>
+                <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            );
+          })()}
         </div>
       </div>
     </div>
   )
-} 
+}
+
+// Server-side authentication check
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  const session = await getServerSession(context.req, context.res, authOptions);
+  
+  if (!session) {
+    return {
+      redirect: {
+        destination: '/auth/signin?callbackUrl=' + encodeURIComponent('/ad/create'),
+        permanent: false,
+      },
+    };
+  }
+
+  return {
+    props: {
+      session,
+    },
+  };
+}; 

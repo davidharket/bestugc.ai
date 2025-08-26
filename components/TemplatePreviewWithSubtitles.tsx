@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { VideoTemplate, LayoutType } from '../lib/templates';
 import { avatars } from '../lib/avatars';
 import { SUBTITLE_STYLES, SubtitleStyle } from '../remotion/components/Subtitles';
+import BarLoader from './BarLoader';
 
 interface TemplatePreviewWithSubtitlesProps {
   template: VideoTemplate;
@@ -31,6 +32,7 @@ interface TemplatePreviewWithSubtitlesProps {
   letterSpacing?: number;
   textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
   textColor?: string;
+  productVideoUrl?: string;
 }
 
 // Function to break script into chunks for preview with dynamic width calculation
@@ -436,6 +438,7 @@ export const TemplatePreviewWithSubtitles: React.FC<TemplatePreviewWithSubtitles
   letterSpacing,
   textTransform,
   textColor,
+  productVideoUrl,
 }) => {
   const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
   const [currentChunkIndex, setCurrentChunkIndex] = useState(0);
@@ -477,9 +480,9 @@ export const TemplatePreviewWithSubtitles: React.FC<TemplatePreviewWithSubtitles
     return () => clearTimeout(timer);
   }, [template, assets]);
   
-  // Get avatar source
+  // Get avatar source - use productVideoUrl if available, otherwise use standard avatar
   const avatar = avatars.find(a => a.id === avatarId);
-  const avatarSrc = avatar ? avatar.src : avatars[0].src;
+  const avatarSrc = productVideoUrl || (avatar ? avatar.src : avatars[0].src);
   
   // Create dynamic subtitle style that matches Remotion component with overrides
   const styleOverrides = {
@@ -675,7 +678,7 @@ export const TemplatePreviewWithSubtitles: React.FC<TemplatePreviewWithSubtitles
         {isLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-900 rounded-lg z-40">
             <div className="text-white text-sm">
-              <div className="animate-spin inline-block w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full mr-2"></div>
+              <div className="inline-block mr-2"><BarLoader size="sm" /></div>
               Loading preview...
             </div>
           </div>

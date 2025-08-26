@@ -11,6 +11,7 @@ export interface Avatar {
     location: 'inside' | 'outside';
     label: string;
     isPremium?: boolean; // True for premium avatars, false/undefined for free
+    canHoldProducts?: boolean; // True if avatar has corresponding image file for product holding
     norwegianVoiceId?: string;
     dutchVoiceId?: string;
     danishVoiceId?: string;
@@ -22,15 +23,15 @@ export interface Avatar {
   // This is the single source of truth for the entire application.
   export const avatars: Avatar[] = [
     // New Free Avatars (displayed first)
-    { id: 26, src: '/avatars/female-blonde-inside-new.mp4', gender: 'female', hair: 'blonde', number: 1, age: 'adult', location: 'inside', label: 'Female Blonde (New)', norwegianVoiceId: 'b3jcIbyC3BSnaRu8avEk' },
-    { id: 27, src: '/avatars/female-blonde2-inside-new.mp4', gender: 'female', hair: 'blonde', number: 2, age: 'adult', location: 'inside', label: 'Female Blonde 2 (New)', norwegianVoiceId: 'b3jcIbyC3BSnaRu8avEk' },
-    { id: 28, src: '/avatars/female-blonde3-senior-inside-new.mp4', gender: 'female', hair: 'blonde', number: 3, age: 'senior', location: 'inside', label: 'Female Blonde 3 Senior (New)', norwegianVoiceId: 'uNsWM1StCcpydKYOjKyu' },
-    { id: 29, src: '/avatars/female-blonde4-adult-inside-new.mp4', gender: 'female', hair: 'blonde', number: 4, age: 'adult', location: 'inside', label: 'Female Blonde 4 (New)', norwegianVoiceId: 'b3jcIbyC3BSnaRu8avEk' },
-    { id: 30, src: '/avatars/female-blonde5-adult-inside-new.mp4', gender: 'female', hair: 'blonde', number: 5, age: 'adult', location: 'inside', label: 'Female Blonde 5 (New)', norwegianVoiceId: 'b3jcIbyC3BSnaRu8avEk' },
-    { id: 31, src: '/avatars/female-brunette-inside-new.mp4', gender: 'female', hair: 'brunette', number: 1, age: 'adult', location: 'inside', label: 'Female Brunette (New)', norwegianVoiceId: 'uNsWM1StCcpydKYOjKyu' },
-    { id: 32, src: '/avatars/male-brunette-adult-inside-new.mp4', gender: 'male', hair: 'brunette', number: 1, age: 'adult', location: 'inside', label: 'Male Brunette 1 (New)', norwegianVoiceId: 'CMVyxPycEkgLpEF85ShA' },
-    { id: 33, src: '/avatars/male-brunette2-adult-inside-new.mp4', gender: 'male', hair: 'brunette', number: 2, age: 'adult', location: 'inside', label: 'Male Brunette 2 (New)', norwegianVoiceId: '9pRpxWU0T7UFt2oEMH6n' },
-    { id: 34, src: '/avatars/male-brunette3-adult-inside-new.mp4', gender: 'male', hair: 'brunette', number: 3, age: 'adult', location: 'inside', label: 'Male Brunette 3 (New)', norwegianVoiceId: 'xu4HzZYeAR4ynjjVC7cm' },
+    { id: 26, src: '/avatars/female-blonde-inside-new.mp4', gender: 'female', hair: 'blonde', number: 1, age: 'adult', location: 'inside', label: 'Female Blonde (New)', norwegianVoiceId: 'b3jcIbyC3BSnaRu8avEk', englishVoiceId: '7YaUDeaStRuoYg3FKsmU', canHoldProducts: true },
+    { id: 27, src: '/avatars/female-blonde2-inside-new.mp4', gender: 'female', hair: 'blonde', number: 2, age: 'adult', location: 'inside', label: 'Female Blonde 2 (New)', norwegianVoiceId: 'b3jcIbyC3BSnaRu8avEk', englishVoiceId: 'WAhoMTNdLdMoq1j3wf3I' },
+    { id: 28, src: '/avatars/female-blonde3-senior-inside-new.mp4', gender: 'female', hair: 'blonde', number: 3, age: 'senior', location: 'inside', label: 'Female Blonde 3 Senior (New)', norwegianVoiceId: 'uNsWM1StCcpydKYOjKyu', englishVoiceId: 'Qggl4b0xRMiqOwhPtVWT' },
+    { id: 29, src: '/avatars/female-blonde4-adult-inside-new.mp4', gender: 'female', hair: 'blonde', number: 4, age: 'adult', location: 'inside', label: 'Female Blonde 4 (New)', norwegianVoiceId: 'b3jcIbyC3BSnaRu8avEk', englishVoiceId: 'jqcCZkN6Knx8BJ5TBdYR', canHoldProducts: true },
+    { id: 30, src: '/avatars/female-blonde5-adult-inside-new.mp4', gender: 'female', hair: 'blonde', number: 5, age: 'adult', location: 'inside', label: 'Female Blonde 5 (New)', norwegianVoiceId: 'b3jcIbyC3BSnaRu8avEk', englishVoiceId: 'i4CzbCVWoqvD0P1QJCUL', canHoldProducts: true },
+    { id: 31, src: '/avatars/female-brunette-inside-new.mp4', gender: 'female', hair: 'brunette', number: 1, age: 'adult', location: 'inside', label: 'Female Brunette (New)', norwegianVoiceId: 'uNsWM1StCcpydKYOjKyu', englishVoiceId: 'mZ3kbJNnKRWI4YzJXA9j', canHoldProducts: true },
+    { id: 32, src: '/avatars/male-brunette-adult-inside-new.mp4', gender: 'male', hair: 'brunette', number: 1, age: 'adult', location: 'inside', label: 'Male Brunette 1 (New)', norwegianVoiceId: 'CMVyxPycEkgLpEF85ShA', englishVoiceId: '6OzrBCQf8cjERkYgzSg8', canHoldProducts: true },
+    { id: 33, src: '/avatars/male-brunette2-adult-inside-new.mp4', gender: 'male', hair: 'brunette', number: 2, age: 'adult', location: 'inside', label: 'Male Brunette 2 (New)', norwegianVoiceId: '9pRpxWU0T7UFt2oEMH6n', englishVoiceId: 'apOzcbHULxCnvWfHPd41', canHoldProducts: true },
+    { id: 34, src: '/avatars/male-brunette3-adult-inside-new.mp4', gender: 'male', hair: 'brunette', number: 3, age: 'adult', location: 'inside', label: 'Male Brunette 3 (New)', norwegianVoiceId: 'xu4HzZYeAR4ynjjVC7cm', englishVoiceId: 'D9Thk1W7FRMgiOhy3zVI', canHoldProducts: true },
 
     // Female Adults
     { id: 1, src: '/avatars/female-blonde-adult-inside.mp4', gender: 'female', hair: 'blonde', number: 1, age: 'adult', location: 'inside', label: 'Female Blonde 1 (Adult, Inside)', norwegianVoiceId: 'b3jcIbyC3BSnaRu8avEk' }, // FREE
@@ -179,4 +180,18 @@ export function getAvatarFps(avatarId: number): number {
   ];
   
   return fps30Avatars.includes(avatarId) ? 30 : 24;
+}
+
+// Helper function to convert avatar video path to image path
+export function getAvatarImagePath(avatarVideoSrc: string): string {
+  // Convert /avatars/male-brunette2-adult-inside-new.mp4 
+  // to /avatar-img/male-brunette2-adult-inside-new.png
+  const filename = avatarVideoSrc.split('/').pop()?.replace('.mp4', '.png') || ''
+  return `/avatar-img/${filename}`
+}
+
+// Helper function to check if avatar can hold products (has corresponding image file)
+export function canAvatarHoldProducts(avatarId: number): boolean {
+  const avatar = avatars.find(a => a.id === avatarId)
+  return avatar?.canHoldProducts || false
 }

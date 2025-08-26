@@ -36,6 +36,7 @@ model User {
   ads              Ad[]
   subscriptions    Subscription[]
   creations        Creation[]
+  productImages    ProductImage[]
   rateLimitUsage   RateLimitUsage[]
   visitorStats     VisitorStats[]
   affiliate        Affiliate?       // If user is an affiliate
@@ -117,6 +118,8 @@ model Ad {
   subtitleStyle          String?  @default("inter")
   textColor              String?  @default("#ffffff")
   textTransform          String?
+  productVideoUrl        String?
+  productVideoData       String?
   user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -131,6 +134,27 @@ model Creation {
   updatedAt   DateTime @updatedAt
   watermarked Boolean  @default(true)
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ProductImage {
+  id                String   @id @default(cuid())
+  userId            String
+  imageUrl          String
+  sceneDescription  String
+  sceneImageUrl     String
+  productImageUrls  String   // JSON array of product image URLs
+  aspectRatio       String
+  enhancedDescription String?
+  aiEnhanced        Boolean  @default(false)
+  runwayTaskId      String?  // Runway task ID for tracking
+  status            String   @default("COMPLETED") // PENDING, PROCESSING, COMPLETED, FAILED
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model Account {

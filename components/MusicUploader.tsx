@@ -3,6 +3,7 @@ import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import BarLoader from './BarLoader';
 
 export interface CustomMusic {
   id: string;
@@ -38,7 +39,6 @@ const MusicUploader: React.FC<MusicUploaderProps> = ({ onMusicUploaded }) => {
       const formData = new FormData();
       formData.append('file', file);
 
-      console.log('🎵 Uploading music file:', file.name);
 
       const response = await axios.post('/api/music/upload', formData, {
         headers: {
@@ -53,7 +53,6 @@ const MusicUploader: React.FC<MusicUploaderProps> = ({ onMusicUploaded }) => {
       });
 
       if (response.data.success) {
-        console.log('✅ Music uploaded successfully:', response.data.music);
         toast.success(`Music "${response.data.music.name}" uploaded successfully!`);
         onMusicUploaded(response.data.music);
       } else {
@@ -104,7 +103,7 @@ const MusicUploader: React.FC<MusicUploaderProps> = ({ onMusicUploaded }) => {
         
         {uploading ? (
           <div className="flex flex-col items-center space-y-3">
-            <div className="animate-spin w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full"></div>
+            <BarLoader size="md" />
             <div className="text-sm text-white">
               Uploading... {uploadProgress}%
             </div>

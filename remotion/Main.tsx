@@ -42,6 +42,8 @@ export const MainCompositionProps = z.object({
   audioUrl: z.string(),
   processedAvatarUrl: z.string(),
   greenscreenAvatarUrl: z.string(),
+  originalProductVideoUrl: z.string().optional(),
+  concatenatedProductVideoUrl: z.string().optional(),
   oneWordAtATime: z.boolean().optional(),
   fontSize: z.number().optional(),
   subtitlePosition: z.enum(['bottom', 'top', 'center']).optional(),
@@ -152,13 +154,11 @@ export const RemotionRoot: React.FC = () => {
 // --- THIS IS THE CORRECTED, INTELLIGENT ASSET RESOLVER ---
 const resolveAsset = (assetPath: string): string => {
   if (!assetPath) {
-    console.warn('[resolveAsset] Empty asset path provided');
     return '';
   }
   
   // If it's already an absolute URL, return it unchanged
   if (assetPath.startsWith('http://') || assetPath.startsWith('https://')) {
-    console.log('[resolveAsset] Using remote asset (unchanged):', assetPath);
     return assetPath;
   }
   
@@ -169,14 +169,12 @@ const resolveAsset = (assetPath: string): string => {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL;
     if (baseUrl) {
       const absoluteUrl = baseUrl + assetPath;
-      console.log('[resolveAsset] Server-side URL resolution:', assetPath, '->', absoluteUrl);
       return absoluteUrl;
     }
   }
   
   // Default to staticFile for local assets
   const resolved = staticFile(assetPath);
-  console.log('[resolveAsset] Resolved local asset:', assetPath, '->', resolved);
   return resolved;
 };
 
@@ -187,6 +185,8 @@ export const MainComposition: React.FC<z.infer<typeof MainCompositionProps>> = (
   audioUrl,
   processedAvatarUrl,
   greenscreenAvatarUrl,
+  originalProductVideoUrl,
+  concatenatedProductVideoUrl,
   oneWordAtATime,
   fontSize,
   subtitlePosition,
@@ -308,14 +308,30 @@ export const MainComposition: React.FC<z.infer<typeof MainCompositionProps>> = (
         const currentFromFrame = fromFrame;
         fromFrame += duration;
         
+        // Determine which avatar videos to use based on scene index and render mode
+        let sceneProcessedAvatarUrl = processedAvatarUrl;
+        let sceneGreenscreenAvatarUrl = greenscreenAvatarUrl;
+        
+        if (adData.previewMode) {
+          // PREVIEW MODE: First scene uses concatenated product video, subsequent scenes use standard avatar
+          if (index === 0 && concatenatedProductVideoUrl) {
+            sceneProcessedAvatarUrl = concatenatedProductVideoUrl;
+            sceneGreenscreenAvatarUrl = concatenatedProductVideoUrl; // Same video for both
+          } else {
+          }
+        } else {
+          // FINAL RENDER MODE: Always use processedAvatarUrl (lip-synced for product videos, standard for others)
+        }
+        
         return (
           <Sequence key={`${scene.layout}-${index}`} from={currentFromFrame} durationInFrames={duration}>
             {renderScene(
               scene,
               assets,
-              processedAvatarUrl,
-              greenscreenAvatarUrl,
-              currentFromFrame
+              sceneProcessedAvatarUrl,
+              sceneGreenscreenAvatarUrl,
+              currentFromFrame,
+              index
             )}
           </Sequence>
         );
@@ -345,7 +361,8 @@ function renderScene(
   assets: string[],
   videoUrl: string,
   greenscreenUrl: string,
-  startFrame: number
+  startFrame: number,
+  sceneIndex?: number
 ) {
   const getAsset = (index?: number) =>
     index !== undefined && assets[index] ? assets[index] : '';
@@ -356,26 +373,12 @@ function renderScene(
   // Calculate the start time in seconds based on the frame position in the timeline
   const avatarVideoStartFrom = startFrame / COMPOSITION_FPS;
 
-  console.log(`[renderScene] Rendering scene: ${scene.layout}`, {
-    assetIndices: scene.assetIndices,
-    resolvedVideoUrl,
-    resolvedGreenscreenUrl,
-    avatarVideoStartFrom,
-    assetsLength: assets.length
-  });
-
   if (scene.layout === 'buildup-collage') {
     const collageAssets = scene.assetIndices?.map(i => resolveAsset(getAsset(i))) || [];
     return <BuildupCollageScene assetUrls={collageAssets} />;
   }
 
   const resolvedAssetUrl = resolveAsset(getAsset(scene.assetIndices?.[0]));
-  
-  console.log(`[renderScene] Asset resolution for ${scene.layout}:`, {
-    assetIndex: scene.assetIndices?.[0],
-    rawAsset: getAsset(scene.assetIndices?.[0]),
-    resolvedAssetUrl
-  });
 
   switch (scene.layout as LayoutType) {
     case 'fullscreen-avatar':

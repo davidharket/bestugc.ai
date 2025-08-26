@@ -2,6 +2,7 @@ import { useRouter } from 'next/router'
 import { useEffect, useState } from 'react'
 import Head from 'next/head'
 import Link from 'next/link'
+import BarLoader from '../../components/BarLoader'
 
 export default function VerifyEmailPage() {
   const router = useRouter()
@@ -101,7 +102,7 @@ export default function VerifyEmailPage() {
             <div className="rounded-[20px] border border-gray-700 p-8" style={{ backgroundColor: '#111827' }}>
               {status === 'loading' && (
                 <div className="text-center">
-                  <div className="animate-spin h-8 w-8 border-2 border-orange-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                  <div className="mx-auto mb-4 flex justify-center"><BarLoader size="md" /></div>
                   <p className="text-gray-400">Verifying your email...</p>
                 </div>
               )}

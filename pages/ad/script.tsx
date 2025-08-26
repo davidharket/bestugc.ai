@@ -2,8 +2,13 @@
 import { useRouter } from 'next/router';
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { useSession, signIn } from 'next-auth/react';
+import { GetServerSideProps } from 'next';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../api/auth/[...nextauth]';
 import { useAdCreation } from '../../components/AdCreationContext';
 import toast from 'react-hot-toast';
+import BarLoader from '../../components/BarLoader';
 
 const scriptTypes = [
   { key: 'cta', label: 'Call to Action' },
@@ -15,7 +20,31 @@ const scriptTypes = [
 
 export default function ScriptAdPage() {
   const router = useRouter();
+  const { data: session, status } = useSession();
   const { adData, setAdData } = useAdCreation();
+
+  // Authentication check
+  useEffect(() => {
+    if (status === 'loading') return // Still loading
+    if (status === 'unauthenticated') {
+      signIn()
+      return
+    }
+  }, [status])
+
+  // Show loading while authenticating
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <BarLoader size="lg" />
+      </div>
+    )
+  }
+
+  // Redirect if not authenticated
+  if (status === 'unauthenticated') {
+    return null
+  }
   
   // Initialize state from context or set defaults
   const [scripts, setScripts] = useState(adData.scripts || {});
@@ -52,7 +81,6 @@ export default function ScriptAdPage() {
 
       fetchingRef.current = true;
       setLoading(true);
-      const toastId = toast.loading('Generating script variations...');
       try {
         const response = await axios.post('/api/generate-script', {
           summary: adData.summary,
@@ -66,7 +94,6 @@ export default function ScriptAdPage() {
         const firstScript = Object.values(generatedScripts)[0] as string || '';
         setSelectedScript(firstScript);
         setAdData({ scripts: generatedScripts, script: firstScript });
-        toast.success('Scripts generated!', { id: toastId });
         hasInitializedRef.current = true;
         scriptsGeneratedRef.current = true;
       } catch (err: any) {
@@ -76,10 +103,10 @@ export default function ScriptAdPage() {
           const resetTimeString = resetTime ? resetTime.toLocaleTimeString() : 'later';
           toast.error(
             `Rate limit exceeded. You can generate more scripts after ${resetTimeString}.`,
-            { id: toastId, duration: 8000 }
+            { duration: 8000 }
           );
         } else {
-          toast.error(err.response?.data?.error || 'Failed to generate scripts.', { id: toastId });
+          toast.error(err.response?.data?.error || 'Failed to generate scripts.');
         }
       } finally {
         setLoading(false);
@@ -94,7 +121,6 @@ export default function ScriptAdPage() {
     // Temporarily reset flags to allow regeneration
     fetchingRef.current = true;
     setLoading(true);
-    const toastId = toast.loading('Regenerating scripts...');
     try {
       const response = await axios.post('/api/generate-script', {
         summary: adData.summary,
@@ -108,7 +134,7 @@ export default function ScriptAdPage() {
       const firstScript = Object.values(generatedScripts)[0] as string || '';
       setSelectedScript(firstScript);
       setAdData({ scripts: generatedScripts, script: firstScript });
-      toast.success('New scripts generated!', { id: toastId });
+      toast.success('New scripts generated!');
     } catch (err: any) {
       if (err.response?.status === 429) {
         const rateLimitInfo = err.response?.data?.rateLimitInfo;
@@ -116,10 +142,10 @@ export default function ScriptAdPage() {
         const resetTimeString = resetTime ? resetTime.toLocaleTimeString() : 'later';
         toast.error(
           `Rate limit exceeded. You can generate more scripts after ${resetTimeString}.`,
-          { id: toastId, duration: 8000 }
+          { duration: 8000 }
         );
       } else {
-        toast.error(err.response?.data?.error || 'Failed to regenerate scripts.', { id: toastId });
+        toast.error(err.response?.data?.error || 'Failed to regenerate scripts.');
       }
     } finally {
       setLoading(false);
@@ -135,11 +161,11 @@ export default function ScriptAdPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Choose a Script - Step 3</h1>
-          <p className="text-gray-400">Select a script for your ad, or edit it below</p>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Choose a Script</h1>
+          <p className="text-sm sm:text-base text-gray-400">Select a script for your ad, or edit it below</p>
         </div>
 
         {/* Loading State */}
@@ -148,8 +174,7 @@ export default function ScriptAdPage() {
             <div className="flex items-center justify-center py-12">
               <div className="flex flex-col items-center gap-4">
                 <div className="relative">
-                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-700"></div>
-                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-t-orange-500 absolute top-0 left-0"></div>
+                  <BarLoader size="xl" />
                 </div>
                 <div className="text-center">
                   <span className="text-orange-400 text-lg font-medium">Generating script variations...</span>
@@ -165,12 +190,12 @@ export default function ScriptAdPage() {
           <div className="card mb-8">
             {/* Script Type Tabs */}
             <div className="mb-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-white">Generated Scripts</h2>
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-3 sm:gap-0">
+                <h2 className="text-lg sm:text-xl font-semibold text-white">Generated Scripts</h2>
                 <button
                   onClick={handleRegenerateScripts}
                   disabled={loading}
-                  className="btn-secondary flex items-center gap-2"
+                  className="btn-secondary flex items-center justify-center gap-2 w-full sm:w-auto"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -179,12 +204,12 @@ export default function ScriptAdPage() {
                 </button>
               </div>
               
-              <div className="flex flex-wrap gap-3 mb-6">
+              <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-3 mb-6">
                 {Object.keys(scripts).map((key) => (
                   <button
                     key={key}
                     onClick={() => setSelectedScript(scripts[key])}
-                    className={`px-3 py-2 text-sm border border-gray-600 rounded-[10px] text-gray-300 transition-colors duration-200 ${
+                    className={`px-2 sm:px-3 py-2 text-xs sm:text-sm border border-gray-600 rounded-[10px] text-gray-300 transition-colors duration-200 ${
                       selectedScript === scripts[key]
                         ? 'border-orange-500'
                         : 'hover:border-orange-500'
@@ -211,13 +236,13 @@ export default function ScriptAdPage() {
                 value={selectedScript}
                 onChange={(e) => setSelectedScript(e.target.value)}
                 placeholder="Your ad script will appear here..."
-                maxLength={600}
+                maxLength={400}
               />
-              <div className="flex justify-between items-center mt-2">
-                <p className="text-gray-500 text-sm">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-2 gap-1 sm:gap-0">
+                <p className="text-gray-500 text-xs sm:text-sm">
                   This script will be used for the video narration. You can edit it to better fit your needs.
                 </p>
-                <span className="text-gray-500 text-sm">{selectedScript.length}/600</span>
+                <span className="text-gray-500 text-xs sm:text-sm">{selectedScript.length}/600</span>
               </div>
             </div>
           </div>
@@ -225,7 +250,7 @@ export default function ScriptAdPage() {
 
         {/* Empty State */}
         {!loading && Object.keys(scripts).length === 0 && (
-          <div className="card mb-8">
+          <div className="card mb-8 rounded rounded-[15px]">
             <div className="text-center py-12">
               <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -248,9 +273,9 @@ export default function ScriptAdPage() {
         )}
 
         {/* Navigation */}
-        <div className="flex justify-between">
+        <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-0">
           <button
-            className="btn-secondary"
+            className="btn-secondary w-full sm:w-auto order-2 sm:order-1"
             onClick={() => router.back()}
           >
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -260,11 +285,12 @@ export default function ScriptAdPage() {
           </button>
 
           <button
-            className={`btn-primary ${!selectedScript || loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`btn-primary w-full sm:w-auto order-1 sm:order-2 ${!selectedScript || loading ? 'opacity-50 cursor-not-allowed' : ''}`}
             onClick={handleNext}
             disabled={!selectedScript || loading}
           >
-            Continue to Avatar Selection
+            <span className="hidden sm:inline">Continue to Avatar Selection</span>
+            <span className="sm:hidden">Continue</span>
             <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
@@ -274,3 +300,23 @@ export default function ScriptAdPage() {
     </div>
   );
 }
+
+// Server-side authentication check
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  const session = await getServerSession(context.req, context.res, authOptions);
+  
+  if (!session) {
+    return {
+      redirect: {
+        destination: '/auth/signin?callbackUrl=' + encodeURIComponent('/ad/script'),
+        permanent: false,
+      },
+    };
+  }
+
+  return {
+    props: {
+      session,
+    },
+  };
+};

@@ -127,8 +127,41 @@ async function processPreviewAsync(jobId: string, adData: any, previewDuration: 
       return (fallbackAssets || []).map(toAbsoluteUrl).filter(Boolean);
     };
     const remotionAdData = { ...adData, selectedImages: getOrderedAssets(adData.orderedImages || [], adData.selectedImages || []), selectedVideos: getOrderedAssets(adData.orderedVideos || [], adData.selectedVideos || []) };
-    const avatarVideoUrl = toAbsoluteUrl(avatar.src);
-    const inputProps = { adData: { ...remotionAdData, previewMode: true }, timeline: concreteTimeline, audioUrl: toAbsoluteUrl(adData.audioUrl || ''), processedAvatarUrl: avatarVideoUrl, greenscreenAvatarUrl: avatarVideoUrl, oneWordAtATime: adData.oneWordAtATime, fontSize: adData.fontSize };
+    
+    // For preview renders, always use standard avatar for processedAvatarUrl and greenscreenAvatarUrl
+    // The product video will be handled scene-specifically in the composition
+    let avatarVideoUrl = toAbsoluteUrl(avatar.src); // Always use standard avatar for default scenes
+    console.log(`[Preview] Using standard avatar for default scenes: ${avatarVideoUrl}`);
+    
+    if (adData.productVideoUrl && adData.productVideoUrl.trim() !== '') {
+      console.log(`[Preview] Product video available for first scene: ${adData.productVideoUrl}`);
+    } else {
+      console.log(`[Preview] No product video specified`);
+    }
+    
+    // Helper function to convert product video URLs to internal render URLs for preview
+    const toRenderVideoUrl = (url: string) => {
+        if (!url || url.startsWith('blob:')) return '';
+        if (url.startsWith('http')) return url;
+        if (url.startsWith('/api/serve-video/')) {
+            // Convert to internal render endpoint for authentication bypass
+            const secret = process.env.INTERNAL_SECRET_KEY || '';
+            return `${process.env.NEXT_PUBLIC_APP_URL}/api/render/serve-video?videoPath=${encodeURIComponent(url)}&internal_secret=${secret}`;
+        }
+        return `${process.env.NEXT_PUBLIC_APP_URL}${url}`;
+    };
+
+    const inputProps = { 
+      adData: { ...remotionAdData, previewMode: true }, 
+      timeline: concreteTimeline, 
+      audioUrl: toAbsoluteUrl(adData.audioUrl || ''), 
+      processedAvatarUrl: avatarVideoUrl, 
+      greenscreenAvatarUrl: avatarVideoUrl, 
+      originalProductVideoUrl: '', // Not used
+      concatenatedProductVideoUrl: toRenderVideoUrl(adData.productVideoUrl || ''), // For first scene in preview
+      oneWordAtATime: adData.oneWordAtATime, 
+      fontSize: adData.fontSize 
+    };
     const perfMonitor = createPerformanceMonitor();
     console.log('[Preview] Bundling Remotion composition with GPU optimizations...');
     perfMonitor.logPerformance('Preview Bundle Start');

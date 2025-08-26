@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { GetServerSidePropsContext } from 'next';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../api/auth/[...nextauth]';
 
 export default function VerifyRequest() {
   return (
@@ -19,4 +22,23 @@ export default function VerifyRequest() {
       </div>
     </div>
   );
+}
+
+export async function getServerSideProps(context: GetServerSidePropsContext) {
+  // Check if user is already authenticated
+  const session = await getServerSession(context.req, context.res, authOptions);
+  
+  if (session) {
+    // User is already logged in, redirect to dashboard
+    return {
+      redirect: {
+        destination: '/dashboard',
+        permanent: false,
+      },
+    };
+  }
+
+  return {
+    props: {},
+  };
 } 

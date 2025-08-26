@@ -14,6 +14,7 @@ type Data = {
   status?: string;
   lipSyncedVideoUrl?: string;
   error?: string;
+  message?: string;
   details?: string;
 };
 
@@ -40,10 +41,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       });
 
       console.log(`[SyncLabs API] Status for job ${jobId}: ${response.data.status}`);
+      
+      // Log additional details for rejected jobs
+      if (response.data.status === 'REJECTED') {
+        console.log(`[SyncLabs API] REJECTION DETAILS for job ${jobId}:`, {
+          error: response.data.error,
+          message: response.data.message,
+          details: response.data.details,
+          fullResponse: response.data
+        });
+      }
+      
       return res.status(200).json({
         status: response.data.status,
         lipSyncedVideoUrl: response.data.outputUrl, // This will be null if not completed
-        error: response.data.error 
+        error: response.data.error,
+        message: response.data.message,
+        details: response.data.details
       });
 
     } catch (error: any) {

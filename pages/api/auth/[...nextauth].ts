@@ -111,6 +111,21 @@ export const authOptions: NextAuthOptions = {
         if (existingUser) {
           // Email verification check removed - allow login without verification
 
+          // Verify CAPTCHA for login (if CAPTCHA is configured)
+          const captchaEnabled = process.env.RECAPTCHA_SECRET_KEY;
+          if (captchaEnabled) {
+            if (!credentials.captchaToken || !(await verifyCaptcha(credentials.captchaToken))) {
+              await logSecurityEvent({
+                ipAddress,
+                userAgent,
+                action: 'LOGIN_CAPTCHA_FAILED',
+                details: { email: credentials.email },
+                severity: 'WARNING',
+              });
+              throw new Error('CAPTCHA verification failed. Please try again.');
+            }
+          }
+
           // Sign in existing user
           const isValidPassword = await bcrypt.compare(credentials.password, existingUser.password || '');
           

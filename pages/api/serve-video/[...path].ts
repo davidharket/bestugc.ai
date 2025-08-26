@@ -39,8 +39,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: 'Invalid path' });
     }
     
-    // Determine if this is a SyncLabs video or a rendered video
+    // Determine the video directory based on path
     const isSyncLabs = videoPath[0] === 'synclabs' || videoPath.join('/').includes('synclabs');
+    const isGeneratedVideo = videoPath[0] === 'generated_videos' || videoPath.join('/').includes('generated_videos');
     
     let filePath: string;
     let allowedDir: string;
@@ -49,6 +50,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // SyncLabs videos are stored in public/synclabs/
       filePath = path.join(process.cwd(), 'public', 'synclabs', ...videoPath.slice(1));
       allowedDir = path.resolve(path.join(process.cwd(), 'public', 'synclabs'));
+    } else if (isGeneratedVideo) {
+      // Generated videos are stored in public/generated_videos/
+      filePath = path.join(process.cwd(), 'public', 'generated_videos', ...videoPath.slice(1));
+      allowedDir = path.resolve(path.join(process.cwd(), 'public', 'generated_videos'));
     } else {
       // Rendered videos are stored in public/renders/
       filePath = path.join(process.cwd(), 'public', 'renders', ...videoPath);

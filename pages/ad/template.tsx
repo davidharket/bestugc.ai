@@ -1,6 +1,10 @@
 // pages/ad/template.tsx
 import React from 'react';
 import { useRouter } from 'next/router';
+import { useSession, signIn } from 'next-auth/react';
+import { GetServerSideProps } from 'next';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../api/auth/[...nextauth]';
 import { useAdCreation } from '../../components/AdCreationContext';
 import { TEMPLATE_LIBRARY, VideoTemplate, scaleTemplateForDuration } from '../../lib/templates';
 import { avatars } from '../../lib/avatars';
@@ -15,6 +19,9 @@ import CustomDropdown from '../../components/CustomDropdown';
 import MusicUploader from '../../components/MusicUploader';
 import customMusicManager, { CustomMusic } from '../../lib/custom-music-loader';
 import customFontManager, { CustomFont } from '../../lib/custom-font-loader';
+import ProductVideoLoadingScreen from '../../components/ProductVideoLoadingScreen';
+import { getAvatarImagePath } from '../../lib/avatars';
+import SimpleLoader from '../../components/SimpleLoader';
 
 // Video Thumbnail Component for generating thumbnails without loading full video
 const VideoThumbnail: React.FC<{ src: string; className: string; index: number }> = ({ src, className, index }) => {
@@ -142,7 +149,31 @@ const TemplateCard: React.FC<{ template: VideoTemplate; isSelected: boolean; onS
 
 export default function SelectTemplatePage() {
     const router = useRouter();
+    const { data: session, status } = useSession();
     const { adData, setAdData } = useAdCreation();
+
+    // Authentication check
+    useEffect(() => {
+        if (status === 'loading') return // Still loading
+        if (status === 'unauthenticated') {
+            signIn()
+            return
+        }
+    }, [status])
+
+    // Show loading while authenticating
+    if (status === 'loading') {
+        return (
+            <div className="min-h-screen bg-black flex items-center justify-center">
+                <SimpleLoader width={10} />
+            </div>
+        )
+    }
+
+    // Redirect if not authenticated
+    if (status === 'unauthenticated') {
+        return null
+    }
     const [selectedTemplateId, setSelectedTemplateId] = useState(adData.templateId || TEMPLATE_LIBRARY[0].id);
     const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
     const [audioDuration, setAudioDuration] = useState<number | undefined>(adData.audioDuration);
@@ -156,6 +187,12 @@ export default function SelectTemplatePage() {
     const [customMusic, setCustomMusic] = useState<CustomMusic[]>([]);
     const [customFonts, setCustomFonts] = useState<CustomFont[]>([]);
     
+    // Product video generation states
+    const [isGeneratingProductVideo, setIsGeneratingProductVideo] = useState(false);
+    const [generatingImages, setGeneratingImages] = useState(false);
+    const [generatingVideo, setGeneratingVideo] = useState(false);
+    const [currentStep, setCurrentStep] = useState(1);
+    
     // Add state for current subtitle style (to handle custom fonts)
     const [currentSubtitleStyle, setCurrentSubtitleStyle] = useState(() => {
       // Try to find the style from the stored ID, fallback to first built-in style
@@ -166,6 +203,14 @@ export default function SelectTemplatePage() {
     useEffect(() => {
         customMusicManager.loadCustomMusic().then(setCustomMusic);
         customFontManager.loadCustomFonts().then(setCustomFonts);
+    }, []);
+
+    // Handle product video generation on component mount
+    useEffect(() => {
+        if (adData.productVideoData?.includeProductVideo && !adData.productVideoUrl) {
+            setIsGeneratingProductVideo(true);
+            generateProductVideo();
+        }
     }, []);
 
     // Update currentSubtitleStyle when custom fonts are loaded or adData.subtitleStyle changes
@@ -219,7 +264,6 @@ export default function SelectTemplatePage() {
       // Set default language if not set
       if (!adData.language) {
         updates.language = 'en';
-        console.log('[Template] Setting default language to en');
       }
       
       if (Object.keys(updates).length > 0) {
@@ -229,14 +273,7 @@ export default function SelectTemplatePage() {
 
     // Check for missing audio and trigger generation
     useEffect(() => {
-      console.log('[Template] Audio generation check:', { 
-        selectedScript: !!adData.selectedScript, 
-        script: !!adData.script,
-        language: adData.language, 
-        audioUrl: !!adData.audioUrl, 
-        isGeneratingAudio,
-        avatarId: adData.avatarId
-      });
+        // Audio generation logic here
     }, [adData.selectedScript, adData.script, adData.language, adData.audioUrl, isGeneratingAudio, adData.avatarId]);
 
     const getDurationForExistingAudio = useCallback(async () => {
@@ -257,15 +294,12 @@ export default function SelectTemplatePage() {
     const handleGenerateAudio = useCallback(async (forceRegenerate = false) => {
       const scriptToUse = adData.selectedScript || adData.script;
       if (!scriptToUse) {
-        console.log('[Template] No script available for audio generation');
         return;
       }
       if (!adData.language) {
-        console.log('[Template] No language set for audio generation');
         return;
       }
 
-      console.log('[Template] Starting audio generation...', { scriptLength: scriptToUse.length, language: adData.language, forceRegenerate });
       
       setIsGeneratingAudio(true);
       try {
@@ -273,22 +307,17 @@ export default function SelectTemplatePage() {
           (avatars.find(a => a.id === adData.avatarId)?.gender || 'female') :
           'female';
         
-        console.log('[Template] Using gender:', selectedGender, 'for avatar:', adData.avatarId);
 
         // If forcing regeneration, clear cache first
         if (forceRegenerate) {
-          console.log('[Template] Clearing TTS cache for regeneration...');
           TTSCacheService.clearCache();
-          console.log('[Template] Cache cleared, proceeding with new generation');
         }
 
         const result = await TTSCacheService.getTTS(scriptToUse, adData.language, selectedGender, adData.avatarId);
 
-        console.log('[Template] Setting audio data:', { audioUrl: result.audioUrl, hasWordTimings: !!result.wordTimings });
         
         // Set generation to false IMMEDIATELY after TTS completes, before any other async operations
         setIsGeneratingAudio(false);
-        console.log('[Template] Audio generation completed, isGeneratingAudio set to false');
         
         setAdData({
           audioUrl: result.audioUrl,
@@ -313,7 +342,6 @@ export default function SelectTemplatePage() {
         
         // Ensure generation state is cleared on error
         setIsGeneratingAudio(false);
-        console.log('[Template] Audio generation failed, isGeneratingAudio set to false');
       }
     }, [adData.selectedScript, adData.script, adData.language, adData.avatarId, getDurationForExistingAudio, setAdData]);
 
@@ -323,30 +351,23 @@ export default function SelectTemplatePage() {
         return;
       }
       if (isGeneratingAudio) {
-        console.log('[Template] Audio generation already in progress, ignoring regenerate request');
         return;
       }
-      console.log('🔄 REGENERATE BUTTON CLICKED! Current state:', { 
-        isGeneratingAudio, 
-        regenerationCount,
-        audioUrl: !!adData.audioUrl 
-      });
       handleGenerateAudio(true);
     };
 
-    // Generate audio automatically when we have script but no audio
+    // Generate audio automatically when we have script but no audio (and product video is not generating)
     useEffect(() => {
-      const shouldGenerateAudio = (adData.selectedScript || adData.script) && adData.language && !adData.audioUrl && !isGeneratingAudio;
+      const shouldGenerateAudio = (adData.selectedScript || adData.script) && adData.language && !adData.audioUrl && !isGeneratingAudio && !isGeneratingProductVideo;
       const shouldGetDuration = adData.audioUrl && !audioDuration;
       
       if (shouldGenerateAudio) {
-        console.log('[Template] Triggering audio generation');
         handleGenerateAudio();
       } else if (shouldGetDuration) {
-        console.log('[Template] Getting duration for existing audio');
         getDurationForExistingAudio();
+      } else if (isGeneratingProductVideo) {
       }
-    }, [adData.selectedScript, adData.script, adData.language, adData.audioUrl, isGeneratingAudio, audioDuration, handleGenerateAudio, getDurationForExistingAudio]);
+    }, [adData.selectedScript, adData.script, adData.language, adData.audioUrl, isGeneratingAudio, audioDuration, isGeneratingProductVideo, handleGenerateAudio, getDurationForExistingAudio]);
 
     const handleTTSPlayPause = () => {
       if (!adData.audioUrl) return;
@@ -394,6 +415,102 @@ export default function SelectTemplatePage() {
         });
     };
 
+    const generateProductVideo = async () => {
+        const productData = adData.productVideoData;
+        if (!productData?.includeProductVideo || !productData.selectedImageId || !productData.avatarId) {
+            setIsGeneratingProductVideo(false);
+            return;
+        }
+
+        try {
+            setCurrentStep(1);
+            
+            // Step 1: Use existing data from avatar page
+            const productDescription = productData.productDescription;
+            const generatedImages = productData.generatedImages || [];
+            
+            // Find the selected image using the stored selectedImageId
+            const selectedImage = generatedImages.find((img: any) => img.id === productData.selectedImageId);
+            if (!selectedImage?.url) {
+                throw new Error('Selected image not found. Please go back and select an image.');
+            }
+
+            setCurrentStep(2);
+            setGeneratingVideo(true);
+
+            // Step 2: Generate video from selected image
+            const videoResponse = await axios.post('/api/runway/generate-avatar-video', {
+                imageUrl: selectedImage.url,
+                productDescription
+            });
+
+            // Step 3: Wait for video and concatenate
+            setCurrentStep(3);
+            const finalVideo = await pollVideoStatus(videoResponse.data.taskId, productData.avatarId);
+            
+            // Store the video URL in context
+            setAdData({ productVideoUrl: finalVideo });
+            
+            setIsGeneratingProductVideo(false);
+            
+        } catch (error: any) {
+            console.error('Error generating product video:', error);
+            toast.error(error.response?.data?.error || 'Failed to generate product video');
+            setIsGeneratingProductVideo(false);
+        }
+    };
+
+    const pollImageStatus = async (taskIds: string[]): Promise<any[]> => {
+        for (let i = 0; i < 60; i++) { // Max 5 minutes
+            try {
+                const response = await axios.post('/api/runway/check-image-status', { taskIds });
+                if (response.data.status === 'COMPLETED') {
+                    return response.data.images;
+                } else if (response.data.status === 'FAILED') {
+                    throw new Error('Image generation failed');
+                }
+                await new Promise(resolve => setTimeout(resolve, 5000));
+            } catch (error) {
+                console.error('Error checking image status:', error);
+            }
+        }
+        throw new Error('Image generation timeout');
+    };
+
+    const pollVideoStatus = async (taskId: string, avatarId: number): Promise<string> => {
+        for (let i = 0; i < 120; i++) { // Max 10 minutes
+            try {
+                const response = await axios.get(`/api/runway/task-status/${taskId}`);
+                
+                if (response.data.status === 'SUCCEEDED') {
+                    const generatedVideoUrl = response.data.output[0];
+                    
+                    // Concatenate with avatar video
+                    const avatar = avatars.find(a => a.id === avatarId);
+                    const avatarKey = avatar?.src.split('/').pop()?.replace('.mp4', '') || '';
+                    
+                    const concatResponse = await axios.post('/api/video/concatenate', {
+                        generatedVideoUrl,
+                        avatarId: avatarKey
+                    });
+                    
+                    if (concatResponse.data.success) {
+                        return `/api/serve-video${concatResponse.data.videoUrl}`;
+                    } else {
+                        throw new Error('Failed to concatenate videos');
+                    }
+                } else if (response.data.status === 'FAILED') {
+                    throw new Error('Video generation failed');
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 5000));
+            } catch (error) {
+                console.error('Error checking video status:', error);
+            }
+        }
+        throw new Error('Video generation timeout');
+    };
+
     const handleNext = () => {
       setAdData({ templateId: selectedTemplateId });
       // Set flag to indicate that we should generate preview on render page
@@ -427,6 +544,10 @@ export default function SelectTemplatePage() {
 
     return (
         <div className="min-h-screen bg-black text-white">
+            {/* Product Video Loading Screen */}
+            {isGeneratingProductVideo && (
+                <ProductVideoLoadingScreen currentStep={currentStep} />
+            )}
             {/* Hidden audio elements for music previews */}
             {allMusicOptions.map(music => (
                 music.url ? <audio key={music.id} id={`music-preview-${music.id}`} src={music.url} preload="none" /> : null
@@ -782,7 +903,6 @@ export default function SelectTemplatePage() {
                                         <h4 className="text-white font-regular mb-4">Upload Custom Music</h4>
                                         <MusicUploader
                                             onMusicUploaded={async (music) => {
-                                                console.log('Music uploaded:', music);
                                                 customMusicManager.addToCache(music);
                                                 const updatedMusic = await customMusicManager.loadCustomMusic();
                                                 setCustomMusic(updatedMusic);
@@ -869,8 +989,8 @@ export default function SelectTemplatePage() {
                                         subtitleAnimation={adData.subtitleAnimation || 'none'}
                                         subtitlePosition={adData.subtitlePosition || 'bottom'}
                                         enableSubtitles={adData.enableSubtitles !== false}
-                                        audioUrl={adData.audioUrl}
-                                        audioDuration={audioDuration}
+                                        audioUrl={isGeneratingProductVideo ? undefined : adData.audioUrl}
+                                        audioDuration={isGeneratingProductVideo ? undefined : audioDuration}
                                         useCapsLock={adData.useCapsLock || false}
                                         wordTimings={adData.wordTimings}
                                         oneWordAtATime={adData.oneWordAtATime || false}
@@ -886,6 +1006,7 @@ export default function SelectTemplatePage() {
                                         letterSpacing={adData.letterSpacing}
                                         textTransform={adData.textTransform}
                                         textColor={adData.textColor}
+                                        productVideoUrl={adData.productVideoUrl}
                                     />
                                     
                                     <div className="mt-4 p-3 bg-blue-900/20 border border-blue-700/30 rounded-lg">
@@ -934,3 +1055,23 @@ export default function SelectTemplatePage() {
         </div>
     );
 }
+
+// Server-side authentication check
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  const session = await getServerSession(context.req, context.res, authOptions);
+  
+  if (!session) {
+    return {
+      redirect: {
+        destination: '/auth/signin?callbackUrl=' + encodeURIComponent('/ad/template'),
+        permanent: false,
+      },
+    };
+  }
+
+  return {
+    props: {
+      session,
+    },
+  };
+};

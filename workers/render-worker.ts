@@ -97,6 +97,8 @@ async function processRenderJob(adId: string, templateId: string): Promise<void>
         textTransform: adRecord.textTransform as any,
         audioUrl: adRecord.audioUrl ?? undefined,
         wordTimings: adRecord.wordTimings ? JSON.parse(adRecord.wordTimings) : undefined,
+        productVideoUrl: adRecord.productVideoUrl ?? undefined,
+        productVideoData: adRecord.productVideoData ? JSON.parse(adRecord.productVideoData) : undefined,
     };
 
     log('2/9: Checking for existing audio or generating new TTS...');
@@ -120,7 +122,28 @@ async function processRenderJob(adId: string, templateId: string): Promise<void>
     log('3/9: Starting lip-sync job...');
     const avatar = avatars.find((a) => a.id === adData.avatarId);
     if (!avatar) throw new Error(`Avatar with ID ${adData.avatarId} not found.`);
-    const absoluteVideoUrl = `${EXTERNAL_API_BASE_URL}${avatar.src}`;
+    
+    // For final render: Use concatenated product video for SyncLabs if available
+    let avatarVideoSrc = avatar.src; // Default to standard avatar
+    
+    if (adData.productVideoUrl && adData.productVideoUrl.trim() !== '') {
+      // For final renders, we want to use the concatenated product video for SyncLabs processing
+      avatarVideoSrc = adData.productVideoUrl;
+      
+      // Convert API endpoint to direct public URL for SyncLabs access
+      if (avatarVideoSrc.startsWith('/api/serve-video/generated_videos/')) {
+        // Use avatars directory which is publicly accessible
+        avatarVideoSrc = avatarVideoSrc.replace('/api/serve-video/generated_videos/', '/avatars/');
+        log(`Final render: Converted to publicly accessible URL for SyncLabs: ${avatarVideoSrc}`);
+      }
+      
+      log(`Final render: Using concatenated product video for SyncLabs: ${avatarVideoSrc}`);
+    } else {
+      log(`Final render: Using standard avatar video for SyncLabs: ${avatar.src}`);
+    }
+    
+    const absoluteVideoUrl = `${EXTERNAL_API_BASE_URL}${avatarVideoSrc}`;
+    
     const { jobId: syncJobId, finalUrl: lipSyncedVideoUrl } = await runLipSync(absoluteVideoUrl, absoluteAudioUrl);
     await prisma.ad.update({ where: { id: adId }, data: { syncLabsJobId: syncJobId } });
 
@@ -133,15 +156,25 @@ async function processRenderJob(adId: string, templateId: string): Promise<void>
     fs.writeFileSync(localPath, downloadResponse.data);
     const localLipSyncedVideoUrl = `/synclabs/${filename}`;
 
-    const avatarFps = getAvatarFps(adData.avatarId!);
-    log(`Using ${avatarFps} FPS for avatar ID ${adData.avatarId}`);
+    // Get the actual framerate from the lip-synced video (may differ from avatar FPS for product videos)
+    log('6/9: Detecting actual video framerate...');
+    const actualVideoFps = await api.post('/api/video/get-framerate', { filePath: localLipSyncedVideoUrl });
+    const videoFps = actualVideoFps.data.framerate || getAvatarFps(adData.avatarId!);
+    log(`Detected framerate: ${videoFps} FPS (avatar default: ${getAvatarFps(adData.avatarId!)} FPS)`);
 
-    log('6/9: Removing video background...');
-    const transparentAvatarUrl = await removeBackground(localLipSyncedVideoUrl, avatarFps);
-    log('7/9: Getting video duration...');
+    // Always create background-removed version for scenes that need transparency
+    log('7/9: Removing video background...');
+    const transparentAvatarUrl = await removeBackground(localLipSyncedVideoUrl, videoFps);
+    
+    // For product videos, we'll have both: lip-synced with background and lip-synced without background
+    if (adData.productVideoUrl && adData.productVideoUrl.trim() !== '') {
+        log('Product video detected: Both lip-synced versions (with/without background) will be available');
+    }
+    
+    log('8/9: Getting video duration...');
     const durationInSeconds = await getDuration(localLipSyncedVideoUrl);
-    const totalDurationInFrames = Math.round(durationInSeconds * avatarFps);
-    log(`Duration: ${durationInSeconds}s = ${totalDurationInFrames} frames at ${avatarFps} FPS`);
+    const totalDurationInFrames = Math.round(durationInSeconds * videoFps);
+    log(`Duration: ${durationInSeconds}s = ${totalDurationInFrames} frames at ${videoFps} FPS`);
 
     log('8/9: Preparing for final render with Remotion...');
     // ✅ FIXED: Get the base template, then scale it using the duration from the database.
@@ -173,12 +206,31 @@ async function processRenderJob(adId: string, templateId: string): Promise<void>
         wordTimings: wordTimings,
     };
 
+    // Helper function to convert product video URLs to internal render URLs
+    const toRenderVideoUrl = (url: string) => {
+        if (!url || url.startsWith('blob:')) return '';
+        if (url.startsWith('http')) return url;
+        if (url.startsWith('/api/serve-video/')) {
+            // Convert to internal render endpoint for authentication bypass
+            const secret = process.env.INTERNAL_SECRET_KEY || '';
+            return `${EXTERNAL_API_BASE_URL}/api/render/serve-video?videoPath=${encodeURIComponent(url)}&internal_secret=${secret}`;
+        }
+        return `${EXTERNAL_API_BASE_URL}${url}`;
+    };
+
+    // For product videos, use the lip-synced version directly instead of background-removed version
+    const finalProcessedUrl = adData.productVideoUrl && adData.productVideoUrl.trim() !== '' 
+        ? toAbsoluteUrl(localLipSyncedVideoUrl)  // Use lip-synced concatenated video
+        : toAbsoluteUrl(transparentAvatarUrl);   // Use background-removed for standard avatars
+        
     const inputProps = {
         adData: remotionAdData,
         timeline: concreteTimeline,
         audioUrl: toAbsoluteUrl(audioUrl),
-        processedAvatarUrl: toAbsoluteUrl(localLipSyncedVideoUrl),
+        processedAvatarUrl: finalProcessedUrl,
         greenscreenAvatarUrl: toAbsoluteUrl(transparentAvatarUrl),
+        originalProductVideoUrl: '', // Not used in final render
+        concatenatedProductVideoUrl: '', // Not used in final render - using processedAvatarUrl instead
         oneWordAtATime: adData.oneWordAtATime,
         fontSize: adData.fontSize,
         subtitlePosition: adData.subtitlePosition,
@@ -200,7 +252,7 @@ async function processRenderJob(adId: string, templateId: string): Promise<void>
         log('Step 8/9: Rendering primary format video (9:16)...');
         const comp916 = await selectComposition({ serveUrl: bundleLocation, id: 'Main', inputProps });
         comp916.durationInFrames = totalDurationInFrames;
-        comp916.fps = avatarFps;
+        comp916.fps = videoFps;
         const out916 = `final-ad-${adId}-9x16.mp4`;
         const path916 = path.resolve(`./public/renders/${out916}`);
         await renderMedia({ composition: comp916, serveUrl: bundleLocation, codec: 'h264', outputLocation: path916, inputProps });
@@ -224,7 +276,7 @@ async function processRenderJob(adId: string, templateId: string): Promise<void>
             log('Step 8.5/9: Rendering secondary format video (4:5)...');
             const comp45 = await selectComposition({ serveUrl: bundleLocation, id: 'Main4x5', inputProps });
             comp45.durationInFrames = totalDurationInFrames;
-            comp45.fps = avatarFps;
+            comp45.fps = videoFps;
             const out45 = `final-ad-${adId}-4x5.mp4`;
             const path45 = path.resolve(`./public/renders/${out45}`);
             await renderMedia({ composition: comp45, serveUrl: bundleLocation, codec: 'h264', outputLocation: path45, inputProps });

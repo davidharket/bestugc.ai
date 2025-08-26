@@ -112,8 +112,14 @@
   padding: 0;
 }
 
+/* Ensure black background everywhere */
+html, body {
+  background-color: #000000 !important;
+}
+
 html {
   scroll-behavior: smooth;
+  background-color: #000000;
 }
 
 /* Live Subtitle Animations */
@@ -165,7 +171,7 @@ html {
 
 body {
   font-family: var(--font-body);
-  background-color: var(--bg-primary);
+  background-color: #000000;
   color: var(--text-primary);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
@@ -243,16 +249,16 @@ body {
   }
 
   .btn-ghost {
-    @apply text-gray-300 font-medium px-6 py-3 rounded-xl hover:bg-gray-800 hover:text-orange-400 transition-all duration-200;
+    @apply text-gray-300 font-medium px-6 py-3 rounded-[20px] hover:bg-gray-800 hover:text-orange-400 transition-all duration-200;
   }
 
   .btn-danger {
-    @apply bg-red-600 text-white font-medium px-6 py-3 rounded-xl hover:bg-red-700 transition-all duration-200;
+    @apply bg-red-600 text-white font-medium px-6 py-3 rounded-[20px] hover:bg-red-700 transition-all duration-200;
   }
 
   /* Card Variants */
   .card {
-    @apply bg-gray-900 border border-gray-800 rounded-[15px] p-6 hover:border-orange-500/50 transition-all duration-200;
+    @apply bg-gray-900 border border-gray-800 rounded-[20px] p-6 hover:border-orange-500/50 transition-all duration-200;
   }
 
   .card-interactive {
@@ -473,7 +479,7 @@ body {
 
 @keyframes scroll-left {
   0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+  100% { transform: translateX(-100%); }
 }
 
 @keyframes fadeInUp {
@@ -521,7 +527,7 @@ body {
 }
 
 .animate-scroll-left {
-  animation: scroll-left 20s linear infinite;
+  animation: scroll-left 60s linear infinite;
 }
 
 .animate-on-scroll {

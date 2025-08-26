@@ -1,8 +1,10 @@
 // pages/auth/signin.tsx
 import { getProviders, signIn, ClientSafeProvider } from 'next-auth/react';
 import { GetServerSidePropsContext } from 'next';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../api/auth/[...nextauth]';
 import Head from 'next/head';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import ReCAPTCHA from 'react-google-recaptcha';
@@ -34,6 +36,16 @@ export default function SignInPage({ providers, csrfToken }: SignInPageProps) {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const recaptchaRef = useRef<ReCAPTCHA>(null);
 
+  // Handle URL parameters for auto-switching to signup and pre-filling email
+  useEffect(() => {
+    if (router.query.signup === 'true') {
+      setIsSignUp(true);
+    }
+    if (router.query.email) {
+      setEmail(router.query.email as string);
+    }
+  }, [router.query]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -53,27 +65,85 @@ export default function SignInPage({ providers, csrfToken }: SignInPageProps) {
       return;
     }
 
-    // CAPTCHA validation for signup (only if CAPTCHA is enabled)
+    // Full name validation for signup
+    if (isSignUp && (!name || name.trim().length < 2)) {
+      setError('Please enter your full name (at least 2 characters)');
+      setIsLoading(false);
+      return;
+    }
+
+    // CAPTCHA validation (required for both signup and login)
     const captchaEnabled = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
-    if (isSignUp && captchaEnabled && !captchaToken) {
+    if (captchaEnabled && !captchaToken) {
       setError('Please complete the CAPTCHA verification');
       setIsLoading(false);
       return;
     }
 
     try {
+      // For login attempts, first check if user exists
+      if (!isSignUp) {
+        const checkResponse = await fetch('/api/auth/check-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        
+        if (checkResponse.ok) {
+          const data = await checkResponse.json();
+          if (!data.exists) {
+            // User doesn't exist, redirect to signup
+            const callbackUrl = router.query.callbackUrl as string || '/dashboard';
+            window.location.href = `/auth/signin?signup=true&callbackUrl=${encodeURIComponent(callbackUrl)}&email=${encodeURIComponent(email)}`;
+            return;
+          }
+        }
+      }
+
+      // For signup attempts, check if user already exists
+      if (isSignUp) {
+        const checkResponse = await fetch('/api/auth/check-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        
+        if (checkResponse.ok) {
+          const data = await checkResponse.json();
+          if (data.exists) {
+            // User already exists, redirect to login with helpful message
+            setError('An account with this email already exists. Please sign in instead.');
+            setIsSignUp(false);
+            setName('');
+            setPassword('');
+            setConfirmPassword('');
+            setCaptchaToken(null);
+            if (recaptchaRef.current) {
+              recaptchaRef.current.reset();
+            }
+            setIsLoading(false);
+            return;
+          }
+        }
+      }
+
       const result = await signIn('credentials', {
         email,
         password,
-        name: isSignUp ? name : undefined,
-        captchaToken: isSignUp ? captchaToken : undefined,
+        name: isSignUp ? name.trim() : undefined,
+        captchaToken,
         redirect: false,
       });
 
       if (result?.error) {
-        setError(result.error === 'CredentialsSignin' ? 'Invalid credentials' : result.error);
+        if (result.error === 'CredentialsSignin') {
+          setError('Invalid email or password');
+        } else {
+          setError(result.error);
+        }
       } else if (result?.ok) {
-        window.location.href = '/dashboard';
+        const callbackUrl = router.query.callbackUrl as string || '/dashboard';
+        window.location.href = callbackUrl;
       }
     } catch (error) {
       console.error('Auth error:', error);
@@ -108,7 +178,7 @@ export default function SignInPage({ providers, csrfToken }: SignInPageProps) {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-20">
           <div className="text-center mb-8 sm:mb-12">
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-semibold leading-tight sm:leading-relaxed tracking-wide mb-6 sm:mb-8">
-              {isSignUp ? 'Join ' : 'Let\'s create some '}
+              {isSignUp ? 'Create amazing ' : 'Let\'s create some '}
               <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>
                 videos
               </span>
@@ -227,7 +297,7 @@ export default function SignInPage({ providers, csrfToken }: SignInPageProps) {
                   </div>
                 )}
 
-                {isSignUp && process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && (
+                {process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY && (
                   <div className="flex justify-center">
                     <ReCAPTCHA
                       ref={recaptchaRef}
@@ -341,6 +411,19 @@ export default function SignInPage({ providers, csrfToken }: SignInPageProps) {
 }
 
 export async function getServerSideProps(context: GetServerSidePropsContext) {
+  // Check if user is already authenticated
+  const session = await getServerSession(context.req, context.res, authOptions);
+  
+  if (session) {
+    // User is already logged in, redirect to dashboard
+    return {
+      redirect: {
+        destination: '/dashboard',
+        permanent: false,
+      },
+    };
+  }
+
   const providers = await getProviders();
   return {
     props: { 

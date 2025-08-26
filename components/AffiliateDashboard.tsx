@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
+import BarLoader from './BarLoader'
 
 interface AffiliateStats {
   totalClicks: number
@@ -129,7 +130,7 @@ export default function AffiliateDashboard() {
   if (status === 'loading' || loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="animate-spin border-4 border-orange-500 border-t-transparent rounded-full w-12 h-12"></div>
+        <BarLoader size="lg" />
       </div>
     )
   }

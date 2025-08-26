@@ -11,7 +11,7 @@ export default function Document() {
         {/* Global Meta Tags */}
         <meta name="keywords" content="AI video ads, UGC creator, social media marketing, TikTok ads, Instagram ads, video marketing, AI avatars" />
         <meta name="author" content="Best UGC" />
-        <meta name="theme-color" content="#f97316" />
+        <meta name="theme-color" content="#000000" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />

@@ -11,13 +11,13 @@ interface RefreshableSession {
 }
 
 // Pages where credit updates are critical (more frequent polling)
-const CREDIT_CRITICAL_PAGES = ['/subscription', '/settings', '/creations'];
+const CREDIT_CRITICAL_PAGES = ['/settings'];
 
 // Pages where we should do minimal polling 
-const MINIMAL_POLLING_PAGES = ['/dashboard', '/affiliate-dashboard'];
+const MINIMAL_POLLING_PAGES: string[] = [];
 
-// Pages where we should NOT do automatic polling (only ad generation pipeline to prevent API costs)
-const POLLING_EXCLUDED_PAGES = ['/ad'];
+// Pages where we should NOT do automatic polling (to prevent tab-away refreshes)
+const POLLING_EXCLUDED_PAGES = ['/ad', '/images', '/test', '/dashboard', '/creations', '/subscription', '/affiliate-dashboard'];
 
 export function useRefreshableSession(): RefreshableSession {
   const { data, status, update } = useSession();

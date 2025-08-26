@@ -4,6 +4,7 @@ import { useAdCreation } from '../../components/AdCreationContext'
 import { useSession } from 'next-auth/react'
 import axios from 'axios'
 import Spinner from '../../components/Spinner'
+import BarLoader from '../../components/BarLoader'
 
 const formatOptions = [
   { label: '16:9', value: '16:9', disabled: true, comingSoon: true },
@@ -73,7 +74,7 @@ export default function FormatAd() {
       adData.format === '9:16' ? ['9:16', '4:5'] : [adData.format] :
       [adData.format || '9:16']
   )
-  const [duration, setDuration] = useState(adData.duration || 15)
+  const [duration, setDuration] = useState(adData.duration || 30)
   const [language, setLanguage] = useState(adData.language || 'no')
   const [audience, setAudience] = useState(adData.audience || '')
   const [userCredits, setUserCredits] = useState<number | null>(null)
@@ -175,7 +176,7 @@ export default function FormatAd() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Format Video - Step 2</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">Format Video</h1>
           <p className="text-gray-400">Choose your video format, duration, and target audience</p>
         </div>
 
@@ -205,7 +206,7 @@ export default function FormatAd() {
                 <span className="text-sm font-semibold">{opt.label}</span>
                 
                 {opt.comingSoon && (
-                  <span className="absolute -top-2 -left-2 bg-orange-500 text-white text-xs px-2 py-1 rounded-full">
+                  <span className="absolute -top-2 -left-2 bg-orange-600 text-white text-xs px-2 py-1 rounded-[8px]">
                     Coming Soon
                   </span>
                 )}
@@ -215,7 +216,7 @@ export default function FormatAd() {
           
           {/* Multiple Format Warning */}
           {selectedFormats.length > 1 && (
-            <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-[15px] p-4">
               <div className="flex items-start gap-3">
                 <svg className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -224,8 +225,6 @@ export default function FormatAd() {
                   <div className="font-medium text-sm mb-1">Multiple Format Generation - 15 Credits</div>
                   <div className="text-xs space-y-1">
                     <div>• Rendering will take approximately {selectedFormats.length}x longer (up to {selectedFormats.length * 5} minutes)</div>
-                    <div>• Only one TTS audio and lipsync processing will be performed</div>
-                    <div>• Both videos will appear in your creations once complete</div>
                     <div>• <strong>Cost: 15 credits</strong> (vs 10 credits for single format)</div>
                   </div>
                 </div>
@@ -357,7 +356,7 @@ export default function FormatAd() {
           {/* Loading State */}
           {suggestionsLoading && (
             <div className="flex items-center gap-2 mb-4">
-              <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-orange-500"></div>
+              <BarLoader size="sm" />
               <span className="text-orange-400 text-sm">Loading AI suggestions...</span>
             </div>
           )}

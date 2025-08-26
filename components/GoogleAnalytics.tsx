@@ -95,13 +95,13 @@ export default function GoogleAnalytics() {
             <div className="flex gap-2 flex-shrink-0">
               <button
                 onClick={rejectAll}
-                className="px-2 py-1 text-xs bg-gray-800 text-gray-300 border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors"
+                className="px-2 py-1 text-xs btn-secondary rounded-[8px]"
               >
                 Reject All
               </button>
               <button
                 onClick={acceptAll}
-                className="px-2 py-1 text-xs bg-orange-500 text-white border border-orange-500 rounded-lg hover:bg-orange-600 transition-colors"
+                className="px-2 py-1 text-xs btn-primary rounded-[8px]"
               >
                 Accept All
               </button>

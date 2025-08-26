@@ -1,12 +1,50 @@
-// pages/dashboard.tsx
+// pages/dashboard.tsx (Final, Bulletproof Version)
 import { useSession, signIn } from 'next-auth/react'
 import { useRouter } from 'next/router'
 import { useState, useEffect } from 'react'
 import { useAdCreation } from '../components/AdCreationContext'
 import axios from 'axios'
 import Link from 'next/link'
+import FirstTimeLoginPopup from '../components/FirstTimeLoginPopup'
 
+// This is the main "guard" component. Its only job is to check authentication.
 export default function Dashboard() {
+  const { data: session, status } = useSession()
+
+  // This effect handles redirecting unauthenticated users
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      signIn(); // Redirect to the login page
+    }
+  }, [status]);
+
+  // This handles the loading state and prevents any further rendering
+  if (status === 'loading') {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <h1 className="text-3xl text-white">Loading Dashboard...</h1>
+      </div>
+    );
+  }
+
+  // This handles the unauthenticated state by showing a placeholder
+  // while the useEffect above triggers the redirect. This prevents crashes.
+  if (status === 'unauthenticated' || !session?.user) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <h1 className="text-3xl text-white">Redirecting to login...</h1>
+      </div>
+    );
+  }
+
+  // If we reach this point, we are GUARANTEED to have a user session.
+  // Now we can safely render the actual content.
+  return <DashboardContent />;
+}
+
+// This is the actual content of the dashboard.
+// It's only rendered when the user is authenticated.
+function DashboardContent() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const { resetAdData } = useAdCreation()
@@ -15,6 +53,17 @@ export default function Dashboard() {
   const [loadingRecent, setLoadingRecent] = useState(true)
   const [freshCredits, setFreshCredits] = useState<number | null>(null)
   const [freshPlan, setFreshPlan] = useState<string | null>(null)
+  const [showWelcomePopup, setShowWelcomePopup] = useState(false)
+  
+  // This check reassures TypeScript and handles any edge cases.
+  // It should never be reached in practice but is required for the build to pass.
+  if (!session || !session.user) {
+    return (
+        <div className="flex justify-center items-center min-h-screen">
+            <h1 className="text-3xl text-white">Loading user data...</h1>
+        </div>
+    );
+  }
 
   useEffect(() => {
     if (router.isReady) {
@@ -22,13 +71,10 @@ export default function Dashboard() {
       let shouldClearQuery = false;
 
       if (payment_success === 'true' && session_id) {
-        // Handle payment success
         shouldClearQuery = true;
       } else if (payment_canceled === 'true') {
-        // Handle payment canceled
         shouldClearQuery = true;
       } else if (error_message) {
-        // Handle error
         shouldClearQuery = true;
       }
 
@@ -43,16 +89,24 @@ export default function Dashboard() {
     }
   }, [router.isReady, router.query]);
 
-  // Listen for credits updates - removed redundant fetch since Layout.tsx handles this
+  // Check if this is the user's first time logging in
+  useEffect(() => {
+    if (session?.user && status === 'authenticated') {
+      const hasSeenWelcomePopup = localStorage.getItem('hasSeenWelcomePopup')
+      if (!hasSeenWelcomePopup) {
+        setShowWelcomePopup(true)
+      }
+    }
+  }, [session, status])
+
   useEffect(() => {
     const handleCreditsUpdated = (event: CustomEvent) => {
       setFreshCredits(event.detail.credits)
       setFreshPlan(event.detail.plan)
     }
 
-    // Only fetch fresh data if we don't have session data yet
     const fetchFreshUserDataIfNeeded = async () => {
-      if (!session?.user?.credits && status === 'authenticated') {
+      if (!session.user?.credits && status === 'authenticated') {
         try {
           const response = await fetch('/api/user/current')
           if (response.ok) {
@@ -66,21 +120,20 @@ export default function Dashboard() {
       }
     }
 
-    // Only fetch if needed to avoid redundant requests
     fetchFreshUserDataIfNeeded()
     window.addEventListener('credits-updated', handleCreditsUpdated as EventListener)
-    
+
     return () => {
       window.removeEventListener('credits-updated', handleCreditsUpdated as EventListener)
     }
-  }, [session?.user?.credits, status]) // Added dependencies to avoid unnecessary fetches
+  }, [session.user.credits, status])
 
   useEffect(() => {
     const fetchRecentVideos = async () => {
       if (status === 'authenticated') {
         try {
           const res = await axios.get('/api/ads')
-          const videos = res.data.slice(0, 3) // Only show 3 most recent
+          const videos = res.data.slice(0, 3)
           setRecentVideos(videos)
         } catch (e: any) {
           console.error('Error fetching videos:', e)
@@ -89,22 +142,15 @@ export default function Dashboard() {
         }
       }
     }
-
     fetchRecentVideos()
   }, [status])
-
-  if (status === 'unauthenticated' || !session?.user) {
-    signIn()
-    return null
-  }
 
   interface UserSession extends NonNullable<typeof session.user> {
     plan?: string;
     credits?: number;
   }
-  const baseUser = session?.user as UserSession;
-  
-  // Use fresh data if available, otherwise fall back to session data
+  const baseUser = session.user as UserSession;
+
   const user = {
     ...baseUser,
     credits: freshCredits !== null ? freshCredits : (baseUser?.credits ?? 0),
@@ -158,33 +204,33 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-20">
       {/* Header */}
-      <div className="text-center mb-16">
-        <h1 className="text-5xl lg:text-7xl font-semibold leading-relaxed tracking-wide mb-8">
+      <div className="text-center mb-8 sm:mb-12 lg:mb-16">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-semibold leading-tight sm:leading-relaxed tracking-wide mb-4 sm:mb-6 lg:mb-8">
           Welcome back, {' '}
           <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(to right, #e85a12 0%, #e85a12 100%)' }}>
             {user.name?.split(' ')[0] || 'Creator'}
           </span>
         </h1>
-        <p className="text-lg text-white max-w-2xl mx-auto">
+        <p className="text-base sm:text-lg text-white max-w-2xl mx-auto px-4">
           Ready to create your next high-converting AI video?
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
         {/* Main Creation Panel - Left Side */}
         <div className="lg:col-span-2">
-          <div className="rounded-[20px] border border-gray-700 p-8" style={{ backgroundColor: '#111827' }}>
-            <h2 className="text-2xl font-semibold text-white mb-6">Create New Video</h2>
-            
+          <div className="rounded-[15px] sm:rounded-[20px] border border-gray-700 p-4 sm:p-6 lg:p-8" style={{ backgroundColor: '#111827' }}>
+            <h2 className="text-xl sm:text-2xl font-semibold text-white mb-4 sm:mb-6">Create New Video</h2>
+
             <div className="space-y-6">
               {/* Product Link Input */}
               <div>
                 <label className="block text-sm font-normal text-gray-300 mb-3">
                   Start with a product link (optional)
                 </label>
-                <div className="flex gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <input
                     type="text"
                     value={productUrl}
@@ -192,14 +238,15 @@ export default function Dashboard() {
                     className="flex-1 bg-black border border-gray-700 rounded-[15px] px-4 py-3 text-white placeholder-gray-500 focus:border-orange-500 focus:outline-none transition-colors"
                     placeholder="https://yourstore.com/product-page"
                   />
-                  <button 
-                    className="btn-primary px-8 py-3 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  <button
+                    className="btn-primary px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
                     onClick={handleCreateVideo}
                     disabled={!canCreateVideo}
                     title={!canCreateVideo ? `You need at least ${VIDEO_CREATION_COST} credits to create a video.` : 'Start with product link'}
                   >
                     <img src="/ai-star.svg" alt="AI" className="w-4 h-4" />
-                    Start with Link
+                    <span className="hidden sm:inline">Start with Link</span>
+                    <span className="sm:hidden">Start</span>
                   </button>
                 </div>
               </div>
@@ -215,7 +262,7 @@ export default function Dashboard() {
               </div>
 
               {/* From Scratch */}
-              <button 
+              <button
                 className="w-full py-4 btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleCreateFromScratch}
                 disabled={!canCreateVideo}
@@ -229,7 +276,7 @@ export default function Dashboard() {
               {!canCreateVideo && (
                 <div className="bg-red-900/20 border border-red-800 rounded-[15px] p-4">
                   <p className="text-red-400 text-sm text-center">
-                    You need at least {VIDEO_CREATION_COST} credits to create a new video. 
+                    You need at least {VIDEO_CREATION_COST} credits to create a new video.
                     <Link href="/subscription" className="text-orange-400 hover:text-orange-300 ml-1 transition-colors">
                       Top up your credits
                     </Link>
@@ -238,14 +285,64 @@ export default function Dashboard() {
               )}
             </div>
           </div>
+
+          {/* Product Images Panel */}
+          <div className="mt-6 sm:mt-8">
+            <div className="rounded-[15px] sm:rounded-[20px] border border-gray-700 p-4 sm:p-6 lg:p-8 relative overflow-hidden" style={{ backgroundColor: '#111827' }}>
+              {/* Background Images */}
+              <div 
+                className="absolute inset-0 opacity-20 bg-cover bg-center bg-no-repeat"
+                style={{
+                  backgroundImage: `url('/product-img.png')`
+                }}
+              />
+              
+              {/* Overlay */}
+              <div className="absolute inset-0 bg-black bg-opacity-20" />
+              
+              {/* Content */}
+              <div className="relative z-10">
+                <h2 className="text-xl sm:text-2xl font-semibold text-white mb-4 sm:mb-6">Generate Product Images</h2>
+                
+                <div className="space-y-6">
+                  <p className="text-gray-300 text-sm">
+                    Create stunning AI-powered product images with professional scenes and lighting.
+                  </p>
+                  
+                  <button
+                    className="w-full py-4 btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={() => router.push('/images/format')}
+                    disabled={!canCreateVideo}
+                    title={!canCreateVideo ? 'You need credits to generate product images.' : 'Generate product images'}
+                  >
+                    <div className="flex items-center justify-center gap-3">
+                      <img src="/ai-star.svg" alt="AI" className="w-4 h-4" />
+                      <span className="font-normal">Generate Product Images</span>
+                    </div>
+                  </button>
+
+                  {!canCreateVideo && (
+                    <div className="bg-red-900/20 border border-red-800 rounded-[15px] p-4">
+                      <p className="text-red-400 text-sm text-center">
+                        You need credits to generate product images.
+                        <Link href="/subscription" className="text-orange-400 hover:text-orange-300 ml-1 transition-colors">
+                          Top up your credits
+                        </Link>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Sidebar - Right Side */}
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           {/* Recent Activity */}
-          <div className="rounded-[20px] border border-gray-700 p-6" style={{ backgroundColor: '#111827' }}>
+          <div className="rounded-[15px] sm:rounded-[20px] border border-gray-700 p-4 sm:p-6" style={{ backgroundColor: '#111827' }}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Recent Activity</h3>
+              <h3 className="text-base sm:text-lg font-semibold text-white">Recent Activity</h3>
               <Link href="/creations" className="text-orange-400 hover:text-orange-300 text-sm font-normal">
                 View All
               </Link>
@@ -254,7 +351,7 @@ export default function Dashboard() {
             {loadingRecent ? (
               <div className="space-y-3">
                 {[...Array(3)].map((_, i) => (
-                  <div key={i} className="bg-black rounded-lg p-3 animate-pulse">
+                  <div key={i} className="bg-black rounded-[15px] p-3 animate-pulse">
                     <div className="h-4 bg-gray-800 rounded w-3/4 mb-2"></div>
                     <div className="h-3 bg-gray-800 rounded w-1/2"></div>
                   </div>
@@ -268,30 +365,29 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="space-y-3">
-		{recentVideos.map((video) => (
-		  <div
-		    key={video.id}
-		    className="bg-black rounded-lg p-3 border border-gray-800"
-		  >
-		    <div className="flex items-center justify-between mb-2">
-		      {/* --- ADD flex-1 and min-w-0 HERE --- */}
-		      <h4 className="text-white text-sm font-normal truncate flex-1 min-w-0 mr-2" title={video.brandName || `Video #${video.id.slice(0, 6)}`}>
-		        {video.brandName || `Video #${video.id.slice(0, 6)}`}
-		      </h4>
-		      {renderStatus(video.status)}
-		    </div>
-		    <p className="text-gray-400 text-xs">
-		      {new Date(video.createdAt).toLocaleDateString()}
-		    </p>
-		  </div>
-		))}
+                {recentVideos.map((video) => (
+                  <div
+                    key={video.id}
+                    className="bg-black rounded-[15px] p-3 border border-gray-800"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-white text-sm font-normal truncate flex-1 min-w-0 mr-2" title={video.brandName || `Video #${video.id.slice(0, 6)}`}>
+                        {video.brandName || `Video #${video.id.slice(0, 6)}`}
+                      </h4>
+                      {renderStatus(video.status)}
+                    </div>
+                    <p className="text-gray-400 text-xs">
+                      {new Date(video.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                ))}
               </div>
             )}
           </div>
 
           {/* Account Info */}
-          <div className="rounded-[20px] border border-gray-700 p-6" style={{ backgroundColor: '#111827' }}>
-            <h3 className="text-lg font-semibold text-white mb-4">Account</h3>
+          <div className="rounded-[15px] sm:rounded-[20px] border border-gray-700 p-4 sm:p-6" style={{ backgroundColor: '#111827' }}>
+            <h3 className="text-base sm:text-lg font-semibold text-white mb-4">Account</h3>
             <div className="space-y-4">
               <div>
                 <p className="text-gray-400 text-sm mb-2">Credits</p>
@@ -300,7 +396,7 @@ export default function Dashboard() {
                     <img src="/credits.svg" alt="Credits" className="w-5 h-5" />
                     <span className="text-white font-normal">{user.credits ?? 0}</span>
                   </div>
-                  <Link 
+                  <Link
                     href="/subscription"
                     className="text-orange-400 hover:text-orange-300 text-lg font-normal transition-colors"
                     title="Buy more credits"
@@ -313,7 +409,7 @@ export default function Dashboard() {
                 <p className="text-gray-400 text-sm mb-1">Plan</p>
                 <span className="text-white font-normal">{user.plan || 'FREE'} Plan</span>
               </div>
-              <Link 
+              <Link
                 href="/subscription"
                 className="btn-primary px-4 py-2 text-sm block text-center"
               >
@@ -323,6 +419,12 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* First Time Login Popup */}
+      <FirstTimeLoginPopup 
+        isOpen={showWelcomePopup} 
+        onClose={() => setShowWelcomePopup(false)} 
+      />
     </div>
   )
 }

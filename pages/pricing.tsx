@@ -7,7 +7,6 @@ interface PricingTierProps {
   title: string;
   price: string;
   originalPrice?: string;
-  description: string;
   features: string[];
   ctaText: string;
   isPopular?: boolean;
@@ -15,53 +14,39 @@ interface PricingTierProps {
   onClick: () => void;
 }
 
-const PricingTier = ({ title, price, originalPrice, description, features, ctaText, isPopular, credits, onClick }: PricingTierProps) => (
-  <div className={`relative border-2 rounded-[20px] p-6 sm:p-8 transition-all duration-300 hover:scale-105 ${
+const PricingTier = ({ title, price, originalPrice, features, ctaText, isPopular, credits, onClick }: PricingTierProps) => (
+  <div className={`relative rounded-[20px] border-2 p-8 transition-all duration-300 hover:scale-105 ${
     isPopular 
-      ? 'border-gray-700 shadow-lg shadow-orange-500/25' 
+      ? 'border-orange-500 shadow-lg shadow-orange-500/25' 
       : 'border-gray-700 hover:border-orange-500/50'
-  }`} style={{ backgroundColor: isPopular ? 'rgba(232, 90, 18, 0.05)' : '#111827' }}>
+  }`} style={{ backgroundColor: isPopular ? 'rgba(232, 90, 18, 0.05)' : title === 'Premium' ? '#000000' : '#00000' }}>
     {isPopular && (
-      <div className="absolute -top-3 sm:-top-4 left-1/2 transform -translate-x-1/2">
-        <span className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 sm:px-6 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold shadow-lg">
-          Most Popular
-        </span>
+      <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
       </div>
     )}
     
-    <div className="text-center">
-      
-      <h3 className="text-xl sm:text-2xl font-bold text-white mb-2">{title}</h3>
-      <p className="text-gray-400 mb-4 sm:mb-6 text-sm sm:text-base">{description}</p>
-      
-      <div className="mb-6">
-        {originalPrice && (
-          <div className="text-gray-500 line-through text-lg mb-1">{originalPrice}</div>
-        )}
-        <div className="flex items-baseline justify-center gap-1">
-          <span className="text-3xl sm:text-4xl font-bold text-white">{price}</span>
-          <span className="text-gray-400 text-base sm:text-lg">/mo</span>
-        </div>
-        <div className="inline-flex items-center px-3 py-1 rounded-full text-white text-xs sm:text-sm font-medium mt-3" style={{ backgroundColor: isPopular ? '#e85a12' : '#374151' }}>
-          {credits} Credits Included
-        </div>
+    <div className="text-left mb-8">
+      <h3 className="text-2xl font-normal text-white mb-2">{title}</h3>
+      <div className="text-4xl font-semibold text-white mb-1">{price}</div>
+      <p className="text-gray-400 text-sm">/month</p>
+      <div className="inline-flex items-center px-3 border border-[#eb590c] py-1 rounded-[8px] text-white text-sm font-normal mt-3 gap-2" style={{ backgroundColor: isPopular ? '#e85a12' : title === 'Premium' ? '#111111' : '#0000' }}>
+        <img src="/credits.svg" style={{ width: 'auto', height: '12px' }} alt="Credits" />
+        {credits} credits/month
       </div>
     </div>
 
-    <ul className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
+    <div className="space-y-4 mb-8">
       {features.map((feature, index) => (
-        <li key={index} className="flex items-start gap-3">
-          <div className="w-4 sm:w-5 h-4 sm:h-5 flex items-center justify-center flex-shrink-0 mt-0.5">
-            <img src="/success.svg" alt="Included" className="w-3 sm:w-4 h-3 sm:h-4" />
-          </div>
-          <span className="text-gray-300 text-sm sm:text-base">{feature}</span>
-        </li>
+        <div key={index} className="flex items-center gap-3">
+          <img src="/success.svg" alt="Included" className="w-4 h-4 flex-shrink-0" />
+          <span className="text-gray-300 text-sm">{feature}</span>
+        </div>
       ))}
-    </ul>
+    </div>
     
     <button 
       onClick={onClick}
-      className={`w-full py-3 sm:py-4 px-4 sm:px-6 rounded-[20px] text-base sm:text-lg transition-all duration-300 transform hover:scale-105 ${
+      className={`w-full py-4 px-6 rounded-[15px] text-lg font-normal transition-all duration-300 transform hover:scale-105 ${
         isPopular 
           ? 'btn-primary' 
           : 'btn-secondary'
@@ -115,15 +100,13 @@ export default function PricingPage() {
     {
       title: 'Basic',
       price: '$49.90',
-      description: 'Perfect for testing and small businesses getting started with AI video ads.',
       features: [
         '100 Credits per month',
-        'All Standard Avatars',
-        'Multiple Video Templates',
-        'HD Video Quality (1080p)',
-        'All Platform Formats',
+        'Standard AI Avatars',
+        'All Video Templates',
+        'Multiple Formats (9:16, 16:9)',
         'Email Support',
-        'Commercial License'
+        'HD Video Quality'
       ],
       ctaText: 'Start Basic Plan',
       credits: 100
@@ -131,16 +114,13 @@ export default function PricingPage() {
     {
       title: 'Pro',
       price: '$99.90',
-      description: 'For growing businesses that need more scale and advanced features.',
       features: [
         '250 Credits per month',
-        'Premium Avatars',
+        'Premium AI Avatars',
         'Advanced Templates',
-        '4K Video Quality',
-        'Custom Branding Options',
+        'Custom Branding',
         'No Watermark',
-        'Priority Support',
-        'API Access (Beta)'
+        'Priority Support'
       ],
       ctaText: 'Choose Pro Plan',
       isPopular: true,
@@ -149,16 +129,13 @@ export default function PricingPage() {
     {
       title: 'Premium',
       price: '$149.90',
-      description: 'The ultimate package for agencies and high-volume content creators.',
       features: [
         '400 Credits per month',
-        'All Premium Features',
-        'White-label Solutions',
-        'Custom Avatar Creation',
-        'Dedicated Account Manager',
-        '24/7 Priority Support',
-        'Advanced Analytics',
-        'Custom Integrations'
+        'Exclusive AI Avatars',
+        'White-label Solution',
+        'API Access',
+        'Custom Integrations',
+        '24/7 Human Support'
       ],
       ctaText: 'Choose Premium',
       credits: 400

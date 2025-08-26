@@ -6,6 +6,7 @@ import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { updateSubscription } from '../lib/credit-operations'
+import BarLoader from '../components/BarLoader'
 
 const plans = [
   {
@@ -39,7 +40,6 @@ const plans = [
       'Custom Branding',
       'No Watermark',
       'Priority Support',
-      '4K Video Quality'
     ],
     popular: true
   },
@@ -56,8 +56,7 @@ const plans = [
       'White-label Solution',
       'API Access',
       'Custom Integrations',
-      '24/7 Dedicated Support',
-      '8K Video Quality'
+      '24/7 Human Support',
     ],
     popular: false
   }
@@ -175,7 +174,7 @@ export default function Subscription() {
 
   if (status === 'loading') return (
     <div className="min-h-screen bg-black flex items-center justify-center">
-      <div className="animate-spin border-4 border-orange-500 border-t-transparent rounded-full w-12 h-12"></div>
+      <BarLoader size="lg" />
     </div>
   )
 
@@ -257,28 +256,32 @@ export default function Subscription() {
             {plans.map((plan) => (
               <div
                 key={plan.id}
-                className={`relative rounded-[20px] border-2 p-8 transition-all duration-300 hover:scale-105 ${
+                className={`relative rounded-[20px] border-2 p-8 transition-all duration-300 hover: ${
                   plan.popular 
                     ? 'border-orange-500 shadow-lg shadow-orange-500/25' 
                     : user.plan === plan.id
-                    ? 'border-green-500 shadow-lg shadow-green-500/25'
+                    ? 'border-gray-500 shadow-lg shadow-gray-500/25'
                     : 'border-gray-700 hover:border-orange-500/50'
                 }`} 
-                style={{ backgroundColor: plan.popular ? 'rgba(232, 90, 18, 0.05)' : '#111827' }}
+                style={{ 
+                  backgroundColor: plan.popular 
+                    ? 'rgba(232, 90, 18, 0.05)' 
+                    : plan.id === 'PREMIUM' 
+                    ? '#000000' 
+                    : '#00000' 
+                }}
               >
                 {plan.popular && (
                   <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-orange-500 text-white px-4 py-1 rounded-full text-sm font-normal">
-                      Most Popular
-                    </span>
                   </div>
                 )}
 
-                <div className="text-center mb-8">
-                  <h3 className="text-2xl font-semibold text-white mb-2">{plan.name}</h3>
+                <div className="text-left mb-8">
+                  <h3 className="text-2xl font-normal text-white mb-2">{plan.name}</h3>
                   <div className="text-4xl font-semibold text-white mb-1">{plan.price}</div>
                   <p className="text-gray-400 text-sm">/month</p>
-                  <div className="inline-flex items-center px-3 py-1 rounded-full text-white text-sm font-normal mt-3" style={{ backgroundColor: plan.popular ? '#e85a12' : '#374151' }}>
+                  <div className="inline-flex items-center px-3 border border-[#eb590c] py-1 rounded-[8px] text-white text-sm font-normal mt-3 gap-2" style={{ backgroundColor: plan.popular ? '#e85a12' : plan.id === 'PREMIUM' ? '#111111' : '#0000' }}>
+                    <img src="/credits.svg" style={{ width: 'auto', height: '12px' }} alt="Credits" />
                     {plan.credits} credits/month
                   </div>
                 </div>
@@ -295,9 +298,9 @@ export default function Subscription() {
                 <button
                   onClick={() => redirectToCheckout(plan.id)}
                   disabled={user.plan === plan.id || loadingItem === plan.id}
-                  className={`w-full py-4 px-6 rounded-[15px] text-lg font-normal transition-all duration-300 transform hover:scale-105 ${
+                  className={`w-full py-4 px-6 rounded-[15px] text-lg font-normal transition-all duration-300 transform ${
                     user.plan === plan.id
-                      ? 'bg-green-600 text-white cursor-not-allowed'
+                      ? 'bg-gray-700 text-white cursor-not-allowed'
                       : plan.popular 
                       ? 'btn-primary'
                       : 'btn-secondary'
@@ -306,7 +309,7 @@ export default function Subscription() {
                 >
                   {loadingItem === plan.id ? (
                     <div className="flex items-center justify-center gap-2">
-                      <div className="animate-spin border-4 border-current border-t-transparent rounded-full w-4 h-4"></div>
+                      <BarLoader size="sm" />
                       Processing...
                     </div>
                   ) : user.plan === plan.id ? (
@@ -329,45 +332,38 @@ export default function Subscription() {
             {creditPacks.map((pack) => (
               <div
                 key={pack.id}
-                className={`relative rounded-[20px] border-2 p-6 transition-all duration-300 hover:scale-105 ${
+                className={`relative rounded-[20px] border-2 p-8 transition-all duration-300 ${
                   pack.popular 
                     ? 'border-orange-500 shadow-lg shadow-orange-500/25' 
                     : 'border-gray-700 hover:border-orange-500/50'
                 }`}
-                style={{ backgroundColor: pack.popular ? 'rgba(232, 90, 18, 0.05)' : '#111827' }}
+                style={{ backgroundColor: '#000000' }}
               >
                 {pack.popular && (
                   <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <span className="bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-normal">
-                      Best Value
-                    </span>
                   </div>
                 )}
 
-                <div className="text-center mb-6">
-                  <div className="text-3xl font-semibold text-white mb-2">{pack.credits}</div>
-                  <p className="text-gray-400 text-sm mb-4">Credits</p>
-                  <div className="text-2xl font-semibold text-orange-400 mb-1">{pack.price}</div>
-                  {pack.savings && (
-                    <div className="mt-2">
-                      <span className="bg-green-900/50 text-green-400 px-2 py-1 rounded-full text-xs">
-                        {pack.savings}
-                      </span>
-                    </div>
-                  )}
+                <div className="text-left mb-8">
+                  <div className="flex items-center gap-2 mb-4">
+                    <img src="/credits.svg" style={{ width: 'auto', height: '24px' }} alt="Credits" />
+                    <div className="text-3xl font-semibold text-white">{pack.credits}</div>
+                  </div>
+                  <p className="text-gray-400 text-sm mb-6">Credits</p>
+                  <div className="text-2xl font-semibold text-white mb-1">{pack.price}</div>
                 </div>
 
                 <button
                   onClick={() => redirectToCheckout(pack.id)}
                   disabled={loadingItem === pack.id}
-                  className={`w-full py-3 px-4 rounded-[15px] text-sm font-normal transition-all duration-300 transform hover:scale-105 ${
+                  className={`w-full py-4 px-6 rounded-[15px] text-lg font-normal transition-all duration-300 ${
                     pack.popular ? 'btn-primary' : 'btn-secondary'
                   }`}
                   style={{ fontWeight: '400' }}
                 >
                   {loadingItem === pack.id ? (
                     <div className="flex items-center justify-center gap-2">
-                      <div className="animate-spin border-4 border-current border-t-transparent rounded-full w-4 h-4"></div>
+                      <BarLoader size="sm" />
                       Processing...
                     </div>
                   ) : (
@@ -415,7 +411,7 @@ export default function Subscription() {
               >
                 {profileLoading ? (
                   <div className="flex items-center gap-2">
-                    <div className="animate-spin border-2 border-current border-t-transparent rounded-full w-4 h-4"></div>
+                    <BarLoader size="sm" />
                     Saving...
                   </div>
                 ) : (
@@ -436,42 +432,6 @@ export default function Subscription() {
           </div>
         </div>
 
-        {/* Preferences */}
-        <div className="rounded-[20px] border border-gray-700 p-8 mb-16" style={{ backgroundColor: '#111827' }}>
-          <h2 className="text-2xl font-semibold text-white mb-6">Preferences</h2>
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-white font-medium">Email Notifications</h3>
-                <p className="text-gray-400 text-sm">Receive notifications about your video processing</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" defaultChecked className="sr-only peer" />
-                <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
-              </label>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-white font-medium">Marketing Emails</h3>
-                <p className="text-gray-400 text-sm">Receive updates about new features and promotions</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" className="sr-only peer" />
-                <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
-              </label>
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-white font-medium">Auto-download Videos</h3>
-                <p className="text-gray-400 text-sm">Automatically download completed videos</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" defaultChecked className="sr-only peer" />
-                <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
-              </label>
-            </div>
-          </div>
-        </div>
 
 
         {/* Account Actions */}
@@ -485,7 +445,7 @@ export default function Subscription() {
               </div>
               <button 
                 onClick={() => signOut()}
-                className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                className="px-4 py-2 btn-secondary hover:bg-gray-600 transition-colors"
               >
                 Sign Out
               </button>
@@ -497,7 +457,7 @@ export default function Subscription() {
               </div>
               <button 
                 onClick={() => setShowDeleteModal(true)}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                className="px-4 py-2 bg-red-600 text-white rounded-[15px] hover:bg-red-700 transition-colors"
               >
                 Delete Account
               </button>

@@ -2,6 +2,7 @@ import { useSession } from 'next-auth/react'
 import { useState, useEffect } from 'react'
 import Head from 'next/head'
 import { Layout } from '../components/Layout'
+import BarLoader from '../components/BarLoader'
 
 interface Session {
   id: string
@@ -82,7 +83,7 @@ export default function SecurityPage() {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-spin h-8 w-8 border-2 border-orange-500 border-t-transparent rounded-full"></div>
+          <BarLoader size="md" />
         </div>
       </Layout>
     )

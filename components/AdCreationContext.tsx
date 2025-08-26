@@ -7,6 +7,16 @@ export interface OrderedAsset {
   order: number;
 }
 
+export interface ProductVideoData {
+  includeProductVideo: boolean;
+  selectedImageId?: string;
+  productDescription?: string;
+  productImages?: string[];
+  generatedImages?: Array<{id: string, url: string, taskId: string, status?: string}>;
+  avatarId?: number;
+  attemptsRemaining?: number;
+}
+
 export interface AdCreationData {
   productUrl?: string;
   summary?: string;
@@ -48,6 +58,9 @@ export interface AdCreationData {
   // Dual format support
   enableDualFormat?: boolean;
   currentPreviewFormat?: '9:16' | '4:5';
+  // Avatar Product Video
+  productVideoUrl?: string;
+  productVideoData?: ProductVideoData;
   // Advanced font customization
   fontWeight?: number;
   outlineWidth?: number;

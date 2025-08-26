@@ -1,12 +1,13 @@
 // pages/creations.tsx
 import { useSession, signIn } from 'next-auth/react'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { Ad } from '../types/Ad';
 import AdCard from '../components/AdCard';
+import BarLoader from '../components/BarLoader';
 
 export default function MyCreations() {
   const { data: session, status } = useSession()
@@ -18,6 +19,7 @@ export default function MyCreations() {
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const [isTabVisible, setIsTabVisible] = useState(true);
   const scrollPositionRef = useRef(0);
+  const previousAdsRef = useRef<Ad[]>([]);
   
   // Infinite scroll state
   const [displayedAdsCount, setDisplayedAdsCount] = useState(6);
@@ -38,17 +40,14 @@ export default function MyCreations() {
 
     try {
       const res = await axios.get<Ad[]>('/api/ads');
-      console.log(`Fetched ads data (${isPolling ? 'polling' : 'initial'}):`, res.data.length, 'ads');
       
       // Only update ads state if data actually changed to prevent unnecessary re-renders
-      const currentAdsJson = JSON.stringify(ads);
+      const previousAdsJson = JSON.stringify(previousAdsRef.current);
       const newAdsJson = JSON.stringify(res.data);
       
-      if (currentAdsJson !== newAdsJson) {
+      if (previousAdsJson !== newAdsJson) {
+        previousAdsRef.current = res.data;
         setAds(res.data);
-        console.log('Ads updated - data changed');
-      } else if (isPolling) {
-        console.log('Ads data unchanged - skipping state update');
       }
       
       setError(null);
@@ -76,10 +75,8 @@ export default function MyCreations() {
       if (!isVisible) {
         // Save scroll position when tab becomes hidden
         scrollPositionRef.current = window.scrollY;
-        console.log('Tab became hidden, saved scroll position:', scrollPositionRef.current);
       } else {
         // Restore scroll position when tab becomes visible
-        console.log('Tab became visible, restoring scroll position:', scrollPositionRef.current);
         setTimeout(() => {
           window.scrollTo(0, scrollPositionRef.current);
         }, 0);
@@ -106,15 +103,12 @@ export default function MyCreations() {
     
     // Only start polling if we have processing ads, tab is visible, and user is authenticated
     if (hasProcessingAds && isTabVisible && status === 'authenticated') {
-      console.log('Starting polling - processing ads detected and tab is visible');
       pollingRef.current = setInterval(() => {
         // Only poll if tab is still visible
         if (!document.hidden) {
           fetchAds(true);
         }
       }, 15000); // Increased to 15 seconds to reduce excessive refreshing
-    } else {
-      console.log('Not starting polling:', { hasProcessingAds, isTabVisible, status });
     }
   };
 
@@ -132,7 +126,6 @@ export default function MyCreations() {
     // Cleanup on unmount
     return () => {
       if (pollingRef.current) {
-        console.log('Clearing polling interval on unmount.');
         clearInterval(pollingRef.current);
         pollingRef.current = null;
       }
@@ -150,15 +143,13 @@ export default function MyCreations() {
     // Only start polling if we have processing ads and tab is visible
     // But don't restart polling just because tab visibility changed
     if (hasProcessingAds && isTabVisible && !pollingRef.current) {
-      console.log('Starting polling - processing ads detected');
       startPollingIfNeeded(ads);
     } else if (!hasProcessingAds && pollingRef.current) {
       // Stop polling if no processing ads
       clearInterval(pollingRef.current);
       pollingRef.current = null;
-      console.log('Stopped polling - no processing ads');
     }
-  }, [ads.length, status]); // Removed isTabVisible to prevent tab switching from restarting polling
+  }, [ads.length, status, isTabVisible]); // Only depend on values, not functions
 
   // Handle tab visibility changes more efficiently - prevent unnecessary refreshes
   useEffect(() => {
@@ -166,15 +157,13 @@ export default function MyCreations() {
       // Pause polling when tab becomes hidden
       clearInterval(pollingRef.current);
       pollingRef.current = null;
-      console.log('Paused polling - tab hidden');
-    } else if (isTabVisible && !pollingRef.current && ads.length > 0) {
+    } else if (isTabVisible && !pollingRef.current && previousAdsRef.current.length > 0) {
       // Resume polling when tab becomes visible if we have processing ads
       // BUT don't refetch data - just resume polling
-      const hasProcessingAds = ads.some(ad => 
+      const hasProcessingAds = previousAdsRef.current.some(ad => 
         ad.status === 'PENDING' || ad.status === 'RENDERING' || ad.status === 'QUEUED'
       );
       if (hasProcessingAds) {
-        console.log('Resumed polling - tab visible (no data refetch)');
         // Start polling without triggering a data fetch
         pollingRef.current = setInterval(() => {
           if (!document.hidden) {
@@ -191,9 +180,47 @@ export default function MyCreations() {
     setDisplayedAdsCount(6);
   }, [filter]);
 
+  // Infinite scroll observer - must be before early return
+  useEffect(() => {
+    if (status === 'loading') return; // Don't set up observer during loading
+    
+    // Compute filtered ads inside useEffect
+    const filteredAds = ads.filter(ad => {
+      switch (filter) {
+        case 'completed': return ad.status === 'COMPLETED';
+        case 'processing': return ad.status === 'PENDING' || ad.status === 'RENDERING';
+        case 'failed': return ad.status === 'FAILED';
+        default: return true;
+      }
+    });
+    
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loadingMore && displayedAdsCount < filteredAds.length) {
+          setLoadingMore(true);
+          setTimeout(() => {
+            setDisplayedAdsCount(prev => Math.min(prev + 6, filteredAds.length));
+            setLoadingMore(false);
+          }, 500); // Small delay for smooth loading
+        }
+      },
+      { threshold: 0.1, rootMargin: '100px' }
+    );
+
+    if (loadMoreRef.current && filteredAds.length > 0) {
+      observer.observe(loadMoreRef.current);
+    }
+
+    return () => {
+      if (loadMoreRef.current) {
+        observer.unobserve(loadMoreRef.current);
+      }
+    };
+  }, [status, loadingMore, displayedAdsCount, ads, filter]);
+
   if (status === 'loading') return (
     <div className="min-h-screen bg-black flex items-center justify-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-orange-500"></div>
+      <BarLoader size="xl" />
     </div>
   )
 
@@ -282,32 +309,6 @@ export default function MyCreations() {
     }
   });
 
-  // Infinite scroll observer - moved here after filteredAds is defined
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !loadingMore && displayedAdsCount < filteredAds.length) {
-          setLoadingMore(true);
-          setTimeout(() => {
-            setDisplayedAdsCount(prev => Math.min(prev + 6, filteredAds.length));
-            setLoadingMore(false);
-          }, 500); // Small delay for smooth loading
-        }
-      },
-      { threshold: 0.1, rootMargin: '100px' }
-    );
-
-    if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current);
-    }
-
-    return () => {
-      if (loadMoreRef.current) {
-        observer.unobserve(loadMoreRef.current);
-      }
-    };
-  }, [loadingMore, displayedAdsCount, filteredAds.length]);
-
   const stats = {
     total: ads.length,
     completed: ads.filter(ad => ad.status === 'COMPLETED').length,
@@ -315,14 +316,6 @@ export default function MyCreations() {
     failed: ads.filter(ad => ad.status === 'FAILED').length
   };
 
-  console.log('Current state:', {
-    loading,
-    error,
-    adsLength: ads.length,
-    filteredAdsLength: filteredAds.length,
-    filter,
-    firstAd: ads[0]
-  });
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -504,7 +497,7 @@ export default function MyCreations() {
               <div ref={loadMoreRef} className="flex justify-center py-8">
                 {loadingMore ? (
                   <div className="flex items-center gap-2 text-gray-400">
-                    <div className="animate-spin border-2 border-orange-500 border-t-transparent rounded-full w-5 h-5"></div>
+                    <BarLoader size="md" />
                     Loading more videos...
                   </div>
                 ) : (

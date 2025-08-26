@@ -91,6 +91,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         enableSubtitles: adData.enableSubtitles,
         audioUrl: adData.audioUrl,
         wordTimings: adData.wordTimings ? JSON.stringify(adData.wordTimings) : null,
+        productVideoUrl: adData.productVideoUrl,
+        productVideoData: adData.productVideoData ? JSON.stringify(adData.productVideoData) : null,
       },
     });
 

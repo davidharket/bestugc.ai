@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import BarLoader from '../components/BarLoader';
 
 // Custom hook for profile operations
 const useProfile = () => {
@@ -92,7 +93,7 @@ export default function SettingsPage() {
   if (status === 'loading') {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-orange-500"></div>
+        <BarLoader size="lg" />
       </div>
     );
   }
@@ -226,7 +227,7 @@ export default function SettingsPage() {
             >
               {isUpdating ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-white mr-2"></div>
+                  <BarLoader size="sm" className="mr-2" />
                   Updating...
                 </>
               ) : (

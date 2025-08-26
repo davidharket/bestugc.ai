@@ -25,6 +25,7 @@ public/renders/
 public/synclabs/
 public/videos/
 public/temp/
+public/assets/
 public/videos-fixed/
 logs/
 
@@ -38,7 +39,7 @@ public/music/
 
 # Fixed avatars directory (deprecated)
 public/avatars-fixed/
-
+public/*
 # Avatar and B-roll directories - exclude all video files but track code
 public/avatars/*.mp4
 public/avatars/*.mov

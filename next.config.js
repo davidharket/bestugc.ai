@@ -13,6 +13,26 @@ const nextConfig = {
   // Configure API routes and video headers
   async headers() {
     return [
+      // Prevent caching of HTML pages to avoid build manifest mismatches
+      {
+        source: '/((?!api|_next/static|_next/image|favicon.ico).*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+        ],
+      },
+      // Static assets can be cached with their hash
+      {
+        source: '/_next/static/(.*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
       {
         source: '/api/upload-temp',
         headers: [

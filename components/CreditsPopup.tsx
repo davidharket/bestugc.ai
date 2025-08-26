@@ -3,6 +3,7 @@ import { useState } from 'react'
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { purchaseCredits } from '../lib/credit-operations'
+import BarLoader from './BarLoader'
 
 interface CreditsPopupProps {
   isOpen: boolean
@@ -144,7 +145,7 @@ export const CreditsPopup: React.FC<CreditsPopupProps> = ({ isOpen, onClose, cur
                     >
                       {loadingItem === pack.id ? (
                         <div className="flex items-center gap-2">
-                          <div className="animate-spin border-2 border-current border-t-transparent rounded-full w-3 h-3"></div>
+                          <BarLoader size="sm" />
                           <span>Loading...</span>
                         </div>
                       ) : (

@@ -9,6 +9,7 @@ import { useSession } from 'next-auth/react';
 import { avatars } from '../../lib/avatars';
 import { SUBTITLE_STYLES, SubtitleStyle } from '../../remotion/components/Subtitles';
 import { spendCredits } from '../../lib/credit-operations';
+import BarLoader from '../../components/BarLoader';
 
 type PreviewStatus = 'idle' | 'queued' | 'processing' | 'completed' | 'failed';
 
@@ -150,9 +151,8 @@ export default function RenderAdPage() {
 
   const handleRender = async () => {
     setIsRendering(true);
-    const toastId = toast.loading('Saving ad configuration...');
     if (!session?.user?.id || !adData.templateId) {
-      toast.error('Session or template missing.', { id: toastId });
+      toast.error('Session or template missing.');
       setIsRendering(false);
       return;
     }
@@ -162,17 +162,15 @@ export default function RenderAdPage() {
       const createAdResponse = await axios.post('/api/ads/create', { adData });
       const { adId } = createAdResponse.data;
       
-      toast.loading('Starting render job...', { id: toastId });
       setFinalRenderStarted(true);
       await spendCredits(() => axios.post('/api/render/start-job', { adId, templateId: adData.templateId }));
-      toast.success('Your video is in the queue!', { id: toastId, duration: 4000 });
       setIsNavigatingAway(true);
       setTimeout(() => {
         resetAdData();
         router.push('/creations');
       }, 1000);
     } catch (e: any) {
-      toast.error(e.response?.data?.message || 'Failed to start render.', { id: toastId });
+      toast.error(e.response?.data?.message || 'Failed to start render.');
       setIsRendering(false);
       setFinalRenderStarted(false);
       setIsNavigatingAway(false);
@@ -262,11 +260,11 @@ export default function RenderAdPage() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Preview Video - Step 4</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">Preview Video</h1>
           <p className="text-gray-400 mb-4">Preview how your avatar, music, and fonts will look in the final video</p>
           
           {/* Preview Information Card */}
-          <div className="bg-blue-900/20 border border-blue-600/40 rounded-lg p-4">
+          <div className="bg-blue-900/20 border border-blue-600/40 rounded-[15px] p-4">
             <div className="flex items-start gap-3">
               <svg className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
@@ -297,18 +295,18 @@ export default function RenderAdPage() {
                 )}
               </div>
               <div className="flex justify-between items-center mb-8">
-                <div className="flex flex-col items-center flex-1"><div className="relative w-10 h-10 mb-3">{loadingStage.stage > 1 ? <div className="w-10 h-10 flex items-center justify-center"><img src="/success.svg" alt="Complete" className="w-5 h-5" /></div> : loadingStage.stage === 1 ? <div className="relative w-10 h-10 flex items-center justify-center"><div className="w-5 h-5 border-2 border-orange-500 border-t-gray-900 rounded-full animate-spin"></div></div> : <div className="w-10 h-10 flex items-center justify-center"><div className="w-5 h-5 rounded-full border-2 border-gray-500 bg-transparent"></div></div>}</div><span className={`text-sm font-medium ${loadingStage.stage >= 1 ? 'text-white' : 'text-gray-500'}`}>Adding Audio</span></div>
+                <div className="flex flex-col items-center flex-1"><div className="relative w-10 h-10 mb-3">{loadingStage.stage > 1 ? <div className="w-10 h-10 flex items-center justify-center"><img src="/success.svg" alt="Complete" className="w-5 h-5" /></div> : loadingStage.stage === 1 ? <div className="relative w-10 h-10 flex items-center justify-center"><BarLoader size="sm" /></div> : <div className="w-10 h-10 flex items-center justify-center"><div className="w-5 h-5 rounded-full border-2 border-gray-500 bg-transparent"></div></div>}</div><span className={`text-sm font-medium ${loadingStage.stage >= 1 ? 'text-white' : 'text-gray-500'}`}>Adding Audio</span></div>
                 <div className="flex-1 mx-4"><div className={`h-1 rounded-full ${loadingStage.stage > 1 ? 'bg-orange-500' : 'bg-gray-700'}`}></div></div>
-                <div className="flex flex-col items-center flex-1"><div className="relative w-10 h-10 mb-3">{loadingStage.stage > 2 ? <div className="w-10 h-10 flex items-center justify-center"><img src="/success.svg" alt="Complete" className="w-5 h-5" /></div> : loadingStage.stage === 2 ? <div className="relative w-10 h-10 flex items-center justify-center"><div className="w-5 h-5 border-2 border-orange-500 border-t-gray-900 rounded-full animate-spin"></div></div> : <div className="w-10 h-10 flex items-center justify-center"><div className="w-5 h-5 rounded-full border-2 border-gray-500 bg-transparent"></div></div>}</div><span className={`text-sm font-medium ${loadingStage.stage >= 2 ? 'text-white' : 'text-gray-500'}`}>Rendering Video</span></div>
+                <div className="flex flex-col items-center flex-1"><div className="relative w-10 h-10 mb-3">{loadingStage.stage > 2 ? <div className="w-10 h-10 flex items-center justify-center"><img src="/success.svg" alt="Complete" className="w-5 h-5" /></div> : loadingStage.stage === 2 ? <div className="relative w-10 h-10 flex items-center justify-center"><BarLoader size="sm" /></div> : <div className="w-10 h-10 flex items-center justify-center"><div className="w-5 h-5 rounded-full border-2 border-gray-500 bg-transparent"></div></div>}</div><span className={`text-sm font-medium ${loadingStage.stage >= 2 ? 'text-white' : 'text-gray-500'}`}>Rendering Video</span></div>
                 <div className="flex-1 mx-4"><div className={`h-1 rounded-full ${loadingStage.stage > 2 ? 'bg-orange-500' : 'bg-gray-700'}`}></div></div>
-                <div className="flex flex-col items-center flex-1"><div className="relative w-10 h-10 mb-3">{loadingStage.stage === 3 ? <div className="relative w-10 h-10 flex items-center justify-center"><div className="w-5 h-5 border-2 border-orange-500 border-t-gray-900 rounded-full animate-spin"></div></div> : <div className="w-10 h-10 flex items-center justify-center"><div className="w-5 h-5 rounded-full border-2 border-gray-500 bg-transparent"></div></div>}</div><span className={`text-sm font-medium ${loadingStage.stage >= 3 ? 'text-white' : 'text-gray-500'}`}>Final Touches</span></div>
+                <div className="flex flex-col items-center flex-1"><div className="relative w-10 h-10 mb-3">{loadingStage.stage === 3 ? <div className="relative w-10 h-10 flex items-center justify-center"><BarLoader size="sm" /></div> : <div className="w-10 h-10 flex items-center justify-center"><div className="w-5 h-5 rounded-full border-2 border-gray-500 bg-transparent"></div></div>}</div><span className={`text-sm font-medium ${loadingStage.stage >= 3 ? 'text-white' : 'text-gray-500'}`}>Final Touches</span></div>
               </div>
               <div className="w-full bg-gray-700 rounded-full h-3 mb-4"><div className="h-full rounded-full bg-gradient-to-r from-orange-500 to-orange-600 transition-all duration-700 ease-out" style={{ width: `${((loadingStage.stage - 1) * 33.33) + (loadingStage.progress * 0.33)}%` }}></div></div>
               <div className="text-center text-sm text-gray-400">{Math.round(((loadingStage.stage - 1) * 33.33) + (loadingStage.progress * 0.33))}% complete</div>
               
               {/* Large asset warning */}
               {showLargeAssetWarning && (
-                <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-700/50 rounded-lg">
+                <div className="mt-4 p-3 bg-yellow-900/20 border border-yellow-700/50 rounded-[15px]">
                   <div className="flex items-center gap-2 text-yellow-400 text-sm">
                     <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -381,7 +379,7 @@ export default function RenderAdPage() {
                       Go Back
                     </button>
                     <button className={`flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-normal rounded-[15px] shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 ${(isRendering || !areAllPreviewsDone) ? 'opacity-50 cursor-not-allowed' : ''}`} onClick={handleRender} disabled={isRendering || !areAllPreviewsDone}>
-                      {isRendering ? (<><div className="animate-spin rounded-full h-5 w-5 border-t-2 border-white"></div>Processing...</>) : (<><img src="/ai-star.svg" alt="" className="w-5 h-5" />Generate Video</>)}
+                      {isRendering ? (<><BarLoader size="sm" />Processing...</>) : (<><img src="/ai-star.svg" alt="" className="w-5 h-5" />Generate Video</>)}
                     </button>
                   </div>
                 </div>
@@ -414,7 +412,7 @@ export default function RenderAdPage() {
                   </div>
                 </div>
               ) : (
-                <div className="text-center"><div className="mb-4"><div className="w-12 h-12 mx-auto mb-4 border-2 border-orange-500 border-t-gray-900 rounded-full animate-spin"></div><p className="text-gray-400">Initializing preview generation...</p></div></div>
+                <div className="text-center"><div className="mb-4"><div className="w-12 h-12 mx-auto mb-4 flex items-center justify-center"><BarLoader size="lg" /></div><p className="text-gray-400">Initializing preview generation...</p></div></div>
               )}
             </div>
           </div>

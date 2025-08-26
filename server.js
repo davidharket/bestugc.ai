@@ -18,7 +18,7 @@ if (typeof global !== 'undefined') {
         slice() { return new global.Blob(); }
       };
     }
-    
+
     // Create File constructor immediately
     global.File = class File extends global.Blob {
       constructor(fileBits, fileName, options = {}) {
@@ -31,10 +31,10 @@ if (typeof global !== 'undefined') {
       lastModified = Date.now();
       webkitRelativePath = '';
     };
-    
+
     console.log('[Immediate Polyfill] File constructor applied');
   }
-  
+
   // Ensure FormData exists
   if (typeof global.FormData === 'undefined') {
     global.FormData = class FormData {
@@ -75,6 +75,12 @@ app.prepare().then(() => {
     if (err) throw err;
     console.log(`> Ready on http://localhost:${port}`);
     console.log(`> Polyfills loaded: File=${typeof global.File !== 'undefined'}, FormData=${typeof global.FormData !== 'undefined'}`);
+
+    // THIS IS THE CRUCIAL LINE THAT WAS ADDED
+    // It signals to PM2 that the application has started and is ready.
+    if (process.send) {
+      process.send('ready');
+    }
   });
 }).catch((ex) => {
   console.error('Error starting server:', ex);
