@@ -27,7 +27,10 @@ export const FullScreenAvatar4x5: React.FC<{
 	} else {
 		// FINAL RENDER: Use original timing logic for proper lip-sync
 		// Use the timeline position passed from Main.tsx for proper sync with processed avatar
-		videoStartFrame = Math.round(startFrom * COMPOSITION_FPS);
+		// Use detected avatar FPS if available
+		const avatarFps = (inputProps as any)?.avatarFps;
+		const effectiveFps = avatarFps || COMPOSITION_FPS;
+		videoStartFrame = Math.round(startFrom * effectiveFps);
 	}
 
 	return (
@@ -38,7 +41,7 @@ export const FullScreenAvatar4x5: React.FC<{
 				startFrom={videoStartFrame}
 				muted={true} // Audio is handled globally in MainComposition
 				playsInline={true}
-				preload="metadata"
+				preload="auto"
 				onError={(error) => {
 					console.error('[FullScreenAvatar4x5] Video error:', error);
 				}}

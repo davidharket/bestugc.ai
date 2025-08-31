@@ -1,5 +1,6 @@
 // components/AdCreationContext.tsx
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
+import { WeightedScene } from '../lib/templates';
 
 // The AdCreationData interface remains the same
 export interface OrderedAsset {
@@ -42,6 +43,7 @@ export interface AdCreationData {
   selectedScript?: string;
   avatarId?: number;
   templateId?: string;
+  modifiedTimeline?: WeightedScene[]; // User's custom timeline
   syncLabsJobId?: string; // It's good practice to add any potential fields
   subtitleStyle?: string;
   subtitleAnimation?: 'fade' | 'slide' | 'typewriter' | 'bounce' | 'none';
@@ -73,6 +75,8 @@ export interface AdCreationData {
   letterSpacing?: number;
   textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
   textColor?: string;
+  customFontFamily?: string;
+  customFontUrl?: string;
 }
 
 interface AdCreationContextType {

@@ -6,6 +6,67 @@ import axios from 'axios'
 import BarLoader from '../../components/BarLoader'
 import SimpleLoader from '../../components/SimpleLoader'
 
+const formatOptions = [
+  { label: '21:9', value: '21:9', disabled: false },
+  { label: '16:9', value: '16:9', disabled: false },
+  { label: '4:3', value: '4:3', disabled: false },
+  { label: '1:1', value: '1:1', disabled: false },
+  { label: '3:4', value: '3:4', disabled: false },
+  { label: '9:16', value: '9:16', disabled: false },
+]
+
+// Custom SVG components for aspect ratios
+const AspectRatioIcon = ({ ratio }: { ratio: string }) => {
+  const commonProps = {
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const
+  }
+
+  switch (ratio) {
+    case '21:9':
+      return (
+        <svg className="w-10 h-4" viewBox="0 0 40 16" {...commonProps}>
+          <rect x="1" y="1" width="38" height="14" rx="3" ry="3"/>
+        </svg>
+      )
+    case '16:9':
+      return (
+        <svg className="w-8 h-5" viewBox="0 0 32 18" {...commonProps}>
+          <rect x="1" y="1" width="30" height="16" rx="3" ry="3"/>
+        </svg>
+      )
+    case '4:3':
+      return (
+        <svg className="w-8 h-6" viewBox="0 0 32 24" {...commonProps}>
+          <rect x="1" y="1" width="30" height="22" rx="4" ry="4"/>
+        </svg>
+      )
+    case '1:1':
+      return (
+        <svg className="w-8 h-8" viewBox="0 0 32 32" {...commonProps}>
+          <rect x="1" y="1" width="30" height="30" rx="5" ry="5"/>
+        </svg>
+      )
+    case '3:4':
+      return (
+        <svg className="w-6 h-8" viewBox="0 0 24 32" {...commonProps}>
+          <rect x="1" y="1" width="22" height="30" rx="4" ry="4"/>
+        </svg>
+      )
+    case '9:16':
+      return (
+        <svg className="w-6 h-10" viewBox="0 0 24 40" {...commonProps}>
+          <rect x="1" y="1" width="22" height="38" rx="5" ry="5"/>
+        </svg>
+      )
+    default:
+      return null
+  }
+}
+
 
 const PremiumFeatureBlock = () => (
     <div className="min-h-screen bg-black text-white flex items-center justify-center">
@@ -40,6 +101,7 @@ export default function ImageProduct() {
   const [userCredits, setUserCredits] = useState<number | null>(null)
   const [sceneData, setSceneData] = useState<{image: any, description: string} | null>(null)
   const [imageFormat, setImageFormat] = useState<string>('')
+  const [selectedFormat, setSelectedFormat] = useState<string>('16:9')
   const [showLoadingScreen, setShowLoadingScreen] = useState(false)
   const [progressStep, setProgressStep] = useState<string>('')
   const imageInputRef = useRef<HTMLInputElement | null>(null)
@@ -72,6 +134,7 @@ export default function ImageProduct() {
     }
 
     setImageFormat(storedFormat)
+    setSelectedFormat(storedFormat)
     // Show enhanced description if AI was used, otherwise show original
     const displayDescription = storedAiEnhanced && storedEnhancedDescription
       ? storedEnhancedDescription
@@ -85,6 +148,13 @@ export default function ImageProduct() {
     // Fetch user credits
     fetchUserCredits()
   }, [session, status, router, hasPremiumAccess])
+
+  const handleFormatSelect = (formatValue: string) => {
+    setSelectedFormat(formatValue)
+    setImageFormat(formatValue)
+    // Update session storage so it persists
+    sessionStorage.setItem('imageFormat', formatValue)
+  }
 
   const fetchUserCredits = async () => {
     if (session?.user?.id) {
@@ -208,7 +278,7 @@ export default function ImageProduct() {
         description: trimmedDescription,
         sceneImage: sceneData.image.url,
         productImages: productImages.map(img => img.url),
-        aspectRatio: imageFormat,
+        aspectRatio: selectedFormat,
         count: 4
       })
 
@@ -243,7 +313,7 @@ export default function ImageProduct() {
           sceneDescription: sceneData.description,
           sceneImageUrl: sceneData.image.url,
           productImageUrls: productImages.map(pImg => pImg.url),
-          aspectRatio: imageFormat,
+          aspectRatio: selectedFormat,
           enhancedDescription: sessionStorage.getItem('enhancedDescription'),
           aiEnhanced: sessionStorage.getItem('aiEnhanced') === 'true',
           runwayTaskId: img.taskId,
@@ -313,8 +383,31 @@ export default function ImageProduct() {
             </div>
             <div className="flex-1">
               <p className="text-gray-300 text-sm">{sceneData!.description}</p>
-              <p className="text-gray-500 text-xs mt-1">Format: {imageFormat}</p>
+              <p className="text-gray-500 text-xs mt-1">Format: {selectedFormat}</p>
             </div>
+          </div>
+        </div>
+
+        <div className="card mb-8">
+          <label className="block text-xl font-semibold text-white mb-4">Output format</label>
+          <div className="flex flex-wrap gap-3 mb-4">
+            {formatOptions.map(opt => (
+              <button
+                key={opt.value}
+                className={`px-6 py-4 rounded-xl font-normal transition-all duration-200 flex flex-col items-center gap-3 relative min-w-[120px] ${
+                  selectedFormat === opt.value
+                    ? 'bg-gray-900 text-white border border-orange-500'
+                    : opt.disabled
+                      ? 'bg-gray-900 text-gray-500 border border-gray-700 cursor-not-allowed opacity-50'
+                      : 'bg-gray-900 text-gray-300 border border-gray-700 hover:border-orange-500'
+                }`}
+                onClick={() => handleFormatSelect(opt.value)}
+                disabled={opt.disabled || isGenerating}
+              >
+                <AspectRatioIcon ratio={opt.value} />
+                <span className="text-sm">{opt.label}</span>
+              </button>
+            ))}
           </div>
         </div>
 

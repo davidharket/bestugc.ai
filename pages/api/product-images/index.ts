@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next'
 import { getServerSession } from 'next-auth/next'
 import { authOptions } from '../auth/[...nextauth]'
 import { PrismaClient } from '@prisma/client'
+import { downloadAndStoreImage } from '../../../lib/image-storage'
 
 const prisma = new PrismaClient()
 
@@ -117,15 +118,35 @@ async function handlePatch(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ error: 'runwayTaskId is required' })
     }
 
+    let updateData: any = {}
+    
+    // If completing an image, download and store it locally
+    if (imageUrl && status === 'COMPLETED') {
+      console.log('Downloading and storing image locally:', imageUrl)
+      const downloadResult = await downloadAndStoreImage(imageUrl, session.user.id)
+      
+      if (downloadResult.success) {
+        updateData.imageUrl = downloadResult.localUrl
+        updateData.status = status
+        console.log('Image stored locally:', downloadResult.localUrl)
+      } else {
+        console.error('Failed to download image:', downloadResult.error)
+        // Fall back to original URL if download fails
+        updateData.imageUrl = imageUrl
+        updateData.status = status
+      }
+    } else {
+      // Regular update
+      if (imageUrl) updateData.imageUrl = imageUrl
+      if (status) updateData.status = status
+    }
+
     const productImage = await prisma.productImage.updateMany({
       where: {
         userId: session.user.id,
         runwayTaskId: runwayTaskId
       },
-      data: {
-        ...(imageUrl && { imageUrl }),
-        ...(status && { status })
-      }
+      data: updateData
     })
 
     if (productImage.count === 0) {

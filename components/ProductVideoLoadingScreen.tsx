@@ -20,7 +20,7 @@ const ProductVideoLoadingScreen: React.FC<ProductVideoLoadingScreenProps> = ({
   return (
     <div className="fixed inset-0 bg-black text-white flex items-center justify-center z-50">
       <div className="text-center max-w-lg mx-auto px-6">
-        <h1 className="text-4xl md:text-5xl font-bold text-white mb-8 whitespace-nowrap">Generating your video</h1>
+        <h1 className="text-4xl md:text-5xl font-bold text-white mb-8 whitespace-nowrap">Generating video</h1>
         
         {/* Loader */}
         <div className="mx-auto mb-6">

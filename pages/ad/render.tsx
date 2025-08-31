@@ -1,13 +1,14 @@
 // pages/ad/render.tsx
 import { useRouter } from 'next/router';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAdCreation } from '../../components/AdCreationContext';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import TTSCacheService from '../../lib/tts-cache-service';
 import { useSession } from 'next-auth/react';
 import { avatars } from '../../lib/avatars';
-import { SUBTITLE_STYLES, SubtitleStyle } from '../../remotion/components/Subtitles';
+import { SubtitleStyle } from '../../remotion/components/Subtitles';
+import { getAllAvailableFonts } from '../../lib/google-fonts';
 import { spendCredits } from '../../lib/credit-operations';
 import BarLoader from '../../components/BarLoader';
 
@@ -24,6 +25,26 @@ export default function RenderAdPage() {
   const router = useRouter();
   const { data: session } = useSession();
   const { adData, setAdData, resetAdData } = useAdCreation();
+
+  const SUBTITLE_STYLES = useMemo(() => {
+    return getAllAvailableFonts().map(font => ({
+      id: font.id,
+      name: font.name,
+      font: `"${font.fontFamily}"`,
+      fontSize: 50,
+      fontWeight: 600,
+      textColor: '#FFFFFF',
+      backgroundColor: 'transparent',
+      borderRadius: 0,
+      padding: 8,
+      textShadow: '1px 1px 2px #000',
+      textAlign: 'center' as const,
+      lineHeight: 1.2,
+      maxWidth: 950,
+      border: 'none',
+      supportsCaps: true,
+    }));
+  }, []);
 
   const [isRendering, setIsRendering] = useState(false);
   const [finalRenderStarted, setFinalRenderStarted] = useState(false);

@@ -1,8 +1,9 @@
 // remotion/scenes/CutoutAvatarScene.tsx
-import { AbsoluteFill, OffthreadVideo, useCurrentFrame, useVideoConfig, getInputProps } from 'remotion';
+import { AbsoluteFill, OffthreadVideo, useCurrentFrame, useVideoConfig } from 'remotion';
 import { DualLayerBackground } from '../components/DualLayerBackground';
 import React from 'react';
 import { COMPOSITION_FPS } from '../constants';
+import { safeGetInputProps } from '../utils/safeInputProps';
 
 
 export const CutoutAvatarScene: React.FC<{
@@ -13,23 +14,13 @@ export const CutoutAvatarScene: React.FC<{
 }> = ({ backgroundSrc, greenscreenSrc, position, avatarStartFrom = 0 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const inputProps = getInputProps();
+  const inputProps = safeGetInputProps();
   
+  // Get avatar FPS from input props if available, otherwise use composition FPS
+  const avatarFps = (inputProps as any)?.avatarFps || fps;
   
-  // Check if we're in preview mode
-  const isPreviewMode = (inputProps as any)?.adData?.previewMode === true;
-  
-  let videoStartFrame: number;
-  
-  if (isPreviewMode) {
-    // PREVIEW MODE: Use simpler logic without custom looping
-    // Just start from the beginning of the scene for preview
-    videoStartFrame = 0;
-  } else {
-    // FINAL RENDER: Use original timing logic for proper lip-sync
-    // Use the timeline position passed from Main.tsx for proper sync with processed avatar
-    videoStartFrame = Math.round(avatarStartFrom * COMPOSITION_FPS);
-  }
+  // Simple approach: just use the detected avatar FPS to calculate the start frame
+  const videoStartFrame = Math.round(avatarStartFrom * avatarFps);
 
   if (!backgroundSrc) {
     console.warn('[CutoutAvatarScene] No backgroundSrc provided');
@@ -50,13 +41,19 @@ export const CutoutAvatarScene: React.FC<{
       display: 'flex',
       alignItems: 'flex-end',
     };
-
+    
     switch (position) {
       case 'left':
-        return { ...baseStyle, left: '0px' };
+        return { 
+          ...baseStyle, 
+          left: '0px'
+        };
       
       case 'right':
-        return { ...baseStyle, right: '-20px' };
+        return { 
+          ...baseStyle, 
+          right: '-20px'
+        };
       
       case 'center':
       default:

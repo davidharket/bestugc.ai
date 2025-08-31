@@ -27,7 +27,10 @@ export const SmallCutoutBottomLeftScene4x5: React.FC<{
   } else {
     // FINAL RENDER: Use original timing logic for proper lip-sync
     // Use the timeline position passed from Main.tsx for proper sync with processed avatar
-    videoStartFrame = Math.round(avatarStartFrom * COMPOSITION_FPS);
+    // Use detected avatar FPS if available
+    const avatarFps = (inputProps as any)?.avatarFps;
+    const effectiveFps = avatarFps || COMPOSITION_FPS;
+    videoStartFrame = Math.round(avatarStartFrom * effectiveFps);
   }
 
   if (!backgroundSrc) {

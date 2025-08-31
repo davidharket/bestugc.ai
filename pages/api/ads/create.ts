@@ -93,6 +93,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         wordTimings: adData.wordTimings ? JSON.stringify(adData.wordTimings) : null,
         productVideoUrl: adData.productVideoUrl,
         productVideoData: adData.productVideoData ? JSON.stringify(adData.productVideoData) : null,
+        modifiedTimeline: adData.modifiedTimeline ? JSON.stringify(adData.modifiedTimeline) : null,
       },
     });
 

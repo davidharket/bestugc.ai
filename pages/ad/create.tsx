@@ -1115,7 +1115,7 @@ export default function CreateAd() {
                       onClick={() => handleBRollSelect(src)}
                     >
                       <video 
-                        src={src.startsWith('b-roll/') ? `/api/serve-broll/${src.replace('b-roll/', '')}` : src} 
+                        src={src.startsWith('b-roll/') ? `/${src}` : src} 
                         className="w-32 h-20 object-cover" 
                         muted
                       />
@@ -1173,7 +1173,7 @@ export default function CreateAd() {
           <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setPreviewingVideo(null)}>
             <div className="relative max-w-4xl max-h-full">
               <video 
-                src={previewingVideo.startsWith('b-roll/') ? `/api/serve-broll/${previewingVideo.replace('b-roll/', '')}` : previewingVideo}
+                src={previewingVideo.startsWith('b-roll/') ? `/${previewingVideo}` : previewingVideo}
                 className="w-full h-auto max-h-[80vh] rounded-lg"
                 controls
                 autoPlay

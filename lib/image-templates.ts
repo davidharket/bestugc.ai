@@ -728,6 +728,97 @@ export const imageTemplates: ImageTemplate[] = [
     height: 768,
     aspectRatio: "16:9",
     description: "Skincare product display"
+  },
+  {
+    filename: "bluerocket0730_lifestyle_photo_of_this_product_a_womans_hand_ho_8643d0bb-de0a-4ef8-bb06-c1069826f757.png",
+    width: 1024,
+    height: 1024,
+    aspectRatio: "1:1",
+    description: "Person showcasing product"
+  },
+  {
+    filename: "btobmidjourney_1_A_beauty_influencer_is_in_a_medium_shot_casual_006a142f-a9c4-465a-bd58-7354fcc1cf39.png",
+    width: 2048,
+    height: 2048,
+    aspectRatio: "1:1",
+    description: "Person showcasing product"
+  },
+  {
+    filename: "contato29_Image_A_womans_face_with_flawless_skin_looking_direct_7b78cd5a-c65b-4ad7-a72c-eaa77ee07a05.png",
+    width: 1024,
+    height: 1024,
+    aspectRatio: "1:1",
+    description: "Person showcasing product"
+  },
+  {
+    filename: "fresh.ghost9534_77670_A_single_hand_holding_a_small_cardboard_b_82cae26e-090e-4cab-aca8-3414c627cbf6.png",
+    width: 1456,
+    height: 816,
+    aspectRatio: "16:9",
+    description: "Hand holding product"
+  },
+  {
+    filename: "greyboxof_realistic_photography_style_medium_close-up_shot_of_a_bf48184a-948d-4fa1-97c1-ac6d6ba2dd08.png",
+    width: 1632,
+    height: 2912,
+    aspectRatio: "9:16",
+    description: "Person showcasing product"
+  },
+  {
+    filename: "mj083758_40154_Generate_an_ultra-realistic_image_of_a_woman_as__af2a33cd-3d72-4bcd-8b0e-70e40d9c09d9.png",
+    width: 1024,
+    height: 1024,
+    aspectRatio: "1:1",
+    description: "Person showcasing product"
+  },
+  {
+    filename: "most.creatives_A_photograph_focus_on_a_Russian_girl_holding_a_j_3efaa21a-68bf-4740-85c8-f3cc7f00b1a8.png",
+    width: 1024,
+    height: 1024,
+    aspectRatio: "1:1",
+    description: "Person showcasing product"
+  },
+  {
+    filename: "nicolasholi_21630_8K_realistic_image_with_details._A_joyful_Eur_27ad577d-8e21-42d5-89e8-6ae66f968a51.png",
+    width: 1984,
+    height: 2400,
+    aspectRatio: "3:4",
+    description: "Person showcasing product"
+  },
+  {
+    filename: "premierpham_Photo_a_young_woman_of_European_appearance_with_nat_6d25d222-ddb5-4cb6-98b5-dd6553db4074.png",
+    width: 2048,
+    height: 2048,
+    aspectRatio: "1:1",
+    description: "Person showcasing product"
+  },
+  {
+    filename: "u4886895939_hands_holding_square_white_box._20cm_x_20cm._front__43900932-5125-4d9c-a593-31096131a11c.png",
+    width: 1984,
+    height: 2400,
+    aspectRatio: "3:4",
+    description: "Hand holding product"
+  },
+  {
+    filename: "u5912614723_create_a_picture_two_hands_holding_a_box_--ar_43_--_4f6ddcd1-b30c-43d5-a4b4-a6c553039ebb.png",
+    width: 2464,
+    height: 1856,
+    aspectRatio: "4:3",
+    description: "Hand holding product"
+  },
+  {
+    filename: "u7432366577_A_beautiful_slavic_man_in_a_dark_shirt_holds_a_long_90545c8a-702a-4558-9b61-5610d4aacbc6.png",
+    width: 2048,
+    height: 2048,
+    aspectRatio: "1:1",
+    description: "Person showcasing product"
+  },
+  {
+    filename: "u7837747742_A_natural_handheld_selfie-style_image_of_a_woman_sm_b3eba4d2-d456-4802-9035-f4a85e5b1f6d.png",
+    width: 1856,
+    height: 2464,
+    aspectRatio: "3:4",
+    description: "Person showcasing product"
   }
 ]
 

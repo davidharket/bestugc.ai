@@ -103,7 +103,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       totalDurationInFrames = Math.round(previewDuration * COMPOSITION_FPS);
     }
     
-    const concreteTimeline = generateConcreteTimeline(template.timeline, totalDurationInFrames);
+    // Use modified timeline if available, otherwise use template timeline
+    const timelineToUse = adData.modifiedTimeline && Array.isArray(adData.modifiedTimeline) && adData.modifiedTimeline.length > 0
+      ? adData.modifiedTimeline
+      : template.timeline;
+    
+    console.log('[Preview] Using timeline:', adData.modifiedTimeline ? 'user-modified' : 'template default', 'with', timelineToUse.length, 'scenes');
+    
+    if (adData.modifiedTimeline) {
+      console.log('[Preview] Modified timeline details:', JSON.stringify(adData.modifiedTimeline, null, 2));
+    }
+    
+    const concreteTimeline = generateConcreteTimeline(timelineToUse, totalDurationInFrames);
+    console.log('[Preview] Generated concrete timeline:', JSON.stringify(concreteTimeline.map(scene => ({ layout: scene.layout, duration: scene.duration })), null, 2));
 
     // Get avatar
     const avatar = avatars.find((a) => a.id === adData.avatarId);
@@ -121,19 +133,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return '';
       }
       if (url.startsWith('http')) return url;
-      // Handle B-roll assets with proper API endpoint
+      // Handle B-roll assets with direct path (no API endpoint for Remotion)
       if (url.startsWith('b-roll/')) {
-        return `${EXTERNAL_API_BASE_URL}/api/serve-broll/${url.replace('b-roll/', '')}`;
+        return `${EXTERNAL_API_BASE_URL}/${url}`;
       }
-      // Handle legacy /public/b-roll/ URLs (after symlink removal)
+      // Handle legacy /public/b-roll/ URLs - convert to direct paths
       if (url.startsWith('/public/b-roll/')) {
         const filename = url.replace('/public/b-roll/', '');
-        return `${EXTERNAL_API_BASE_URL}/api/serve-broll/${filename}`;
+        return `${EXTERNAL_API_BASE_URL}/b-roll/${filename}`;
       }
-      // Handle public/b-roll/ URLs (without leading slash)
+      // Handle public/b-roll/ URLs (without leading slash) - convert to direct paths
       if (url.startsWith('public/b-roll/')) {
         const filename = url.replace('public/b-roll/', '');
-        return `${EXTERNAL_API_BASE_URL}/api/serve-broll/${filename}`;
+        return `${EXTERNAL_API_BASE_URL}/b-roll/${filename}`;
       }
       return `${EXTERNAL_API_BASE_URL}${url}`;
     };
@@ -191,12 +203,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // For preview, use the original avatar video (not lipsync processed)
     const avatarVideoUrl = toAbsoluteUrl(avatar.src);
     
+    // Get avatar video framerate to ensure proper playback speed
+    let avatarFps = 30; // Default assumption
+    try {
+      console.log(`[Preview] Attempting to get framerate for: ${avatar.src}`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/video/get-framerate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filePath: avatar.src })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        avatarFps = data.framerate;
+        console.log(`[Preview] Detected avatar FPS: ${avatarFps}`);
+      } else {
+        console.warn(`[Preview] Framerate API responded with status: ${response.status}`);
+      }
+    } catch (error) {
+      console.warn(`[Preview] Failed to get avatar framerate, using default:`, error);
+    }
+    
     const inputProps = {
       adData: transformedAdData,
       timeline: finalTimeline,
       audioUrl: toAbsoluteUrl(adData.audioUrl || ''),
       processedAvatarUrl: avatarVideoUrl, // Use original avatar video for preview
       greenscreenAvatarUrl: avatarVideoUrl, // Same for greenscreen scenes
+      avatarFps: avatarFps, // Pass detected framerate for proper playback speed
       // Pass font styling props directly to Main composition (same as final render)
       oneWordAtATime: adData.oneWordAtATime,
       fontSize: adData.fontSize,
@@ -211,8 +244,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       shadowColor: adData.shadowColor,
       letterSpacing: adData.letterSpacing,
       textTransform: adData.textTransform,
-      // Match the video rendering scale for consistent font sizing
-      previewScale: 0.5,
+      // Use full scale to match final render (no scaling)
+      previewScale: 1.0,
     };
 
     console.log('[Preview] Final transformed adData before Remotion:', JSON.stringify({
@@ -277,8 +310,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         inputProps,
         chromiumOptions: previewGpuConfig.chromiumOptions,
         timeoutInMilliseconds: 600000, // 10 minutes for previews
-        // Optimize for preview speed
-        scale: 0.5, // Render at 50% scale for faster processing
+        // Render at full scale to match final render (no scaling)
+        scale: 1.0,
       });
 
       perfMonitor.logPerformance('Preview Render Complete');

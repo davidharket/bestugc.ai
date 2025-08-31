@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { SUBTITLE_STYLES, SubtitleStyle } from '../remotion/components/Subtitles';
+import React, { useState, useMemo } from 'react';
+import { SubtitleStyle } from '../remotion/components/Subtitles';
+import { getAllAvailableFonts } from '../lib/google-fonts';
 
 interface SubtitleCustomizerProps {
   selectedStyle: SubtitleStyle;
@@ -19,6 +20,26 @@ const SubtitleCustomizer: React.FC<SubtitleCustomizerProps> = ({
   selectedPosition,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+
+  const SUBTITLE_STYLES = useMemo(() => {
+    return getAllAvailableFonts().map(font => ({
+      id: font.id,
+      name: font.name,
+      font: `"${font.fontFamily}"`,
+      fontSize: 50,
+      fontWeight: 600,
+      textColor: '#FFFFFF',
+      backgroundColor: 'transparent',
+      borderRadius: 0,
+      padding: 8,
+      textShadow: '1px 1px 2px #000',
+      textAlign: 'center' as const,
+      lineHeight: 1.2,
+      maxWidth: 950,
+      border: 'none',
+      supportsCaps: true,
+    }));
+  }, []);
 
   const animationOptions = [
     { value: 'fade', label: 'Fade In', description: 'Smooth fade in/out' },

@@ -1,8 +1,9 @@
 // remotion/scenes/SplitScreenScene.tsx
-import { AbsoluteFill, Video, useCurrentFrame, useVideoConfig, getInputProps } from 'remotion';
+import { AbsoluteFill, Video, useCurrentFrame, useVideoConfig } from 'remotion';
 import { DualLayerBackground } from '../components/DualLayerBackground';
 import React from 'react';
 import { COMPOSITION_FPS } from '../constants';
+import { safeGetInputProps } from '../utils/safeInputProps';
 
 
 export const SplitScreenScene: React.FC<{
@@ -12,23 +13,13 @@ export const SplitScreenScene: React.FC<{
 }> = ({ videoSrc, assetSrc, startFrom = 0 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const inputProps = getInputProps();
+  const inputProps = safeGetInputProps();
   
+  // Simple avatar timing logic
+  const avatarFps = (inputProps as any)?.avatarFps || fps;
+  const videoStartFrame = Math.round(startFrom * avatarFps);
   
-  // Check if we're in preview mode
-  const isPreviewMode = (inputProps as any)?.adData?.previewMode === true;
-  
-  let videoStartFrame: number;
-  
-  if (isPreviewMode) {
-    // PREVIEW MODE: Use simpler logic without custom looping
-    // Just start from the beginning of the scene for preview
-    videoStartFrame = 0;
-  } else {
-    // FINAL RENDER: Use original timing logic for proper lip-sync
-    // Use the timeline position passed from Main.tsx for proper sync with processed avatar
-    videoStartFrame = Math.round(startFrom * COMPOSITION_FPS);
-  }
+  console.log('[SplitScreenScene] Timeline sync - StartFrom:', startFrom, 'AvatarFPS:', avatarFps, 'VideoStartFrame:', videoStartFrame);
 
   if (!videoSrc) {
     console.warn('[SplitScreenScene] No videoSrc provided');
@@ -52,6 +43,7 @@ export const SplitScreenScene: React.FC<{
     // A negative Y value moves the element up.
     // -25% is a strong initial value to ensure the face is visible.
     // You can adjust this value (e.g., to -20% or -30%) for perfect framing.
+    // Simple translateY positioning
     transform: 'translateY(-25%)',
   };
   // --- END OF FIX ---

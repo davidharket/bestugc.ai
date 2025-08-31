@@ -31,6 +31,74 @@ export async function validateAssets(assetUrls: string[]): Promise<string[]> {
   return assetUrls.filter((_, index) => validationResults[index]);
 }
 
+// --- TIMELINE VALIDATION UTILITIES ---
+/**
+ * Validates a modified timeline to ensure it's safe for rendering
+ */
+export function validateModifiedTimeline(
+  timeline: WeightedScene[], 
+  availableAssetCount: number
+): { isValid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  
+  // Check if timeline exists and has scenes
+  if (!timeline || timeline.length === 0) {
+    errors.push('Timeline must contain at least one scene');
+    return { isValid: false, errors };
+  }
+  
+  // Check each scene
+  timeline.forEach((scene, index) => {
+    // Validate duration weight
+    if (!scene.durationWeight || scene.durationWeight <= 0) {
+      errors.push(`Scene ${index + 1}: Duration weight must be greater than 0`);
+    }
+    
+    // Validate layout
+    if (!scene.layout || typeof scene.layout !== 'string') {
+      errors.push(`Scene ${index + 1}: Invalid or missing layout`);
+    }
+    
+    // Validate asset indices
+    if (scene.assetIndices && Array.isArray(scene.assetIndices)) {
+      scene.assetIndices.forEach((assetIndex, assetIndexPos) => {
+        if (typeof assetIndex !== 'number' || assetIndex < 0) {
+          errors.push(`Scene ${index + 1}: Asset index ${assetIndexPos} must be a non-negative number`);
+        } else if (assetIndex >= availableAssetCount) {
+          errors.push(`Scene ${index + 1}: Asset index ${assetIndex} exceeds available assets (${availableAssetCount})`);
+        }
+      });
+    }
+  });
+  
+  // Check total weight (should be reasonable)
+  const totalWeight = timeline.reduce((sum, scene) => sum + (scene.durationWeight || 0), 0);
+  if (totalWeight <= 0) {
+    errors.push('Total timeline weight must be greater than 0');
+  }
+  
+  return { isValid: errors.length === 0, errors };
+}
+
+/**
+ * Safely normalizes timeline weights to ensure they sum to a reasonable total
+ */
+export function normalizeTimelineWeights(timeline: WeightedScene[]): WeightedScene[] {
+  if (!timeline || timeline.length === 0) return [];
+  
+  const totalWeight = timeline.reduce((sum, scene) => sum + (scene.durationWeight || 0), 0);
+  if (totalWeight <= 0) return timeline;
+  
+  // Normalize to maintain proportions while ensuring reasonable values
+  const targetTotal = timeline.length * 3.5; // Average of ~3.5 weight per scene
+  const multiplier = targetTotal / totalWeight;
+  
+  return timeline.map(scene => ({
+    ...scene,
+    durationWeight: Math.max(0.5, scene.durationWeight * multiplier) // Minimum 0.5 weight
+  }));
+}
+
 // --- MAIN TIMELINE GENERATION LOGIC (UNCHANGED) ---
 
 // This is the structure Remotion understands (with concrete frame durations).

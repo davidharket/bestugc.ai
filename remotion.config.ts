@@ -18,8 +18,8 @@ Config.setHardwareAcceleration('if-possible'); // Enable hardware encoding when 
 // Bundle size optimization - DISABLE caching to avoid serialization issues
 Config.setCachingEnabled(false);
 
-// Fix port mismatch - force renderer to use staging port
-const rendererPort = parseInt(process.env.REMOTION_RENDERER_PORT || '3001', 10);
+// Fix port mismatch - force renderer to use port 3000 to match Next.js app
+const rendererPort = parseInt(process.env.REMOTION_RENDERER_PORT || '3000', 10);
 Config.setStudioPort(3002); // Studio port - not used in production API mode  
 Config.setRendererPort(rendererPort); // Force renderer to use the configured port for bundle serving
 

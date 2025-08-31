@@ -95,6 +95,26 @@ const AdCard = React.memo(function AdCard({ ad, onDelete, onCancel, onRetry, use
     return ad.format || '9:16';
   };
 
+  const calculateEstimatedCompletion = () => {
+    if (ad.status !== 'RENDERING' && ad.status !== 'PENDING') {
+      return null;
+    }
+
+    // Based on timing data: 475 frames took 9 minutes (including background removal)
+    // Processing speed: ~0.88 frames per second (complete pipeline)
+    const FRAMES_PER_SECOND_PROCESSING = 1.76;
+    const VIDEO_FPS = 30; // Standard video frame rate
+    
+    const videoDurationSeconds = ad.duration || 30;
+    const totalFrames = videoDurationSeconds * VIDEO_FPS;
+    
+    // Calculate total processing time (already includes background removal, SyncLabs, etc.)
+    const totalEstimatedSeconds = totalFrames / FRAMES_PER_SECOND_PROCESSING;
+    const estimatedMinutes = Math.ceil(totalEstimatedSeconds / 60);
+    
+    return estimatedMinutes;
+  };
+
   const renderVideoContent = () => {
     const currentVideoUrl = getCurrentVideoUrl();
     
@@ -385,6 +405,16 @@ const AdCard = React.memo(function AdCard({ ad, onDelete, onCancel, onRetry, use
             <span>{ad.duration || 30}s</span>
             <span>{ad.language?.toUpperCase() || 'NO'}</span>
           </div>
+
+          {/* Estimated completion time for processing videos */}
+          {(ad.status === 'RENDERING' || ad.status === 'PENDING') && (
+            <div className="flex items-center gap-2 text-sm text-orange-400 mb-4">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+              <span>Complete in ~{calculateEstimatedCompletion()} minutes</span>
+            </div>
+          )}
 
           {/* Status badge */}
           <div className="mb-6">

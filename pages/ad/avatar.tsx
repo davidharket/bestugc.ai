@@ -26,7 +26,7 @@ export default function AvatarAd() {
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showProductVideoUpgradeModal, setShowProductVideoUpgradeModal] = useState(false);
-  
+
   // Infinite scroll and filters
   const [displayedAvatarsCount, setDisplayedAvatarsCount] = useState(8);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -50,34 +50,16 @@ export default function AvatarAd() {
   const [fadingImages, setFadingImages] = useState<Set<string>>(new Set());
   const [showProductHoldingPopup, setShowProductHoldingPopup] = useState(false);
   const [error, setError] = useState('');
-  const [includeProductVideo, setIncludeProductVideo] = useState(false);
   
-
-  // Handle product video checkbox change
-  const handleProductVideoToggle = (checked: boolean) => {
-    setIncludeProductVideo(checked);
-    
-    if (!checked) {
-      // Clear all product video related state when unchecked
-      setProductImages([]);
-      setProductDescription('');
-      setGeneratedImages([]);
-      setSelectedImageId('');
-      setFinalVideoUrl('');
-      setConcatenatedVideoUrl('');
-      setError('');
-      
-      // Clear from context as well
-      setAdData({ productVideoUrl: '' });
-      
-    }
-  };
+  // This state is no longer needed for the primary logic but can be kept for UI toggles if necessary
+  // For this refactor, its direct control over the 'next' button is removed.
+  const [includeProductVideo, setIncludeProductVideo] = useState(false);
 
   const userPlan = session?.user?.plan;
   const isFreePlan = userPlan === 'FREE';
 
   useEffect(() => {
-    setAdData({ 
+    setAdData({
       avatarId: selectedAvatar === null ? undefined : selectedAvatar,
       audioUrl: '' // Clear audioUrl to force fresh TTS generation with correct gender
     });
@@ -89,12 +71,12 @@ export default function AvatarAd() {
       setIncludeProductVideo(adData.productVideoData.includeProductVideo || false);
       setSelectedImageId(adData.productVideoData.selectedImageId || '');
       setProductDescription(adData.productVideoData.productDescription || '');
-      
+
       // Restore attempts remaining
       if (adData.productVideoData.attemptsRemaining !== undefined) {
         setAttemptsRemaining(adData.productVideoData.attemptsRemaining);
       }
-      
+
       // Restore product images if available
       if (adData.productVideoData.productImages) {
         const restoredImages = adData.productVideoData.productImages.map((url: string, index: number) => ({
@@ -103,23 +85,23 @@ export default function AvatarAd() {
         }));
         setProductImages(restoredImages);
       }
-      
-      // Restore generated images if available  
+
+      // Restore generated images if available
       if (adData.productVideoData.generatedImages) {
         setGeneratedImages(adData.productVideoData.generatedImages);
       }
-      
+
       // If there's already a product video generated, show the product video section
       if (adData.productVideoUrl || adData.productVideoData.includeProductVideo) {
         setShowProductVideo(true);
       }
     }
-    
+
     // Set initial avatar selection from context
     if (adData.avatarId !== undefined) {
       setSelectedAvatar(adData.avatarId);
     }
-    
+
     // Simulate initial loading
     setTimeout(() => {
       setAvatarsLoading(false);
@@ -135,21 +117,21 @@ export default function AvatarAd() {
 
   const generateAudio = async () => {
     if (!adData.selectedScript || !adData.language) return;
-    
+
     setIsGeneratingAudio(true);
     try {
-      const selectedGender = adData.avatarId ? 
-        (avatars.find(a => a.id === adData.avatarId)?.gender || 'female') : 
+      const selectedGender = adData.avatarId ?
+        (avatars.find(a => a.id === adData.avatarId)?.gender || 'female') :
         'female';
-      
-      
+
+
       // Use cached TTS service instead of direct API call
       const result = await TTSCacheService.getTTS(adData.selectedScript, adData.language, selectedGender, adData.avatarId);
-      
+
       // Store the audio URL and word timings in the ad data for later use
-      setAdData({ 
+      setAdData({
         audioUrl: result.audioUrl,
-        wordTimings: result.wordTimings 
+        wordTimings: result.wordTimings
       });
     } catch (error: any) {
       console.error('Error generating audio:', error);
@@ -175,7 +157,7 @@ export default function AvatarAd() {
   const removeProductImage = (indexToRemove: number) => {
     const newProductImages = productImages.filter((_, index) => index !== indexToRemove);
     setProductImages(newProductImages);
-    
+
     // Save updated images to context immediately
     const updatedProductVideoData: ProductVideoData = {
       includeProductVideo: adData.productVideoData?.includeProductVideo || false,
@@ -209,14 +191,14 @@ export default function AvatarAd() {
       const uploadPromises = fileArray.map(async (file) => {
         const formData = new FormData()
         formData.append('files', file)
-        
+
         const response = await fetch('/api/upload-temp', {
           method: 'POST',
           body: formData
         })
-        
+
         if (!response.ok) throw new Error(`Failed to upload ${file.name}`)
-        
+
         const result = await response.json()
         return {
           url: result.files[0].url,
@@ -227,7 +209,7 @@ export default function AvatarAd() {
       const uploadedImages = await Promise.all(uploadPromises)
       const newProductImages = [...productImages, ...uploadedImages];
       setProductImages(newProductImages);
-      
+
       // Save uploaded images to context immediately
       const updatedProductVideoData: ProductVideoData = {
         includeProductVideo: adData.productVideoData?.includeProductVideo || false,
@@ -259,7 +241,7 @@ export default function AvatarAd() {
 
     setGeneratingImages(true)
     setError('')
-    
+
     // Clear previous results
     setGeneratedImages([])
     setSelectedImageId('')
@@ -272,11 +254,11 @@ export default function AvatarAd() {
         setError('Please select an avatar first')
         return
       }
-      
+
       // Convert avatar video path to image path for API calls
       const avatarImagePath = getAvatarImagePath(selectedAvatarData.src)
-      
-      
+
+
       const descriptionResponse = await axios.post('/api/ai/generate-product-description', {
         images: productImages.map(img => img.url),
         avatarImage: avatarImagePath
@@ -291,7 +273,7 @@ export default function AvatarAd() {
         productImages: productImages.map(img => img.url)
       })
 
-      
+
       if (imagesResponse.data.status === 'PROCESSING') {
         setGeneratedImages(imagesResponse.data.images)
         pollImageStatus(imagesResponse.data.images.map((img: any) => img.taskId))
@@ -303,7 +285,7 @@ export default function AvatarAd() {
       // Decrement attempts and save to context immediately
       const newAttemptsRemaining = attemptsRemaining - 1;
       setAttemptsRemaining(newAttemptsRemaining);
-      
+
       // Save updated attempts to context immediately
       const updatedProductVideoData: ProductVideoData = {
         includeProductVideo: true,
@@ -335,7 +317,7 @@ export default function AvatarAd() {
           taskIds
         })
 
-        
+
         // Only update images if they've changed to prevent flickering
         setGeneratedImages(prevImages => {
           const newImages = response.data.images
@@ -343,7 +325,7 @@ export default function AvatarAd() {
             const prevImg = prevImages[index]
             return !prevImg || prevImg.url !== newImg.url || prevImg.status !== newImg.status
           })
-          
+
           if (hasChanged) {
             // Save updated images to context immediately
             const updatedProductVideoData: ProductVideoData = {
@@ -356,10 +338,10 @@ export default function AvatarAd() {
             };
             setAdData({ productVideoData: updatedProductVideoData });
           }
-          
+
           return hasChanged ? newImages : prevImages
         })
-        
+
         if (response.data.status === 'COMPLETED') {
           setGeneratingImages(false)
           return
@@ -405,103 +387,22 @@ export default function AvatarAd() {
     })
   }
 
-  const generateVideo = async () => {
-    if (!selectedImageId) {
-      setError('Please select an image first')
-      return
-    }
-
-    const selectedImage = generatedImages.find(img => img.id === selectedImageId)
-    if (!selectedImage) {
-      setError('Selected image not found')
-      return
-    }
-
-    setGeneratingVideo(true)
-    setError('')
-
-    try {
-      const response = await axios.post('/api/runway/generate-avatar-video', {
-        imageUrl: selectedImage.url,
-        productDescription
-      })
-
-      pollVideoStatus(response.data.taskId)
-    } catch (error: any) {
-      console.error('Error generating video:', error)
-      setError(error.response?.data?.error || 'Failed to generate video')
-      setGeneratingVideo(false)
-    }
-  }
-
-  const pollVideoStatus = async (taskId: string) => {
-    try {
-      const response = await axios.get(`/api/runway/task-status/${taskId}`)
-      
-      if (response.data.status === 'SUCCEEDED') {
-        const generatedVideoUrl = response.data.output[0]
-        setFinalVideoUrl(generatedVideoUrl)
-        
-        // Store the concatenated video URL in adData for use in template
-        try {
-          const selectedAvatarData = avatars.find(avatar => avatar.id === selectedAvatar)
-          // Generate avatar key from the src filename without extension
-          const avatarId = selectedAvatarData 
-            ? selectedAvatarData.src.split('/').pop()?.replace('.mp4', '') 
-            : 'female-blonde5-adult-inside-new'
-          
-          const concatResponse = await axios.post('/api/video/concatenate', {
-            generatedVideoUrl,
-            avatarId
-          })
-          
-          if (concatResponse.data.success) {
-            const apiVideoUrl = `/api/serve-video${concatResponse.data.videoUrl}`
-            setConcatenatedVideoUrl(apiVideoUrl)
-            
-            // Store in adData for template use
-            setAdData({
-              productVideoUrl: apiVideoUrl
-            })
-            
-          } else {
-            setError('Failed to concatenate videos')
-          }
-        } catch (concatError: any) {
-          console.error('Error concatenating videos:', concatError)
-          setError('Video generation completed but concatenation failed')
-        }
-        
-        setGeneratingVideo(false)
-      } else if (response.data.status === 'FAILED') {
-        setError('Video generation failed')
-        setGeneratingVideo(false)
-      } else {
-        setTimeout(() => pollVideoStatus(taskId), 5000)
-      }
-    } catch (error) {
-      console.error('Error checking video status:', error)
-      setError('Failed to check video status')
-      setGeneratingVideo(false)
-    }
-  }
-
   // Enhanced filtering with all filters
   const filteredAvatars = avatars.filter(a => {
     // Gender filter
     if (gender && a.gender !== gender) return false;
-    
-    // Age filter  
+
+    // Age filter
     if (age && a.age !== age) return false;
-    
+
     // Plan filter (premium/free) - null means no filter applied
     if (planFilter === 'free' && !isAvatarFree(a.id)) return false;
     if (planFilter === 'premium' && isAvatarFree(a.id)) return false;
-    
+
     // Product holding filter - null means no filter applied
     if (productFilter === 'canHold' && !a.canHoldProducts) return false;
     if (productFilter === 'cannotHold' && a.canHoldProducts) return false;
-    
+
     return true;
   });
 
@@ -543,97 +444,103 @@ export default function AvatarAd() {
       setShowProductHoldingPopup(true);
     }
   }, []);
-
+  
   const handleAvatarSelect = (avatarId: number) => {
     // Check if avatar is premium and user is on free plan
     if (isFreePlan && !isAvatarFree(avatarId)) {
       setShowUpgradeModal(true);
       return;
     }
-    
+
     // If changing to a different avatar, clear existing product video
     if (selectedAvatar !== null && selectedAvatar !== avatarId && adData.productVideoUrl) {
       setAdData({ productVideoUrl: '' });
       setConcatenatedVideoUrl('');
       setFinalVideoUrl('');
     }
-    
+
     setSelectedAvatar(avatarId);
   };
 
+  const handleCreateProductVideoAndContinue = async (imageId: string) => {
+    if (!selectedAvatar) {
+      toast.error("Please select an avatar first.");
+      return;
+    }
 
-  const handleNext = async () => {
-    if (selectedAvatar !== null) {
-      // Additional validation for free users
-      if (isFreePlan && !isAvatarFree(selectedAvatar)) {
-        setShowUpgradeModal(true);
+    // Free users cannot use this premium feature
+    if (isFreePlan) {
+      setShowProductVideoUpgradeModal(true);
+      return;
+    }
+    
+    // Deduct credits before proceeding
+    try {
+      const response = await axios.post('/api/user/deduct-credits', {
+        credits: 10,
+        reason: 'Avatar Product Video generation'
+      });
+
+      if (!response.data.success) {
+        toast.error('Failed to deduct credits for product video.');
         return;
       }
-      
-      // If product video is selected, deduct credits first
-      if (includeProductVideo && selectedImageId) {
-        try {
-          const response = await axios.post('/api/user/deduct-credits', {
-            credits: 10,
-            reason: 'Avatar Product Video generation'
-          });
-          
-          if (!response.data.success) {
-            toast.error('Failed to deduct credits for product video');
-            return;
-          }
-          
-          
-          // Trigger credits refresh in the UI
-          window.dispatchEvent(new CustomEvent('credits-updated', {
-            detail: { credits: response.data.remainingCredits }
-          }));
-          
-        } catch (error: any) {
-          console.error('Credit deduction error:', error);
-          if (error.response?.status === 400) {
-            toast.error(error.response.data.error || 'Insufficient credits for product video');
-          } else {
-            toast.error('Failed to process credit deduction. Please try again.');
-          }
-          return;
-        }
+
+      // Trigger a global event to update credits display in other components (like the header)
+      window.dispatchEvent(new CustomEvent('credits-updated', {
+        detail: { credits: response.data.remainingCredits }
+      }));
+
+    } catch (error: any) {
+      console.error('Credit deduction error:', error);
+      if (error.response?.status === 400) {
+        toast.error(error.response.data.error || 'Insufficient credits for product video.');
+      } else {
+        toast.error('Failed to process credit deduction. Please try again.');
       }
-      
-      // Store product video options in context
-      const productVideoData = includeProductVideo && selectedImageId ? {
-        includeProductVideo: true,
-        selectedImageId,
-        productDescription,
-        productImages: productImages.map(img => img.url),
-        generatedImages, // Also store generated images for restoration
-        attemptsRemaining, // Store remaining attempts
-        avatarId: selectedAvatar || undefined
-      } : {
-        includeProductVideo: false,
-        selectedImageId: '',
-        productDescription: '',
-        productImages: [],
-        generatedImages: [],
-        attemptsRemaining: 2, // Reset to default when not using product video
-        avatarId: selectedAvatar || undefined
-      };
-      
-      // If user unchecked product video, clear the existing product video URL
-      const updatedAdData: any = { 
-        avatarId: selectedAvatar || undefined,
-        productVideoData
-      };
-      
-      if (!includeProductVideo) {
-        // Clear product video URL if user unchecked the option
-        updatedAdData.productVideoUrl = '';
-      }
-      
-      setAdData(updatedAdData);
-      
-      router.push('/ad/template');
+      return; // Stop execution if credit deduction fails
     }
+
+    // If credit deduction is successful, save all data and navigate
+    const productVideoData: ProductVideoData = {
+      includeProductVideo: true, // Explicitly set to true for this workflow
+      selectedImageId: imageId,
+      productDescription,
+      productImages: productImages.map(img => img.url),
+      generatedImages,
+      attemptsRemaining,
+      avatarId: selectedAvatar
+    };
+
+    setAdData({
+      avatarId: selectedAvatar,
+      productVideoData
+    });
+
+    // Navigate to the next step
+    router.push('/ad/template');
+  };
+
+  const handleNext = () => {
+    if (selectedAvatar === null) {
+        toast.error("Please select an avatar to continue.");
+        return;
+    }
+
+    // This button now only handles the standard flow (no product video)
+    if (isFreePlan && !isAvatarFree(selectedAvatar)) {
+      setShowUpgradeModal(true);
+      return;
+    }
+
+    // Set data for a standard avatar flow, ensuring any previous product video data is cleared.
+    setAdData({
+      avatarId: selectedAvatar,
+      productVideoData: undefined, // Clear any previous product video selections
+      productVideoUrl: ''
+    });
+
+    router.push('/ad/template');
   };
 
   return (
@@ -662,15 +569,15 @@ export default function AvatarAd() {
             </svg>
           </button>
         </div>
-        
+
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Choose Avatar</h1>
           <p className="text-gray-400">Select the AI avatar that will present your video</p>
-          
+
           {/* Audio Generation Status */}
           {isGeneratingAudio && (
-            <div className="mt-4 p-4 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+            <div className="mt-4 p-4 bg-orange-500/10 border border-orange-500/20 rounded-[15px]">
               <div className="flex items-center gap-2">
                 <BarLoader size="sm" />
                 <span className="text-orange-400 text-sm">Generating audio for your selected script...</span>
@@ -682,7 +589,7 @@ export default function AvatarAd() {
         {/* Avatar Product Video Section - Available to all users */}
         {selectedAvatar !== null && (
           <div className="mb-8">
-            <div className="bg-gray-900 rounded-[20px] p-6 border border-orange-500/20">
+            <div className="bg-black rounded-[20px] p-6 border border-orange-500/20">
               <div className="flex items-center gap-3 mb-6">
                 <div className="bg-orange-500/20 rounded-full p-2 border border-orange-500">
                   <svg className="w-5 h-5 text-orange-500" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
@@ -725,7 +632,7 @@ export default function AvatarAd() {
                   )}
 
                   {/* Upload Product Images */}
-                  <div className="bg-gray-900 rounded-[20px] p-6">
+                  <div className="bg-black rounded-[20px] p-6">
                     <h4 className="text-xl font-semibold text-white mb-4">Upload two product images</h4>
                     <div className="flex flex-wrap gap-4">
                       {productImages.map((image, i) => (
@@ -733,7 +640,7 @@ export default function AvatarAd() {
                           <img
                             src={image.url}
                             alt={`Product ${i + 1}`}
-                            className="w-24 h-24 object-cover rounded-lg"
+                            className="w-24 h-24 object-cover rounded-[15px]"
                           />
                           <button
                             className="absolute -top-2 -right-2 w-6 h-6 bg-black rounded-full flex items-center justify-center text-white text-xs hover:bg-gray-700 transition-colors opacity-0 group-hover:opacity-100"
@@ -744,10 +651,10 @@ export default function AvatarAd() {
                           </button>
                         </div>
                       ))}
-                      
+
                       {productImages.length < 2 && (
-                        <button 
-                          className={`w-24 h-24 border-2 border-dashed border-gray-600 rounded-lg flex flex-col items-center justify-center text-gray-400 transition-colors ${
+                        <button
+                          className={`w-24 h-24 border-2 border-dashed border-gray-600 rounded-[15px] flex flex-col items-center justify-center text-gray-400 transition-colors ${
                             uploadingImages ? 'opacity-50 cursor-not-allowed' : 'hover:border-orange-500 hover:text-orange-400'
                           }`}
                           onClick={() => imageInputRef.current?.click()}
@@ -765,13 +672,13 @@ export default function AvatarAd() {
                         )}
                         </button>
                       )}
-                      
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        multiple 
-                        hidden 
-                        ref={imageInputRef} 
+
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        hidden
+                        ref={imageInputRef}
                         onChange={handleImageUpload}
                         disabled={uploadingImages}
                       />
@@ -780,14 +687,14 @@ export default function AvatarAd() {
 
                   {/* Generate First Frame */}
                   {productImages.length > 0 && (
-                    <div className="bg-gray-900 rounded-[20px] p-6">
+                    <div className="bg-black rounded-[20px] p-6">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <button
                             className={`btn-primary gap-3 ${
                               !generatingImages && attemptsRemaining > 0
-                                ? 'btn-primary' 
-                                : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                                ? 'btn-primary'
+                                : 'bg-gray-900 text-gray-400 cursor-not-allowed'
                             }`}
                             onClick={generateImagesWithDescription}
                             disabled={generatingImages || attemptsRemaining <= 0}
@@ -805,8 +712,8 @@ export default function AvatarAd() {
                             )}
                           </button>
                         </div>
-                        
-                        <div className="bg-black px-3 py-2 rounded-lg text-sm font-regular text-white">
+
+                        <div className="bg-black px-3 py-2 rounded-[15px] text-sm font-regular text-white">
                           {attemptsRemaining} attempts
                         </div>
                       </div>
@@ -815,23 +722,23 @@ export default function AvatarAd() {
 
                   {/* Generated Images Section */}
                   {generatedImages.length > 0 && (
-                    <div className="bg-gray-900 rounded-[20px] p-6">
+                    <div className="bg-black rounded-[20px] p-6">
                       <h3 className="text-xl font-semibold text-white mb-4">Choose your preferred image:</h3>
                       <div className="grid grid-cols-4 gap-4">
                         {generatedImages.map((image) => (
-                          <div 
+                          <div
                             key={image.id}
-                            className={`relative rounded-lg overflow-hidden transition-all duration-200 ${
+                            className={`group relative rounded-[15px] overflow-hidden transition-all duration-200 ${
                               image.url && selectedImageId === image.id
                                 ? 'ring-2 ring-orange-500 shadow-lg shadow-orange-500/25'
                                 : 'border border-gray-700 hover:border-orange-500/50'
                             } ${image.url ? 'cursor-pointer' : 'cursor-not-allowed'}`}
                             onClick={() => image.url && setSelectedImageId(image.id)}
                           >
-                            <div className="w-full bg-gray-800 relative overflow-hidden" style={{ aspectRatio: '9/16' }}>
+                            <div className="w-full bg-gray-900 relative overflow-hidden" style={{ aspectRatio: '9/16' }}>
                               {(!image.url || fadingImages.has(image.id)) && (
                                 <div className="absolute inset-0 z-30">
-                                  <SimpleLoader 
+                                  <SimpleLoader
                                     width={40}
                                     fadeOut={fadingImages.has(image.id)}
                                     onFadeComplete={() => handleParticleFadeComplete(image.id)}
@@ -847,8 +754,23 @@ export default function AvatarAd() {
                                 />
                               )}
                             </div>
+
+                            {image.url && selectedAvatar && canAvatarHoldProducts(selectedAvatar) && (
+                              <div className="absolute inset-0 z-20 bg-black/0 group-hover:bg-black/40 transition-colors duration-200 flex items-end justify-end pb-4 opacity-0 group-hover:opacity-100">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCreateProductVideoAndContinue(image.id);
+                                  }}
+                                  className="rounded-lg btn-secondary px-3 py-1.5 text-xs font-normal transition-colors"
+                                >
+                                  Create Avatar Video
+                                </button>
+                              </div>
+                            )}
+
                             {image.url && selectedImageId === image.id && (
-                              <div className="absolute inset-0 bg-orange-500/20 flex items-center justify-center">
+                              <div className="absolute inset-0 z-20 bg-orange-500/20 flex items-center justify-center pointer-events-none">
                                 <div className="bg-orange-500 text-white text-sm font-bold rounded-full w-8 h-8 flex items-center justify-center">
                                   ✓
                                 </div>
@@ -859,56 +781,12 @@ export default function AvatarAd() {
                       </div>
                     </div>
                   )}
-
-                  {/* Include Product Video Option */}
-                  {selectedImageId && (
-                    <div className="bg-gray-900 rounded-[20px] p-6">
-                      <h3 className="text-xl font-semibold text-white mb-4">Product Video Options</h3>
-                      
-                      <div className="flex items-start gap-4">
-                        <div className="relative mt-1">
-                          <input 
-                            type="checkbox" 
-                            id="includeProductVideo"
-                            checked={includeProductVideo}
-                            onChange={(e) => handleProductVideoToggle(e.target.checked)}
-                            className="sr-only"
-                          />
-                          <label htmlFor="includeProductVideo" className="flex items-center cursor-pointer">
-                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200 ${
-                              includeProductVideo 
-                                ? 'bg-orange-500 border-orange-500' 
-                                : 'bg-transparent border-gray-600 hover:border-orange-500'
-                            }`}>
-                              {includeProductVideo && (
-                                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                </svg>
-                              )}
-                            </div>
-                          </label>
-                        </div>
-                        <div className="flex-1">
-                          <label htmlFor="includeProductVideo" className="text-white font-normal cursor-pointer">
-                            Include avatar holding product video
-                          </label>
-                          <p className="text-gray-400 text-sm mt-1">
-                            This will show your avatar holding the product at the beginning of the video
-                          </p>
-                          <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-lg">
-                            <img src="/credits.svg" style={{ width: 'auto', height: '15px' }} alt="Credits" />
-                            <span className="text-white text-sm font-medium">Costs 10 credits</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
           </div>
         )}
-        
+
         {/* Filters */}
         <div className="bg-gray-900 border border-gray-800 rounded-[20px] p-6 mb-8">
           <h2 className="text-xl font-semibold text-white mb-4">Filter Avatars</h2>
@@ -1023,11 +901,11 @@ export default function AvatarAd() {
                     {/* Avatar video skeleton */}
                     <div className="aspect-[9/16] bg-gray-800">
                       {/* Overlay elements skeleton */}
-                      <div className="absolute bottom-2 right-2 bg-gray-700 rounded-lg p-2 flex items-center gap-2">
+                      <div className="absolute bottom-2 right-2 bg-gray-700 rounded-[15px] p-2 flex items-center gap-2">
                         <div className="w-3 h-3 bg-gray-600 rounded-full"></div>
                         <div className="h-3 bg-gray-600 rounded w-12"></div>
                       </div>
-                      <div className="absolute top-2 left-2 bg-gray-700 rounded-lg px-2 py-1 flex items-center gap-1">
+                      <div className="absolute top-2 left-2 bg-gray-700 rounded-[15px] px-2 py-1 flex items-center gap-1">
                         <div className="w-3 h-3 bg-gray-600 rounded-full"></div>
                         <div className="h-3 bg-gray-600 rounded w-20"></div>
                       </div>
@@ -1049,13 +927,13 @@ export default function AvatarAd() {
               {filteredAvatars.slice(0, displayedAvatarsCount).map(avatar => {
                 const isPremium = !isAvatarFree(avatar.id);
                 const isLocked = isFreePlan && isPremium;
-                
+
                 return (
                 <div
                   key={avatar.id}
-                  className={`relative rounded-[20px] overflow-hidden transition-all duration-300 ${
-                    isLocked 
-                      ? 'cursor-pointer' 
+                  className={`group relative rounded-[20px] overflow-hidden transition-all duration-300 ${
+                    isLocked
+                      ? 'cursor-pointer'
                       : 'cursor-pointer'
                   } ${
                     selectedAvatar === avatar.id
@@ -1065,7 +943,7 @@ export default function AvatarAd() {
                   onClick={() => handleAvatarSelect(avatar.id)}
                 >
                   <div className="aspect-[9/16] bg-gray-800">
-                    <video 
+                    <video
                       src={avatar.src}
                       loop
                       muted
@@ -1084,29 +962,24 @@ export default function AvatarAd() {
                           });
                         }
                       }}
-                      onMouseLeave={e => { 
+                      onMouseLeave={e => {
                         try {
                           const video = e.currentTarget;
-                          video.pause(); 
-                          video.currentTime = 0; 
+                          video.pause();
+                          video.currentTime = 0;
                         } catch (error) {
                           console.warn(`Failed to pause avatar video ${avatar.src}:`, error);
                         }
                       }}
                       onError={e => {
                         console.error(`Avatar video error for ${avatar.src}:`, e);
-                        // Could show a fallback image here
-                      }}
-                      onLoadedMetadata={e => {
-                      }}
-                      onCanPlay={e => {
                       }}
                     />
                   </div>
 
                   {/* Premium Lock Overlay */}
                   {isLocked && (
-                    <div className="absolute bottom-2 right-2 bg-black/80 backdrop-blur-sm rounded-lg p-2 flex items-center gap-2 pointer-events-none">
+                    <div className="absolute bottom-2 right-2 bg-black/80 backdrop-blur-sm rounded-[15px] p-2 flex items-center gap-2 pointer-events-none">
                       <div className="bg-orange-500/20 rounded-full p-1 border border-orange-500">
                         <svg className="w-3 h-3 text-orange-500" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
@@ -1118,13 +991,14 @@ export default function AvatarAd() {
 
                   {/* Can Hold Products Banner */}
                   {canAvatarHoldProducts(avatar.id) && !isLocked && (
-                    <div className="absolute top-2 left-2 bg-green-600/90 backdrop-blur-sm rounded-lg px-2 py-1 flex items-center gap-1 pointer-events-none">
+                    <div className="absolute top-2 left-2 bg-green-600/90 backdrop-blur-sm rounded-[15px] px-2 py-1 flex items-center gap-1 pointer-events-none">
                       <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
                       </svg>
                       <span className="text-white text-xs font-regular">can hold products</span>
                     </div>
                   )}
+
 
                   {/* Selection Overlay */}
                   {selectedAvatar === avatar.id && !isLocked && (
@@ -1181,19 +1055,19 @@ export default function AvatarAd() {
                   </svg>
                 </div>
               </div>
-              
+
               {/* Title */}
               <h3 className="text-2xl font-semibold text-white text-center mb-3">
                 Premium Avatar
               </h3>
-              
+
               {/* Message */}
-              <p className="text-gray-300 text-centered mb-6 leading-relaxed">
+              <p className="text-gray-300 text-center mb-6 leading-relaxed">
                 This avatar is part of our premium collection. Upgrade to any paid plan to unlock <strong>all premium avatars</strong> and create unlimited videos.
               </p>
-              
+
               {/* Features List */}
-              <div className="bg-black rounded-lg p-4 mb-6">
+              <div className="bg-black rounded-[15px] p-4 mb-6">
                 <ul className="space-y-2 text-sm text-gray-300">
                   <li className="flex items-center gap-2">
                     <svg className="w-4 h-4 text-orange-500" fill="currentColor" viewBox="0 0 20 20">
@@ -1215,7 +1089,7 @@ export default function AvatarAd() {
                   </li>
                 </ul>
               </div>
-              
+
               {/* Buttons */}
               <div className="flex flex-col gap-3">
                 <button
@@ -1247,19 +1121,19 @@ export default function AvatarAd() {
                   </svg>
                 </div>
               </div>
-              
+
               {/* Title */}
               <h3 className="text-2xl font-semibold text-white text-center mb-3">
                 Premium Feature
               </h3>
-              
+
               {/* Message */}
               <p className="text-gray-300 text-center mb-6 leading-relaxed">
                 This feature is part of our premium collection. Upgrade to any paid plan to unlock <strong>avatar product videos</strong> and create unlimited videos.
               </p>
-              
+
               {/* Features List */}
-              <div className="bg-gray-800/50 rounded-lg p-4 mb-6">
+              <div className="bg-black rounded-[15px] p-4 mb-6">
                 <ul className="space-y-2 text-sm text-gray-300">
                   <li className="flex items-center gap-2">
                     <svg className="w-4 h-4 text-orange-500" fill="currentColor" viewBox="0 0 20 20">
@@ -1281,7 +1155,7 @@ export default function AvatarAd() {
                   </li>
                 </ul>
               </div>
-              
+
               {/* Buttons */}
               <div className="flex flex-col gap-3">
                 <button
@@ -1300,37 +1174,26 @@ export default function AvatarAd() {
             </div>
           </div>
         )}
-
         {/* Product Holding Feature Popup */}
         {showProductHoldingPopup && (
           <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-gray-900 rounded-[25px] border border-gray-700 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-8">
-                {/* Close button */}
-                <button
-                  onClick={() => {
-                    localStorage.setItem('hasSeenProductHoldingPopup', 'true');
-                    setShowProductHoldingPopup(false);
-                  }}
-                  className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors p-2"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+            <div className="bg-gray-900 rounded-[25px] border border-gray-700 max-w-4xl w-full max-h-[90vh] overflow-y-auto relative">
+              {/* Close button */}
+              <button
+                onClick={() => {
+                  localStorage.setItem('hasSeenProductHoldingPopup', 'true');
+                  setShowProductHoldingPopup(false);
+                }}
+                className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors p-2 z-10"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
 
-                {/* Header */}
-                <div className="text-center mb-8">
-                  <h2 className="text-4xl font-bold text-white mb-4">
-                    🎉 New Feature: Avatars Can Hold Products!
-                  </h2>
-                  <p className="text-gray-300 text-lg max-w-2xl mx-auto">
-                    Your AI avatars can now showcase your products naturally by holding them in their hands!
-                  </p>
-                </div>
-
-                {/* Video Demo */}
-                <div className="mb-8 rounded-[20px] overflow-hidden border border-gray-700">
+              <div className="p-8 grid md:grid-cols-2 gap-8 items-center">
+                {/* Left Column: Video */}
+                <div className="rounded-[20px] overflow-hidden border border-gray-700">
                   <video
                     className="w-full h-auto"
                     autoPlay
@@ -1343,50 +1206,20 @@ export default function AvatarAd() {
                   </video>
                 </div>
 
-                {/* Description */}
-                <div className="space-y-6 mb-8">
-                  <div className="bg-black/50 rounded-[15px] p-6">
-                    <h3 className="text-xl font-semibold text-white mb-4">How it works:</h3>
-                    <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-300">
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0">
-                          <span className="text-white font-bold">1</span>
-                        </div>
-                        <div>
-                          <div className="font-medium text-white mb-1">Upload Product Image</div>
-                          <div>Upload a clear image of your product with transparent or simple background</div>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0">
-                          <span className="text-white font-bold">2</span>
-                        </div>
-                        <div>
-                          <div className="font-medium text-white mb-1">Select First Frame</div>
-                          <div>Choose how the avatar should hold your product in the opening scene</div>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0">
-                          <span className="text-white font-bold">3</span>
-                        </div>
-                        <div>
-                          <div className="font-medium text-white mb-1">Generate Video</div>
-                          <div>AI creates a natural-looking video with your avatar holding the product</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* CTA Button */}
-                <div className="text-center">
+                {/* Right Column: Text and CTA */}
+                <div className="flex flex-col justify-center text-center md:text-left">
+                  <h2 className="text-4xl font-bold text-white mb-4">
+                    🎉 New Feature: Avatars Can Hold Products!
+                  </h2>
+                  <p className="text-gray-300 text-lg mb-8">
+                    Your AI avatars can now showcase your products naturally by holding them in their hands!
+                  </p>
                   <button
                     onClick={() => {
                       localStorage.setItem('hasSeenProductHoldingPopup', 'true');
                       setShowProductHoldingPopup(false);
                     }}
-                    className="btn-primary px-8 py-4 text-lg font-medium"
+                    className="btn-primary px-8 py-4 text-lg font-medium w-full md:w-auto"
                   >
                     Start Creating with Product Holding
                   </button>
@@ -1403,7 +1236,7 @@ export default function AvatarAd() {
 // Server-side authentication check
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const session = await getServerSession(context.req, context.res, authOptions);
-  
+
   if (!session) {
     return {
       redirect: {

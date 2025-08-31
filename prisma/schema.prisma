@@ -15,7 +15,7 @@ model User {
   name             String?
   image            String?
   password         String?
-  credits          Int              @default(20)
+  credits          Int              @default(20) // Initial credits for FREE plan
   plan             String           @default("FREE")
   stripeCustomerId String?          @unique
   affiliateCode    String?          @unique // User's own affiliate code
@@ -89,6 +89,7 @@ model Ad {
   script                 String?
   avatarId               String?
   templateId             String?
+  modifiedTimeline       String?  // User's custom timeline (JSON string)
   status                 String   @default("PENDING")
   finalVideoUrl          String?
   audioUrl               String?
@@ -116,6 +117,8 @@ model Ad {
   subtitleAnimation      String?  @default("none")
   subtitlePosition       String?  @default("bottom")
   subtitleStyle          String?  @default("inter")
+  customFontFamily       String?
+  customFontUrl          String? 
   textColor              String?  @default("#ffffff")
   textTransform          String?
   productVideoUrl        String?

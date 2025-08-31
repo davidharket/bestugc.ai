@@ -1,8 +1,9 @@
 // remotion/scenes/AvatarWithCornerAsset.tsx
-import { AbsoluteFill, Img, Video, useCurrentFrame, useVideoConfig, getInputProps } from 'remotion';
+import { AbsoluteFill, Img, Video, useCurrentFrame, useVideoConfig } from 'remotion';
 import { LoopingVideo } from '../components/LoopingVideo';
 import React from 'react';
 import { COMPOSITION_FPS } from '../constants';
+import { safeGetInputProps } from '../utils/safeInputProps';
 
 const isVideo = (url: string): boolean => {
   if (!url) return false;
@@ -17,23 +18,13 @@ export const AvatarWithCornerAsset: React.FC<{
 }> = ({ videoSrc, assetSrc, startFrom = 0, assetVideoDurationInFrames = 300 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const inputProps = getInputProps();
+  const inputProps = safeGetInputProps();
   
+  // Simple avatar timing logic
+  const avatarFps = (inputProps as any)?.avatarFps || fps;
+  const videoStartFrame = Math.round(startFrom * avatarFps);
   
-  // Check if we're in preview mode
-  const isPreviewMode = (inputProps as any)?.adData?.previewMode === true;
-  
-  let videoStartFrame: number;
-  
-  if (isPreviewMode) {
-    // PREVIEW MODE: Use simpler logic without custom looping
-    // Just start from the beginning of the scene for preview
-    videoStartFrame = 0;
-  } else {
-    // FINAL RENDER: Use original timing logic for proper lip-sync
-    // Use the timeline position passed from Main.tsx for proper sync with processed avatar
-    videoStartFrame = Math.round(startFrom * COMPOSITION_FPS);
-  }
+  console.log('[AvatarWithCornerAsset] Timeline sync - StartFrom:', startFrom, 'AvatarFPS:', avatarFps, 'VideoStartFrame:', videoStartFrame);
 
   if (!videoSrc) {
     console.warn('[AvatarWithCornerAsset] No videoSrc provided');
@@ -55,6 +46,9 @@ export const AvatarWithCornerAsset: React.FC<{
         muted={true}
         playsInline={true}
         preload="metadata"
+        style={{
+          transform: 'none'
+        }}
       />
 
       {/* --- FIX #3: Restyle the corner asset to be a padded square --- */}

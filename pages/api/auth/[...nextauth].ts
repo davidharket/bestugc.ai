@@ -244,7 +244,7 @@ export const authOptions: NextAuthOptions = {
               email: credentials.email,
               password: hashedPassword,
               name: credentials.name,
-              credits: 30, // Initial credits
+              credits: 20, // Initial credits
               plan: 'FREE',
               ipAddress,
               deviceFingerprint,

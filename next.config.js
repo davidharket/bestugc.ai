@@ -1,15 +1,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  
+
   // Increase API timeout for long-running operations
   experimental: {
     serverActions: {
       bodySizeLimit: '100mb',
     },
   },
-  
-  
+
+
   // Configure API routes and video headers
   async headers() {
     return [
@@ -42,9 +42,12 @@ const nextConfig = {
           },
         ],
       },
-      // Add proper headers for video files
+
+      // ✅ START OF THE FIX: This new block replaces the old mp4 rule.
+      // It adds CORS headers for all video types to allow Remotion access.
       {
-        source: '/(.*\\.mp4$)',
+        // This pattern matches all common video formats in any directory
+        source: '/:path*.(mp4|webm|mov)',
         headers: [
           {
             key: 'Cache-Control',
@@ -54,13 +57,23 @@ const nextConfig = {
             key: 'Accept-Ranges',
             value: 'bytes',
           },
+          // This header is the crucial fix that allows Remotion to access the files
           {
-            key: 'Content-Type',
-            value: 'video/mp4',
+            key: 'Access-Control-Allow-Origin',
+            value: '*', // Allows any origin to request this resource
+          },
+          {
+            key: 'Access-Control-Allow-Methods',
+            value: 'GET, OPTIONS',
+          },
+          {
+            key: 'Access-Control-Allow-Headers',
+            value: 'Range', // Important for video players that request parts of a file
           },
         ],
       },
-      // Hero videos specifically
+
+      // Hero videos specifically (keeping this in case of special routing)
       {
         source: '/hero:num.mp4',
         headers: [
@@ -78,19 +91,66 @@ const nextConfig = {
           },
         ],
       },
+      // Add CORS headers for JavaScript files to prevent ORB blocking
+      {
+        source: '/(.*\\.js$)',
+        headers: [
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
+          },
+          {
+            key: 'Access-Control-Allow-Methods',
+            value: 'GET, POST, PUT, DELETE, OPTIONS',
+          },
+          {
+            key: 'Access-Control-Allow-Headers',
+            value: 'Content-Type, Authorization',
+          },
+          {
+            key: 'Cross-Origin-Embedder-Policy',
+            value: 'unsafe-none',
+          },
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'unsafe-none',
+          },
+          {
+            key: 'Cross-Origin-Resource-Policy',
+            value: 'cross-origin',
+          },
+          {
+            key: 'Content-Type',
+            value: 'application/javascript; charset=utf-8',
+          },
+        ],
+      },
     ];
   },
-  
+
   // ✅ Add rewrites to handle video files properly
   async rewrites() {
     return [
       {
+        source: '/cutouts/:path*',
+        destination: '/api/serve-public/cutouts/:path*',
+      },
+      {
+        source: '/synclabs/:path*',
+        destination: '/api/serve-public/synclabs/:path*',
+      },
+      {
+        source: '/generated_audio/:path*',
+        destination: '/api/serve-public/generated_audio/:path*',
+      },      
+     {
         source: '/renders/:path*',
         destination: '/api/serve-video/:path*',
       },
+      // Remove b-roll API routing - serve as static files instead
     ];
   },
-  
+
   webpack: (config, { isServer }) => {
     // Add file system fallback
     if (!isServer) {
@@ -108,7 +168,7 @@ const nextConfig = {
 
     return config;
   },
-  
+
   // Enable Fast Refresh
   onDemandEntries: {
     // period (in ms) where the server will keep pages in the buffer
@@ -118,4 +178,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig; 
+module.exports = nextConfig;

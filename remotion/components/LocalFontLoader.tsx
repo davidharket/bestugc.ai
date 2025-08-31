@@ -1,10 +1,19 @@
 // remotion/components/LocalFontLoader.tsx
 import { useEffect } from 'react';
-import { delayRender, continueRender, staticFile } from 'remotion';
+import { delayRender, continueRender, staticFile, getInputProps } from 'remotion';
+
+interface CustomFontData {
+  id: string;
+  name: string;
+  fontFamily: string;
+  uploadedFile: string;
+}
 
 // Load local fonts and custom uploaded fonts
 export const loadLocalFonts = () => {
   const waitForFonts = delayRender('Loading Local Fonts');
+  const inputProps = getInputProps();
+  const customFontData = inputProps.customFontData as CustomFontData | null;
 
   // Only load font in browser environment
   if (typeof window !== 'undefined' && 'FontFace' in window) {
@@ -31,8 +40,29 @@ export const loadLocalFonts = () => {
       console.warn('Failed to create The Bold Font:', error);
     }
 
-    // Custom fonts should be loaded in the browser, not during Remotion rendering
-    // They will be available if already loaded by the frontend
+    // Load custom font if provided via inputProps
+    if (customFontData) {
+      try {
+        console.log(`[LocalFontLoader] Loading custom font: ${customFontData.name}`);
+        const customFont = new FontFace(
+          customFontData.fontFamily,
+          `url('${customFontData.uploadedFile}') format('woff'), url('${customFontData.uploadedFile}') format('truetype')`
+        );
+
+        const customFontPromise = customFont.load()
+          .then(() => {
+            document.fonts.add(customFont);
+            console.log(`[LocalFontLoader] Custom font ${customFontData.name} loaded successfully`);
+          })
+          .catch((err) => {
+            console.warn(`[LocalFontLoader] Error loading custom font ${customFontData.name}:`, err);
+          });
+
+        promises.push(customFontPromise);
+      } catch (error) {
+        console.warn(`[LocalFontLoader] Failed to create custom font ${customFontData.name}:`, error);
+      }
+    }
     
     Promise.all(promises)
       .then(() => {

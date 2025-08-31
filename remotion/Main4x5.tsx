@@ -25,7 +25,9 @@ import { SmallCutoutCenterTiltedLeft4x5 } from './scenes-4x5/SmallCutoutCenterTi
 import { SmallCutoutCenterTiltedRight4x5 } from './scenes-4x5/SmallCutoutCenterTiltedRight4x5';
 import { SmallCutoutTopLeft4x5 } from './scenes-4x5/SmallCutoutTopLeft4x5';
 import { SmallCutoutTopRight4x5 } from './scenes-4x5/SmallCutoutTopRight4x5';
-import { Subtitles, SUBTITLE_STYLES, parseTranscriptWithTimings } from './components/Subtitles';
+import { Subtitles, parseTranscriptWithTimings } from './components/Subtitles';
+import { VideoPreloader, collectVideoUrls } from './components/VideoPreloader';
+import { getAllAvailableFonts } from '../lib/google-fonts';
 
 // Import standard scenes for scenes that don't need special 4:5 versions
 import { FullScreenAsset } from './scenes/FullScreenAsset';
@@ -55,89 +57,27 @@ export const Main4x5CompositionProps = z.object({
   letterSpacing: z.number().optional(),
   textTransform: z.enum(['none', 'uppercase', 'lowercase', 'capitalize']).optional(),
   previewScale: z.number().optional(),
+  avatarFps: z.number().optional(),
+  avatarDuration: z.number().optional(),
 });
-
-// --- Mock Data for Studio Showcase ---
-const MOCK_AD_DATA: AdCreationData = {
-  selectedImages: [
-    'uploads/scraped/2ebccc5c81598a87/c9b66cad787b.webp',
-    'uploads/scraped/2ebccc5c81598a87/fee4376401fe.webp',
-  ],
-  selectedVideos: [
-    'uploads/scraped/2ebccc5c81598a87/0e8851bafdd8.mp4',
-    'uploads/scraped/2ebccc5c81598a87/1be8fed6bca1.mp4',
-  ],
-};
-
-const ALL_SCENES_TIMELINE: ConcreteScene[] = [
-  { layout: 'fullscreen-avatar', duration: 90, assetIndices: [] },
-  { layout: 'fullscreen-asset', duration: 90, assetIndices: [0] },
-  { layout: 'cutout-left-over-asset', duration: 120, assetIndices: [1] },
-  { layout: 'cutout-right-over-asset', duration: 120, assetIndices: [2] },
-  { layout: 'cutout-center-over-asset', duration: 120, assetIndices: [3] },
-  { layout: 'avatar-with-corner-asset', duration: 120, assetIndices: [0] },
-  { layout: 'split-screen-top-asset', duration: 120, assetIndices: [1] },
-  { layout: 'buildup-collage', duration: 150, assetIndices: [0, 1, 3] },
-];
-
-// --- Main Remotion Root Component for 4:5 ---
-export const RemotionRoot4x5: React.FC = () => {
-  const totalDuration = ALL_SCENES_TIMELINE.reduce(
-    (acc, scene) => acc + scene.duration,
-    0
-  );
-
-  return (
-    <>
-      <Composition
-        id="Main4x5"
-        component={Main4x5Composition}
-        durationInFrames={totalDuration}
-        fps={COMPOSITION_FPS}
-        width={1080}
-        height={1350} // 4:5 aspect ratio
-        schema={Main4x5CompositionProps}
-        defaultProps={{
-          adData: MOCK_AD_DATA,
-          timeline: ALL_SCENES_TIMELINE,
-          audioUrl: 'generated_audio/audio-69d70954b6a1.mp3',
-          processedAvatarUrl: 'avatars-fixed/female-blonde-adult-inside.mp4',
-          greenscreenAvatarUrl: 'cutouts/cutout-69d70954b6a1.webm',
-        }}
-      />
-    </>
-  );
-};
 
 // --- THIS IS THE CORRECTED, INTELLIGENT ASSET RESOLVER ---
 const resolveAsset = (assetPath: string): string => {
   if (!assetPath) {
-    console.warn('[resolveAsset4x5] Empty asset path provided');
     return '';
   }
-  
-  // If it's already an absolute URL, return it unchanged
   if (assetPath.startsWith('http://') || assetPath.startsWith('https://')) {
-    console.log('[resolveAsset4x5] Using remote asset (unchanged):', assetPath);
     return assetPath;
   }
-  
-  // For preview mode, try to construct absolute URL using staging environment
-  // This is a fallback for when staticFile doesn't work properly with staging URLs
-  if (typeof window === 'undefined' && assetPath.startsWith('/')) {
-    // We're in server-side render context (Remotion render)
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL;
-    if (baseUrl) {
-      const absoluteUrl = baseUrl + assetPath;
-      console.log('[resolveAsset4x5] Server-side URL resolution:', assetPath, '->', absoluteUrl);
-      return absoluteUrl;
+  if (typeof window === 'undefined') {
+    if (assetPath.startsWith('cutouts/') || !assetPath.startsWith('/')) {
+      return `***REMOVED***/${assetPath}`;
+    }
+    if (assetPath.startsWith('/')) {
+      return `***REMOVED***${assetPath}`;
     }
   }
-  
-  // Default to staticFile for local assets
-  const resolved = staticFile(assetPath);
-  console.log('[resolveAsset4x5] Resolved local asset:', assetPath, '->', resolved);
-  return resolved;
+  return staticFile(assetPath);
 };
 
 // --- Main Rendering Composition for 4:5 ---
@@ -161,8 +101,9 @@ export const Main4x5Composition: React.FC<z.infer<typeof Main4x5CompositionProps
   letterSpacing,
   textTransform,
   previewScale,
+  avatarFps,
+  avatarDuration,
 }) => {
-  // Helper function to get assets in proper order
   const getOrderedAssets = (orderedAssets: any[], fallbackAssets: string[]) => {
     if (orderedAssets && orderedAssets.length > 0) {
       return orderedAssets
@@ -173,33 +114,41 @@ export const Main4x5Composition: React.FC<z.infer<typeof Main4x5CompositionProps
     return (fallbackAssets || []).filter((url: string) => url !== '');
   };
 
-  // Get properly ordered assets respecting user-defined order
-  const orderedImages = getOrderedAssets(adData.orderedImages || [], adData.selectedImages || []);
-  const orderedVideos = getOrderedAssets(adData.orderedVideos || [], adData.selectedVideos || []);
-  const orderedBRoll = getOrderedAssets(adData.orderedBRoll || [], adData.selectedBRoll || []);
-  
-  // Combine all assets and sort by their original order numbers
   const allOrderedAssets = [
     ...(adData.orderedImages || []).map((asset: any) => ({ ...asset, type: 'image' })),
     ...(adData.orderedVideos || []).map((asset: any) => ({ ...asset, type: 'video' })),
     ...(adData.orderedBRoll || []).map((asset: any) => ({ ...asset, type: 'broll' }))
   ].sort((a, b) => a.order - b.order);
-  
+
   const assets = allOrderedAssets.map(asset => asset.url);
   let fromFrame = 0;
-  
-  // Calculate total duration for subtitle timing
+
   const totalDuration = timeline.reduce((acc, scene) => acc + scene.duration, 0);
-  const totalDurationInSeconds = totalDuration / COMPOSITION_FPS;
-  
-  // Get subtitle configuration
+  const totalDurationInSeconds = totalDuration / (avatarFps || COMPOSITION_FPS);
+
   const enableSubtitles = adData.enableSubtitles !== false;
+  const SUBTITLE_STYLES = getAllAvailableFonts().map(font => ({
+    id: font.id,
+    name: font.name,
+    font: font.fontFamily,
+    fontSize: 50,
+    fontWeight: 600,
+    textColor: '#FFFFFF',
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    padding: 8,
+    textShadow: '1px 1px 2px #000',
+    textAlign: 'center' as const,
+    lineHeight: 1.2,
+    maxWidth: 950,
+    border: 'none',
+    supportsCaps: true,
+  }));
   const subtitleStyle = SUBTITLE_STYLES.find(s => s.id === adData.subtitleStyle) || SUBTITLE_STYLES[0];
   const subtitleAnimation = adData.subtitleAnimation || 'none';
   const finalSubtitlePosition = subtitlePosition ?? adData.subtitlePosition ?? 'bottom';
   const scriptText = adData.selectedScript || adData.script || '';
-  
-  // Build style overrides from user customizations (prefer direct props over adData)
+
   const styleOverrides = {
     fontSize: fontSize ?? adData.fontSize ?? subtitleStyle.fontSize,
     fontWeight: fontWeight ?? adData.fontWeight,
@@ -213,23 +162,15 @@ export const Main4x5Composition: React.FC<z.infer<typeof Main4x5CompositionProps
     textTransform: textTransform ?? adData.textTransform,
     textColor: textColor ?? adData.textColor,
   };
-  
-  // Filter out undefined values
+
   const cleanedStyleOverrides = Object.fromEntries(
     Object.entries(styleOverrides).filter(([_, value]) => value !== undefined)
   );
 
-  const dynamicSubtitleStyle = {
-    ...subtitleStyle,
-    ...cleanedStyleOverrides,
-  };
-
-  // Use ElevenLabs word timings if available, otherwise generate fallback timings
-  const subtitleTimings = adData.wordTimings && adData.wordTimings.length > 0 
-    ? adData.wordTimings 
+  const subtitleTimings = adData.wordTimings && adData.wordTimings.length > 0
+    ? adData.wordTimings
     : (scriptText ? parseTranscriptWithTimings(scriptText, totalDurationInSeconds) : []);
 
-  // Professional dB-based volume calculation for background music
   const calculateBackgroundMusicVolume = (): number => {
     const ttsVolumeDb = 0;
     const musicOffsetDb = -18;
@@ -237,25 +178,31 @@ export const Main4x5Composition: React.FC<z.infer<typeof Main4x5CompositionProps
     return Math.max(0.05, Math.min(0.25, linearVolume));
   };
 
+  const allVideoUrls = collectVideoUrls(
+    adData,
+    processedAvatarUrl,
+    greenscreenAvatarUrl
+  );
+
   return (
-    <AbsoluteFill className="bg-white">
-      <GoogleFontLoader />
-      <UnifiedFontLoader />
-      <Audio src={resolveAsset(audioUrl)} volume={1.0} />
-      
-      {/* Background Music with dB-based volume calculation */}
+    <VideoPreloader videos={allVideoUrls}>
+      <AbsoluteFill className="bg-white">
+        <GoogleFontLoader />
+        <UnifiedFontLoader />
+        <Audio src={resolveAsset(audioUrl)} volume={1.0} />
+
       {adData.backgroundMusicUrl && (
-        <Audio 
-          src={resolveAsset(adData.backgroundMusicUrl)} 
-          volume={calculateBackgroundMusicVolume()} 
+        <Audio
+          src={resolveAsset(adData.backgroundMusicUrl)}
+          volume={calculateBackgroundMusicVolume()}
         />
       )}
-      
+
       {timeline.map((scene: ConcreteScene, index: number) => {
         const duration = scene.duration;
         const currentFromFrame = fromFrame;
         fromFrame += duration;
-        
+
         return (
           <Sequence key={`${scene.layout}-${index}`} from={currentFromFrame} durationInFrames={duration}>
             {renderScene4x5(
@@ -263,13 +210,15 @@ export const Main4x5Composition: React.FC<z.infer<typeof Main4x5CompositionProps
               assets,
               processedAvatarUrl,
               greenscreenAvatarUrl,
-              currentFromFrame
+              currentFromFrame,
+              timeline,
+              avatarDuration,
+              avatarFps,
             )}
           </Sequence>
         );
       })}
-      
-      {/* Subtitle Layer */}
+
       {enableSubtitles && scriptText && (
         <Subtitles
           transcript={scriptText}
@@ -278,12 +227,13 @@ export const Main4x5Composition: React.FC<z.infer<typeof Main4x5CompositionProps
           styleOverrides={cleanedStyleOverrides}
           animationType={subtitleAnimation}
           position={finalSubtitlePosition}
-          maxWordsPerLine={(oneWordAtATime ?? adData.oneWordAtATime) ? 1 : undefined} // Let component calculate dynamically when not one-word-at-a-time
+          maxWordsPerLine={(oneWordAtATime ?? adData.oneWordAtATime) ? 1 : undefined}
           useCapsLock={adData.useCapsLock || false}
-          previewScale={previewScale ?? 1.0} // Use provided previewScale or default to 1.0
+          previewScale={previewScale ?? 1.0}
         />
       )}
-    </AbsoluteFill>
+      </AbsoluteFill>
+    </VideoPreloader>
   );
 };
 
@@ -293,7 +243,10 @@ function renderScene4x5(
   assets: string[],
   videoUrl: string,
   greenscreenUrl: string,
-  startFrame: number
+  startFrame: number,
+  timeline?: ConcreteScene[],
+  avatarDuration?: number,
+  avatarFps?: number,
 ) {
   const getAsset = (index?: number) =>
     index !== undefined && assets[index] ? assets[index] : '';
@@ -301,29 +254,15 @@ function renderScene4x5(
   const resolvedVideoUrl = resolveAsset(videoUrl);
   const resolvedGreenscreenUrl = resolveAsset(greenscreenUrl);
 
-  // Calculate the start time in seconds based on the frame position in the timeline
-  const avatarVideoStartFrom = startFrame / COMPOSITION_FPS;
+  const actualFps = avatarFps || COMPOSITION_FPS;
+  const baseAvatarVideoStartFrom = startFrame / actualFps;
 
-  console.log(`[renderScene4x5] Rendering scene: ${scene.layout}`, {
-    assetIndices: scene.assetIndices,
-    resolvedVideoUrl,
-    resolvedGreenscreenUrl,
-    avatarVideoStartFrom,
-    assetsLength: assets.length
-  });
-
-  if (scene.layout === 'buildup-collage') {
-    const collageAssets = scene.assetIndices?.map(i => resolveAsset(getAsset(i))) || [];
-    return <BuildupCollageScene assetUrls={collageAssets} />;
-  }
+  const actualAvatarDuration = avatarDuration || 10;
+  const avatarVideoStartFrom = baseAvatarVideoStartFrom < actualAvatarDuration
+    ? baseAvatarVideoStartFrom
+    : baseAvatarVideoStartFrom % actualAvatarDuration;
 
   const resolvedAssetUrl = resolveAsset(getAsset(scene.assetIndices?.[0]));
-  
-  console.log(`[renderScene4x5] Asset resolution for ${scene.layout}:`, {
-    assetIndex: scene.assetIndices?.[0],
-    rawAsset: getAsset(scene.assetIndices?.[0]),
-    resolvedAssetUrl
-  });
 
   switch (scene.layout as LayoutType) {
     case 'fullscreen-avatar':
@@ -422,6 +361,9 @@ function renderScene4x5(
           startFrom={avatarVideoStartFrom}
         />
       );
+    case 'buildup-collage':
+        const collageAssets = scene.assetIndices?.map(i => resolveAsset(getAsset(i))) || [];
+        return <BuildupCollageScene assetUrls={collageAssets} />;
     default:
       return <AbsoluteFill style={{ backgroundColor: 'darkslateblue' }} />;
   }

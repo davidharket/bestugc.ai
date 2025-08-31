@@ -23,7 +23,10 @@ export const SmallCutoutTopRight4x5: React.FC<{
   if (isPreviewMode) {
     videoStartFrame = 0;
   } else {
-    videoStartFrame = Math.round(avatarStartFrom * COMPOSITION_FPS);
+    // Use detected avatar FPS if available
+    const avatarFps = (inputProps as any)?.avatarFps;
+    const effectiveFps = avatarFps || COMPOSITION_FPS;
+    videoStartFrame = Math.round(avatarStartFrom * effectiveFps);
   }
 
   if (!backgroundSrc) {

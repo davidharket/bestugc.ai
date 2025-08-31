@@ -1,6 +1,7 @@
 // remotion/scenes/FullScreenAvatar.tsx
-import {AbsoluteFill, Video, useCurrentFrame, useVideoConfig, getInputProps} from 'remotion';
+import {AbsoluteFill, Video, useCurrentFrame, useVideoConfig} from 'remotion';
 import { COMPOSITION_FPS } from '../constants';
+import { safeGetInputProps } from '../utils/safeInputProps';
 
 export const FullScreenAvatar: React.FC<{
 	src: string;
@@ -8,27 +9,21 @@ export const FullScreenAvatar: React.FC<{
 }> = ({src, startFrom = 0}) => {
 	const frame = useCurrentFrame();
 	const { fps } = useVideoConfig();
-	const inputProps = getInputProps();
-	
-	// Check if we're in preview mode
-	const isPreviewMode = (inputProps as any)?.adData?.previewMode === true;
+	const inputProps = safeGetInputProps();
 	
 	if (!src) {
 		console.warn('[FullScreenAvatar] No src provided, showing placeholder');
 		return <AbsoluteFill style={{ backgroundColor: '#1a1a1a' }} />;
 	}
 
-	let videoStartFrame: number;
+	// Get avatar FPS from input props if available, otherwise use composition FPS
+	const avatarFps = (inputProps as any)?.avatarFps || fps;
 	
-	if (isPreviewMode) {
-		// PREVIEW MODE: Use simpler logic without custom looping
-		// Just start from the beginning of the scene for preview
-		videoStartFrame = 0;
-	} else {
-		// FINAL RENDER: Use original timing logic for proper lip-sync
-		// Use the timeline position passed from Main.tsx for proper sync with processed avatar
-		videoStartFrame = Math.round(startFrom * COMPOSITION_FPS);
-	}
+	// Simple approach: just use the detected avatar FPS to calculate the start frame
+	const videoStartFrame = Math.round(startFrom * avatarFps);
+
+	// Debug logging
+	console.log('[FullScreenAvatar] Timeline sync - StartFrom:', startFrom, 'AvatarFPS:', avatarFps, 'VideoStartFrame:', videoStartFrame);
 
 	return (
 		<AbsoluteFill className="bg-black justify-center items-center">
@@ -38,7 +33,7 @@ export const FullScreenAvatar: React.FC<{
 				startFrom={videoStartFrame}
 				muted={true} // Audio is handled globally in MainComposition
 				playsInline={true}
-				preload="metadata"
+				preload="auto"
 				onError={(error) => {
 					console.error('[FullScreenAvatar] Video error:', error);
 				}}

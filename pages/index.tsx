@@ -186,7 +186,7 @@ export default function LandingPage() {
                 <img src="/socialproof4.png" alt="User testimonial" className="w-10 sm:w-12 h-10 sm:h-12 rounded-full border-black" />
               </div>
               <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-3 text-center sm:text-left">
-                <span className="text-white font-normal text-sm sm:text-base">Over 500+ videos created</span>
+                <span className="text-white font-normal text-sm sm:text-base">Over 1000+ videos created</span>
                 <div className="flex items-center gap-1">
                   {[...Array(5)].map((_, i) => (
                     <img key={i} src="/star.svg" alt="Star rating" className="w-3 sm:w-4 h-3 sm:h-4" />

@@ -15,7 +15,7 @@ interface PricingTierProps {
 }
 
 const PricingTier = ({ title, price, originalPrice, features, ctaText, isPopular, credits, onClick }: PricingTierProps) => (
-  <div className={`relative rounded-[20px] border-2 p-8 transition-all duration-300 hover:scale-105 ${
+  <div className={`relative rounded-[20px] border-2 p-8 transition-all duration-300 ${
     isPopular 
       ? 'border-orange-500 shadow-lg shadow-orange-500/25' 
       : 'border-gray-700 hover:border-orange-500/50'
@@ -46,7 +46,7 @@ const PricingTier = ({ title, price, originalPrice, features, ctaText, isPopular
     
     <button 
       onClick={onClick}
-      className={`w-full py-4 px-6 rounded-[15px] text-lg font-normal transition-all duration-300 transform hover:scale-105 ${
+      className={`w-full py-4 px-6 rounded-[15px] text-lg font-normal transition-all duration-300 transform ${
         isPopular 
           ? 'btn-primary' 
           : 'btn-secondary'

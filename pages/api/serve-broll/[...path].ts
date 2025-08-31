@@ -18,7 +18,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   // Construct the full path to the B-roll file
-  const fullPath = path.join(process.cwd(), 'b-roll', fileName);
+  const fullPath = path.join(process.cwd(), 'public', 'b-roll', fileName);
   
   // Check if file exists
   if (!fs.existsSync(fullPath)) {

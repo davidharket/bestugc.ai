@@ -16,7 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const { description, templateImage } = req.body
+    const { description, templateImage, imageFilter } = req.body
 
     if (!description || typeof description !== 'string' || description.trim().length === 0) {
       return res.status(400).json({ error: 'Description is required' })
@@ -32,9 +32,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // If templateImage is provided, adjust the prompts for product replacement
     if (templateImage) {
-      systemPrompt = "You are an expert at creating detailed scene descriptions for AI image generation that replace existing products in template images with new products. When given a template image context and user description, create a detailed prompt that maintains the same style, lighting, composition, and aesthetic as the template while replacing any existing products with the user's product. Focus on preserving the template's visual qualities while seamlessly integrating the new product."
-      
-      userPrompt = `Based on a template image that contains an existing product, create a detailed scene description that maintains the exact same style, lighting, composition, and atmosphere but replaces the existing product with a new product. User's description: "${description}". 
+      if (imageFilter === 'avatar-holding') {
+        systemPrompt = "You are an expert at creating detailed scene descriptions for AI image generation featuring people holding products. When given a template image context and user description, create a detailed prompt that maintains the same style, lighting, composition, and person's appearance while having them naturally hold or showcase the user's specific product. Focus on realistic product interaction and natural hand positioning."
+        
+        userPrompt = `Based on a template image showing a person, create a detailed scene description that maintains the exact same style, lighting, composition, and person's appearance but shows them naturally holding or displaying the new product. User's description: "${description}". 
+
+Important: 
+- Keep the same person, their appearance, clothing, and pose
+- Maintain the template's lighting style and direction
+- Preserve the background elements and composition
+- Have the person naturally hold, display, or interact with the product
+- Ensure realistic hand positioning and product interaction
+- Maintain the same camera angle and perspective
+- Describe how the person is showcasing the product
+
+Create a detailed prompt under 1000 characters.`
+      } else {
+        systemPrompt = "You are an expert at creating detailed scene descriptions for AI image generation that replace existing products in template images with new products. When given a template image context and user description, create a detailed prompt that maintains the same style, lighting, composition, and aesthetic as the template while replacing any existing products with the user's product. Focus on preserving the template's visual qualities while seamlessly integrating the new product."
+        
+        userPrompt = `Based on a template image that contains an existing product, create a detailed scene description that maintains the exact same style, lighting, composition, and atmosphere but replaces the existing product with a new product. User's description: "${description}". 
 
 Important: 
 - Maintain the template's lighting style and direction
@@ -45,6 +61,7 @@ Important:
 - Maintain the same camera angle and perspective
 
 Create a detailed prompt under 1000 characters.`
+      }
     }
 
     const completion = await openai.chat.completions.create({

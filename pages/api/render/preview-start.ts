@@ -6,68 +6,35 @@ import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import path from 'path';
 
+// ... (handler setup remains the same) ...
 const jobsDir = path.resolve(process.cwd(), '.tmp', 'preview-jobs');
-
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
-    return res.status(405).end('Method Not Allowed');
-  }
-
+  if (req.method !== 'POST') { return res.status(405).end('Method Not Allowed'); }
   const session = await getServerSession(req, res, authOptions);
-  if (!session?.user?.id) {
-    return res.status(401).json({ message: 'Unauthorized' });
-  }
-
+  if (!session?.user?.id) { return res.status(401).json({ message: 'Unauthorized' }); }
   const { adData, previewDuration = 10 } = req.body;
-
-  if (!adData || !adData.templateId) {
-    return res.status(400).json({ message: 'Missing ad data or template ID' });
-  }
-
+  if (!adData || !adData.templateId) { return res.status(400).json({ message: 'Missing ad data or template ID' }); }
   const jobId = uuidv4();
-  const job = {
-    status: 'pending' as 'pending' | 'processing' | 'completed' | 'failed',
-    startTime: Date.now(),
-    result: undefined as any,
-    error: undefined as string | undefined,
-  };
-
+  const job = { status: 'pending', startTime: Date.now() };
   try {
     fs.mkdirSync(jobsDir, { recursive: true });
-    const jobFilePath = path.join(jobsDir, `${jobId}.json`);
-    fs.writeFileSync(jobFilePath, JSON.stringify(job, null, 2));
-
+    fs.writeFileSync(path.join(jobsDir, `${jobId}.json`), JSON.stringify(job, null, 2));
   } catch (error) {
     console.error(`[Preview Start] Failed to write initial job file for ${jobId}:`, error);
     return res.status(500).json({ message: 'Failed to initialize preview job.' });
   }
-
-  console.log(`[Preview Start] Created job ${jobId}, stored in file system.`);
-  console.log(`[Preview] Started job ${jobId} for user ${session.user.id}`);
-
+  console.log(`[Preview Start] Created job ${jobId} for user ${session.user.id}`);
   processPreviewAsync(jobId, adData, previewDuration, session.user.id);
-
-  return res.status(200).json({
-    jobId,
-    status: 'pending',
-    message: 'Preview generation started'
-  });
+  return res.status(200).json({ jobId, status: 'pending' });
 }
-
 async function updateJobState(jobId: string, updates: Partial<any>) {
   const jobFilePath = path.join(jobsDir, `${jobId}.json`);
   try {
-    if (!fs.existsSync(jobFilePath)) {
-      console.warn(`[Job State] Job file for ${jobId} not found. Cannot update.`);
-      return;
+    if (fs.existsSync(jobFilePath)) {
+      const currentJobData = JSON.parse(fs.readFileSync(jobFilePath, 'utf-8'));
+      fs.writeFileSync(jobFilePath, JSON.stringify({ ...currentJobData, ...updates }, null, 2));
     }
-    const currentJobData = JSON.parse(fs.readFileSync(jobFilePath, 'utf-8'));
-    const updatedJob = { ...currentJobData, ...updates };
-    fs.writeFileSync(jobFilePath, JSON.stringify(updatedJob, null, 2));
-  } catch (error) {
-    console.error(`[Job State] Failed to update job ${jobId}:`, error);
-  }
+  } catch (error) { console.error(`[Job State] Failed to update job ${jobId}:`, error); }
 }
 
 async function processPreviewAsync(jobId: string, adData: any, previewDuration: number, userId: string) {
@@ -75,7 +42,6 @@ async function processPreviewAsync(jobId: string, adData: any, previewDuration: 
     await updateJobState(jobId, { status: 'processing' });
     console.log(`[Preview] Processing job ${jobId}`);
 
-    // Import the heavy modules only when needed
     const { getTemplateById, scaleTemplateForDuration } = await import('../../../lib/templates');
     const { generateConcreteTimeline } = await import('../../../lib/timeline-generator');
     const { avatars } = await import('../../../lib/avatars');
@@ -84,158 +50,181 @@ async function processPreviewAsync(jobId: string, adData: any, previewDuration: 
     const { renderMedia, selectComposition } = await import('@remotion/renderer');
     const path = await import('path');
     const fs = await import('fs');
-    const { getPreviewGPUConfig, getGPUWebpackConfig, createPerformanceMonitor } = await import('../../../lib/gpu-config');
+    const { getPreviewGPUConfig, getGPUWebpackConfig } = await import('../../../lib/gpu-config');
 
-    // Get base template and scale it based on the selected duration
+    // ... (template and duration logic is the same) ...
     const baseTemplate = getTemplateById(adData.templateId);
-    if (!baseTemplate) {
-      throw new Error('Template not found');
-    }
+    if (!baseTemplate) throw new Error('Template not found');
     const template = scaleTemplateForDuration(baseTemplate, adData.duration || 30);
-    console.log(`[Preview] Scaled template for ${adData.duration}s duration: ${template.timeline.length} scenes`);
-
-
-    // Calculate duration - use full audio duration for accurate preview
-    let totalDurationInFrames: number;
-    if (adData.audioUrl) {
-      console.log('[Preview] Getting audio duration from:', adData.audioUrl);
-      const audioDurationInSeconds = await getAudioDuration(adData.audioUrl);
-      const previewDurationInSeconds = audioDurationInSeconds;
-      totalDurationInFrames = Math.round(previewDurationInSeconds * COMPOSITION_FPS);
-      console.log('[Preview] Audio duration:', audioDurationInSeconds, 'seconds, preview duration:', previewDurationInSeconds, 'seconds,', totalDurationInFrames, 'frames');
-    } else {
-      console.log('[Preview] No audio URL, using fallback duration:', previewDuration, 'seconds');
-      totalDurationInFrames = Math.round(previewDuration * COMPOSITION_FPS);
-    }
-
-    // Use the scaled template's timeline
-    const concreteTimeline = generateConcreteTimeline(template.timeline, totalDurationInFrames);
+    const audioDurationInSeconds = adData.audioUrl ? await getAudioDuration(adData.audioUrl) : previewDuration;
+    const totalDurationInFrames = Math.round(audioDurationInSeconds * COMPOSITION_FPS);
+    const timelineToUse = adData.modifiedTimeline && adData.modifiedTimeline.length > 0 ? adData.modifiedTimeline : template.timeline;
+    const concreteTimeline = generateConcreteTimeline(timelineToUse, totalDurationInFrames);
     const avatar = avatars.find((a) => a.id === adData.avatarId);
-    if (!avatar) {
-      throw new Error('Avatar not found');
-    }
-    const EXTERNAL_API_BASE_URL = process.env.NEXT_PUBLIC_APP_URL;
-    const toAbsoluteUrl = (url: string) => {
-      if (!url || url.startsWith('blob:')) return '';
-      if (url.startsWith('http')) return url;
-      return `${EXTERNAL_API_BASE_URL}${url}`;
-    };
-    const getOrderedAssets = (orderedAssets: any[], fallbackAssets: string[]) => {
-      if (orderedAssets && orderedAssets.length > 0) {
-        return orderedAssets.sort((a, b) => a.order - b.order).map(asset => asset.url).map(toAbsoluteUrl).filter(Boolean);
-      }
-      return (fallbackAssets || []).map(toAbsoluteUrl).filter(Boolean);
-    };
-    const remotionAdData = { ...adData, selectedImages: getOrderedAssets(adData.orderedImages || [], adData.selectedImages || []), selectedVideos: getOrderedAssets(adData.orderedVideos || [], adData.selectedVideos || []) };
+    if (!avatar) throw new Error('Avatar not found');
     
-    // For preview renders, always use standard avatar for processedAvatarUrl and greenscreenAvatarUrl
-    // The product video will be handled scene-specifically in the composition
-    let avatarVideoUrl = toAbsoluteUrl(avatar.src); // Always use standard avatar for default scenes
-    console.log(`[Preview] Using standard avatar for default scenes: ${avatarVideoUrl}`);
-    
-    if (adData.productVideoUrl && adData.productVideoUrl.trim() !== '') {
-      console.log(`[Preview] Product video available for first scene: ${adData.productVideoUrl}`);
-    } else {
-      console.log(`[Preview] No product video specified`);
-    }
-    
-    // Helper function to convert product video URLs to internal render URLs for preview
-    const toRenderVideoUrl = (url: string) => {
-        if (!url || url.startsWith('blob:')) return '';
-        if (url.startsWith('http')) return url;
-        if (url.startsWith('/api/serve-video/')) {
-            // Convert to internal render endpoint for authentication bypass
-            const secret = process.env.INTERNAL_SECRET_KEY || '';
-            return `${process.env.NEXT_PUBLIC_APP_URL}/api/render/serve-video?videoPath=${encodeURIComponent(url)}&internal_secret=${secret}`;
-        }
-        return `${process.env.NEXT_PUBLIC_APP_URL}${url}`;
-    };
+    // ... (get avatar FPS logic is the same) ...
+    let avatarFps = 30;
+    try {
+      const { default: fetch } = await import('node-fetch');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/video/get-framerate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filePath: avatar.src }) });
+      if (response.ok) { const data = await response.json() as any; avatarFps = data.framerate; }
+    } catch (error) { console.warn(`[Preview] Failed to get avatar framerate, using default.`); }
 
-    const inputProps = { 
-      adData: { ...remotionAdData, previewMode: true }, 
-      timeline: concreteTimeline, 
-      audioUrl: toAbsoluteUrl(adData.audioUrl || ''), 
-      processedAvatarUrl: avatarVideoUrl, 
-      greenscreenAvatarUrl: avatarVideoUrl, 
-      originalProductVideoUrl: '', // Not used
-      concatenatedProductVideoUrl: toRenderVideoUrl(adData.productVideoUrl || ''), // For first scene in preview
-      oneWordAtATime: adData.oneWordAtATime, 
-      fontSize: adData.fontSize 
+    const EXTERNAL_API_BASE_URL = process.env.NEXT_PUBLIC_APP_URL;
+    
+    const toAbsoluteUrl = (url: string) => {
+      if (!url || url.startsWith('http')) {
+        return url;
+      }
+  
+      const EXTERNAL_API_BASE_URL = process.env.NEXT_PUBLIC_APP_URL;
+
+      // For any URL that is not absolute, make it absolute.
+      // This robustly handles /b-roll/..., /api/serve-broll/..., and any other relative paths.
+      const absoluteUrl = url.startsWith('/') 
+        ? `${EXTERNAL_API_BASE_URL}${url}` 
+        : `${EXTERNAL_API_BASE_URL}/${url}`;
+
+      console.log(`[Preview] Converted asset URL to absolute: ${url} -> ${absoluteUrl}`);
+      return absoluteUrl;
     };
-    const perfMonitor = createPerformanceMonitor();
-    console.log('[Preview] Bundling Remotion composition with GPU optimizations...');
-    perfMonitor.logPerformance('Preview Bundle Start');
+    
+    console.log(`[Preview DEBUG] Original adData orderedBRoll:`, adData.orderedBRoll);
+    console.log(`[Preview DEBUG] Original adData selectedBRoll:`, adData.selectedBRoll);
+    
+
+    // --- START: THE DEFINITIVE FIX ---
+    // The Remotion component expects `orderedBRoll` (an array of objects), 
+    // but the frontend often sends `selectedBRoll` (an array of strings).
+    // This code block bridges that gap by creating the structure Remotion needs.
+    let finalOrderedBRoll = adData.orderedBRoll || [];
+    if (!finalOrderedBRoll.length && adData.selectedBRoll?.length) {
+        console.log('[Preview] `orderedBRoll` is missing. Creating it from `selectedBRoll`.');
+        finalOrderedBRoll = adData.selectedBRoll.map((url: string, index: number) => ({
+            url: url, // Keep the original relative URL for now
+            order: index
+        }));
+    }
+    // --- END: THE DEFINITIVE FIX ---
+
+    const getOrderedAssets = (ordered: any[], fallback: string[]) => (ordered?.length > 0 ? ordered.sort((a,b)=>a.order-b.order).map(a=>a.url) : fallback || []).map(toAbsoluteUrl);
+
+    const remotionAdData = { ...adData,
+        selectedImages: getOrderedAssets(adData.orderedImages || [], adData.selectedImages || []),
+        selectedVideos: getOrderedAssets(adData.orderedVideos || [], adData.selectedVideos || []),
+        
+        // This property is not used by the component, but we process it for consistency.
+        selectedBRoll: getOrderedAssets(finalOrderedBRoll, []),
+
+        // CRITICAL: Process the `finalOrderedBRoll` we just created or received.
+        // This ensures the URLs are absolute and in the correct property for the component.
+        orderedBRoll: finalOrderedBRoll.map((asset: any) => {
+            const originalUrl = asset.url || '';
+            const convertedUrl = toAbsoluteUrl(originalUrl);
+            console.log(`[Preview DEBUG] Processing orderedBRoll asset: ${originalUrl} -> ${convertedUrl}`);
+            return {
+                ...asset,
+                url: convertedUrl // Use the absolute URL
+            };
+        }),
+    };
+    
+    const avatarVideoUrl = toAbsoluteUrl(avatar.src);
+    const toRenderVideoUrl = (url: string) => url.startsWith('/api/serve-video/') ? `${process.env.NEXT_PUBLIC_APP_URL}/api/render/serve-video?videoPath=${encodeURIComponent(url)}&internal_secret=${process.env.INTERNAL_SECRET_KEY}` : toAbsoluteUrl(url);
+
+    // *** FIX: Get custom font data directly from adData (NO FETCH CALL) ***
+    let customFontData = null;
+    if (adData.customFontFamily && adData.customFontUrl) {
+        console.log(`[Preview] Found custom font data for preview: ${adData.customFontFamily}`);
+        customFontData = {
+            fontFamily: adData.customFontFamily,
+            url: toAbsoluteUrl(adData.customFontUrl),
+        };
+    }
+
+    const inputProps = {
+        adData: { ...remotionAdData, previewMode: true },
+        timeline: concreteTimeline,
+        audioUrl: toAbsoluteUrl(adData.audioUrl || ''),
+        processedAvatarUrl: avatarVideoUrl,
+        greenscreenAvatarUrl: avatarVideoUrl,
+        concatenatedProductVideoUrl: toRenderVideoUrl(adData.productVideoUrl || ''),
+        avatarFps: avatarFps,
+        previewScale: 0.5,
+        customFontData, // Pass simplified font data
+    };
+    
+    console.log(`[Preview DEBUG] Final inputProps.adData.orderedBRoll:`, inputProps.adData.orderedBRoll);
+    console.log(`[Preview DEBUG] Final inputProps.adData.selectedBRoll:`, inputProps.adData.selectedBRoll);
+
     let bundleLocation: string | null = null;
     try {
-      bundleLocation = await bundle({ entryPoint: path.resolve('./remotion/index.ts'), webpackOverride: getGPUWebpackConfig(false), publicDir: path.resolve("./public-minimal"), enableCaching: false });
-      perfMonitor.logPerformance('Preview Bundle Complete');
-      const previewGpuConfig = getPreviewGPUConfig();
-      console.log('[Preview] Selecting composition with GPU acceleration...');
-      perfMonitor.logPerformance('Preview Composition Selection Start');
-      const compositionId = adData.currentPreviewFormat === '4:5' ? 'Main4x5' : 'Main';
-      console.log(`[Preview] Using composition: ${compositionId} for format: ${adData.currentPreviewFormat || '9:16'}`);
-      const composition = await selectComposition({ serveUrl: bundleLocation, id: compositionId, inputProps, chromiumOptions: previewGpuConfig.chromiumOptions, timeoutInMilliseconds: 600000 });
-      perfMonitor.logPerformance('Preview Composition Selection Complete');
-      composition.durationInFrames = totalDurationInFrames;
-      const outputFilename = `gpu-preview-${userId}-${Date.now()}.mp4`;
-      const outputPath = path.resolve(`./public/previews/${outputFilename}`);
-      fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-      console.log('[Preview] Starting GPU-accelerated preview render...');
-      perfMonitor.logPerformance('Preview Render Start');
-      // ✅ FIXED: Changed codec from 'h24' to the correct 'h264'
-      await renderMedia({ composition, serveUrl: bundleLocation, codec: 'h264', outputLocation: outputPath, inputProps, chromiumOptions: previewGpuConfig.chromiumOptions, timeoutInMilliseconds: 600000 });
-      perfMonitor.logPerformance('Preview Render Complete');
-      const stats = fs.existsSync(outputPath) ? fs.statSync(outputPath) : null;
-      const fileSizeMB = stats ? (stats.size / 1024 / 1024).toFixed(2) : 'Unknown';
-      console.log(`[Preview] GPU-accelerated preview completed in ${perfMonitor.getElapsedTime()}s, size: ${fileSizeMB}MB`);
-      const previewVideoUrl = `/previews/${outputFilename}`;
-
-      await updateJobState(jobId, {
-        status: 'completed',
-        result: {
-          previewVideoUrl,
-          durationInSeconds: totalDurationInFrames / COMPOSITION_FPS,
-          renderTimeSeconds: perfMonitor.getElapsedTime(),
-          fileSizeMB: fileSizeMB,
-          gpuAccelerated: true
+        // Force port 3000 for all Remotion operations - more aggressive approach
+        delete process.env.REMOTION_RENDERER_PORT;
+        delete process.env.REMOTION_WEBPACK_PORT;
+        delete process.env.REMOTION_DEV_SERVER_PORT;
+        delete process.env.WEBPACK_DEV_SERVER_PORT;
+        delete process.env.REMOTION_BUNDLE_SERVER_PORT;
+        
+        process.env.REMOTION_RENDERER_PORT = '3000';
+        process.env.REMOTION_WEBPACK_PORT = '3000';
+        process.env.REMOTION_DEV_SERVER_PORT = '3000';
+        process.env.WEBPACK_DEV_SERVER_PORT = '3000';
+        process.env.REMOTION_BUNDLE_SERVER_PORT = '3000';
+        process.env.PORT = '3000';
+        process.env.WEBPACK_DEV_SERVER = 'false'; // Disable to avoid conflicts
+        
+        console.log('[Preview Bundle] Clearing and forcing all Remotion ports to 3000');
+        console.log('[Preview Bundle] REMOTION_RENDERER_PORT:', process.env.REMOTION_RENDERER_PORT);
+        console.log('[Preview Bundle] REMOTION_WEBPACK_PORT:', process.env.REMOTION_WEBPACK_PORT);
+        
+        bundleLocation = await bundle({ 
+            entryPoint: path.resolve('./remotion/index.ts'), 
+            webpackOverride: getGPUWebpackConfig(false), 
+            publicDir: path.resolve("./public-minimal"), 
+            enableCaching: false
+        });
+        
+        // Force the bundle location to use port 3000 instead of whatever port was assigned
+        if (bundleLocation) {
+            // Replace any port with 3000
+            const originalBundle = bundleLocation;
+            bundleLocation = bundleLocation.replace(/(localhost|127\.0\.0\.1):\d+/g, '127.0.0.1:3000');
+            if (originalBundle !== bundleLocation) {
+                console.log('[Preview Bundle] Overriding bundle location from:', originalBundle);
+                console.log('[Preview Bundle] To use port 3000:', bundleLocation);
+            }
         }
-      });
-      console.log(`[Preview] Job ${jobId} completed successfully`);
+        const previewGpuConfig = getPreviewGPUConfig();
+        const compositionId = adData.currentPreviewFormat === '4:5' ? 'Main4x5' : 'Main';
+        const composition = await selectComposition({ serveUrl: bundleLocation, id: compositionId, inputProps, chromiumOptions: previewGpuConfig.chromiumOptions });
+        composition.durationInFrames = totalDurationInFrames;
+        const outputFilename = `gpu-preview-${userId}-${Date.now()}.mp4`;
+        const outputPath = path.resolve(`./public/previews/${outputFilename}`);
+        fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+        await renderMedia({ composition, serveUrl: bundleLocation, codec: 'h264', outputLocation: outputPath, inputProps, chromiumOptions: previewGpuConfig.chromiumOptions });
+        const previewVideoUrl = `/previews/${outputFilename}`;
+        await updateJobState(jobId, { status: 'completed', result: { previewVideoUrl } });
+        console.log(`[Preview] Job ${jobId} completed successfully`);
     } finally {
-      if (bundleLocation) {
-        console.log(`[Preview] Cleaning up bundle location: ${bundleLocation}`);
-        try {
-          fs.rmSync(bundleLocation, { recursive: true, force: true });
-          console.log(`[Preview] ✅ Successfully cleaned up bundle.`);
-        } catch (err) {
-          console.error(`[Preview] ⚠️ Failed to clean up bundle:`, err);
+        if (bundleLocation) {
+            try { fs.rmSync(bundleLocation, { recursive: true, force: true }); } catch (err) {}
         }
-      }
     }
-
   } catch (error) {
     console.error(`[Preview] Job ${jobId} failed:`, error);
-    await updateJobState(jobId, {
-      status: 'failed',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+    await updateJobState(jobId, { status: 'failed', error: error instanceof Error ? error.message : 'Unknown error' });
   }
 }
 
 async function getAudioDuration(audioUrl: string): Promise<number> {
     try {
-        const INTERNAL_SECRET_KEY = process.env.INTERNAL_SECRET_KEY;
-        const axios = await import('axios');
-        console.log('[Preview] Calling get-duration API with filePath:', audioUrl);
-        const response = await axios.default.post('/api/video/get-duration', { filePath: audioUrl }, { headers: { 'x-internal-secret': INTERNAL_SECRET_KEY, 'Content-Type': 'application/json' }, baseURL: process.env.NEXT_PUBLIC_APP_URL });
-        console.log('[Preview] Duration API response:', response.data);
-        if (!response.data.durationInSeconds || isNaN(response.data.durationInSeconds)) {
-          throw new Error(`Invalid duration received: ${response.data.durationInSeconds}`);
-        }
+        const { default: axios } = await import('axios');
+        const response = await axios.post('/api/video/get-duration', { filePath: audioUrl }, { headers: { 'x-internal-secret': process.env.INTERNAL_SECRET_KEY }, baseURL: process.env.NEXT_PUBLIC_APP_URL });
         return response.data.durationInSeconds;
     } catch (error) {
         console.error('[Preview] Error getting audio duration:', error);
-        console.log('[Preview] Using fallback duration of 10 seconds');
         return 10;
     }
 }

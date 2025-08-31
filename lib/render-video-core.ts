@@ -212,22 +212,47 @@ export async function performRender(jobData: { adId: string; templateId: string;
   console.log('[worker] STEP 9: Render final video with Remotion');
   const convertToLocalUrl = (url: string) => {
     if (!url) return '';
+    const baseUrl = process.env.INTERNAL_API_URL || '***REMOVED***';
+    
     if (url.startsWith('http')) {
       return new URL(url).pathname;
     }
-    // Handle b-roll URLs that need API endpoint conversion
+    
+    // Handle all b-roll URL variations - convert to direct /b-roll/ path for bundle server
     if (url.startsWith('b-roll/')) {
-      return `/api/serve-broll/${url.replace('b-roll/', '')}`;
+      const relativePath = `/${url}`;
+      console.log(`[Render Worker] Converting b-roll URL: ${url} -> ${relativePath}`);
+      return relativePath; // Return relative path that bundle server can serve directly
     }
-    // Handle legacy /public/b-roll/ URLs (after symlink removal)
+    if (url.startsWith('/b-roll/')) {
+      console.log(`[Render Worker] Using b-roll URL as-is: ${url}`);
+      return url; // Already in correct format
+    }
+    // Handle legacy /public/b-roll/ URLs - convert to /b-roll/
     if (url.startsWith('/public/b-roll/')) {
       const filename = url.replace('/public/b-roll/', '');
-      return `/api/serve-broll/${filename}`;
+      const relativePath = `/b-roll/${filename}`;
+      console.log(`[Render Worker] Converting legacy b-roll URL: ${url} -> ${relativePath}`);
+      return relativePath;
     }
-    // Handle public/b-roll/ URLs (without leading slash)
+    // Handle public/b-roll/ URLs (without leading slash) - convert to /b-roll/
     if (url.startsWith('public/b-roll/')) {
       const filename = url.replace('public/b-roll/', '');
-      return `/api/serve-broll/${filename}`;
+      const relativePath = `/b-roll/${filename}`;
+      console.log(`[Render Worker] Converting public b-roll URL: ${url} -> ${relativePath}`);
+      return relativePath;
+    }
+    // Handle API serve-broll URLs - convert to direct /b-roll/ path
+    if (url.includes('/api/serve-broll/') || url.includes('serve-broll/')) {
+      const filename = url.split('/serve-broll/').pop() || '';
+      const relativePath = `/b-roll/${filename}`;
+      console.log(`[Render Worker] Converting API serve-broll URL: ${url} -> ${relativePath}`);
+      return relativePath;
+    }
+    
+    // Handle cutout URLs - use absolute URLs for rendering
+    if (url.startsWith('/cutouts/')) {
+      return `${baseUrl}${url}`;
     }
     return url;
   };
@@ -239,6 +264,11 @@ export async function performRender(jobData: { adId: string; templateId: string;
       selectedImages: (adData.selectedImages || []).map(convertToLocalUrl),
       selectedVideos: (adData.selectedVideos || []).map(convertToLocalUrl),
       selectedBRoll: (adData.selectedBRoll || []).map(convertToLocalUrl),
+      // CRITICAL: Also process orderedBRoll which is actually used by Main component
+      orderedBRoll: (adData.orderedBRoll || []).map((asset: any) => ({
+        ...asset,
+        url: convertToLocalUrl(asset.url || '')
+      })),
     },
     timeline: concreteTimeline,
     audioUrl: convertToLocalUrl(audioUrl), // Use the original TTS audio for timing
@@ -268,20 +298,28 @@ export async function performRender(jobData: { adId: string; templateId: string;
   
   let bundleLocation: string | null = null;
   try {
-    bundleLocation = await bundle({
-      entryPoint: path.resolve('./remotion/index.ts'),
-      webpackOverride: getGPUWebpackConfig(true), // Production mode
-      publicDir: path.resolve("./public-minimal"), // Use full public directory to include all assets
-      enableCaching: false, // Disable caching for speed
-    });
+    // Keep port configuration from gpu-config.ts - don't interfere with port settings
+    console.log('[Bundle] Using configured port from GPU config - REMOTION_RENDERER_PORT:', process.env.REMOTION_RENDERER_PORT);
+    
+    bundleLocation = await bundle(
+      path.resolve('./remotion/index.ts'),
+      undefined, // onProgress callback
+      {
+        webpackOverride: getGPUWebpackConfig(true), // Production mode
+        publicDir: path.resolve("./public-minimal"), // Use full public directory to include all assets
+        enableCaching: false, // Disable caching for speed
+      }
+    );
     
     perfMonitor.logPerformance('Bundle Complete');
-    console.log('✅ GPU-optimized bundle created.');
+    console.log('✅ GPU-optimized bundle created at:', bundleLocation);
 
     // Get production GPU configuration
     const gpuConfig = getProductionGPUConfig();
 
     console.log('🔍 Selecting composition with GPU acceleration...');
+    console.log('[Composition] Bundle location:', bundleLocation);
+    console.log('[Composition] Environment REMOTION_RENDERER_PORT:', process.env.REMOTION_RENDERER_PORT);
     perfMonitor.logPerformance('Composition Selection Start');
     
     const composition = await selectComposition({

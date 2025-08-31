@@ -1,8 +1,9 @@
 // remotion/scenes/SmallCutoutCenterTiltedRight.tsx
-import { AbsoluteFill, OffthreadVideo, useCurrentFrame, useVideoConfig, getInputProps } from 'remotion';
+import { AbsoluteFill, OffthreadVideo, useCurrentFrame, useVideoConfig } from 'remotion';
 import React from 'react';
 import { DualLayerBackground } from '../components/DualLayerBackground';
 import { COMPOSITION_FPS } from '../constants';
+import { safeGetInputProps } from '../utils/safeInputProps';
 
 
 export const SmallCutoutCenterTiltedRight: React.FC<{
@@ -12,19 +13,13 @@ export const SmallCutoutCenterTiltedRight: React.FC<{
 }> = ({ backgroundSrc, greenscreenSrc, avatarStartFrom = 0 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const inputProps = getInputProps();
+  const inputProps = safeGetInputProps();
   
+  // Simple avatar timing logic
+  const avatarFps = (inputProps as any)?.avatarFps || fps;
+  const videoStartFrame = Math.round(avatarStartFrom * avatarFps);
   
-  // Check if we're in preview mode
-  const isPreviewMode = (inputProps as any)?.adData?.previewMode === true;
-  
-  let videoStartFrame: number;
-  
-  if (isPreviewMode) {
-    videoStartFrame = 0;
-  } else {
-    videoStartFrame = Math.round(avatarStartFrom * COMPOSITION_FPS);
-  }
+  console.log('[SmallCutoutCenterTiltedRight] StartFrom:', avatarStartFrom, 'AvatarFPS:', avatarFps, 'VideoStartFrame:', videoStartFrame);
 
   if (!backgroundSrc) {
     console.warn('[SmallCutoutCenterTiltedRight] No backgroundSrc provided');
@@ -71,6 +66,7 @@ export const SmallCutoutCenterTiltedRight: React.FC<{
             width: '100%',
             objectFit: 'cover',
             objectPosition: 'center',
+            transform: 'none'
           }}
           onError={(error) => {
             console.error('[SmallCutoutCenterTiltedRight] OffthreadVideo error:', error);

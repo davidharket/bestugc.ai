@@ -1,8 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { VideoTemplate, LayoutType } from '../lib/templates';
+// components/TemplatePreviewWithSubtitles.tsx
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { VideoTemplate, LayoutType, WeightedScene } from '../lib/templates';
 import { avatars } from '../lib/avatars';
-import { SUBTITLE_STYLES, SubtitleStyle } from '../remotion/components/Subtitles';
+import { SubtitleStyle, calculateOptimalWordsPerLine, parseTranscriptWithTimings } from '../remotion/components/Subtitles';
+import { fitText } from '@remotion/layout-utils';
 import BarLoader from './BarLoader';
+import DraggableTimeline from './DraggableTimeline';
+import { useAdCreation } from './AdCreationContext';
+import { SceneOverlay } from './SceneOverlay';
+import VideoPreloader from './VideoPreloader';
 
 interface TemplatePreviewWithSubtitlesProps {
   template: VideoTemplate;
@@ -21,7 +27,6 @@ interface TemplatePreviewWithSubtitlesProps {
   oneWordAtATime?: boolean;
   fontSize?: number;
   currentPreviewFormat?: '9:16' | '4:5';
-  // Advanced font customization
   fontWeight?: number;
   outlineWidth?: number;
   outlineColor?: string;
@@ -33,382 +38,8 @@ interface TemplatePreviewWithSubtitlesProps {
   textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
   textColor?: string;
   productVideoUrl?: string;
+  backgroundMusicUrl?: string;
 }
-
-// Function to break script into chunks for preview with dynamic width calculation
-const generateScriptChunks = (
-  script: string, 
-  oneWordAtATime: boolean,
-  fontSize: number,
-  screenWidth: number,
-  letterSpacing: number = 0,
-  maxWordsPerChunk: number = 4
-): string[] => {
-  const words = script.split(' ').filter(w => w.length > 0);
-  if (oneWordAtATime) {
-    return words;
-  }
-  
-  // Calculate optimal words per line based on font size and screen width
-  const optimalWordsPerLine = Math.max(1, Math.floor(screenWidth / (fontSize * 0.6)));
-  
-  // Use the smaller of optimal calculation or provided max
-  const wordsPerChunk = Math.min(optimalWordsPerLine, maxWordsPerChunk);
-  
-  const chunks: string[] = [];
-  for (let i = 0; i < words.length; i += wordsPerChunk) {
-    chunks.push(words.slice(i, i + wordsPerChunk).join(' '));
-  }
-  
-  return chunks;
-};
-
-// Enhanced dual layer background component for CSS preview with dual layout support
-const DualLayerBackgroundDiv: React.FC<{ 
-  src: string; 
-  className: string; 
-  enableDualLayout?: boolean;
-  secondarySrc?: string;
-}> = ({ src, className, enableDualLayout = false, secondarySrc }) => {
-  const isVideo = (src: string) => {
-    if (!src) return false;
-    return src.toLowerCase().endsWith('.mp4') || src.toLowerCase().endsWith('.webm');
-  };
-
-  if (!src) return <div className={`${className} bg-black`} />;
-
-  // Dual layout mode: blurred background with contained overlay (like remotion DualLayerBackground)
-  if (enableDualLayout && secondarySrc) {
-    return (
-      <div className={`relative ${className}`}>
-        {/* Blurred background layer using secondary source - covers entire area */}
-        <div className="absolute inset-0">
-          {isVideo(secondarySrc) ? (
-            <video
-              src={secondarySrc}
-              className="w-full h-full object-cover blur-md scale-110"
-              muted
-              loop
-              autoPlay
-              playsInline
-              preload="auto"
-              style={{ pointerEvents: 'none' }}
-            />
-          ) : (
-            <img
-              src={secondarySrc}
-              className="w-full h-full object-cover blur-md scale-110"
-              alt="Blurred background"
-              style={{ pointerEvents: 'none' }}
-            />
-          )}
-        </div>
-        
-        {/* Main content layer - contained and centered */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          {isVideo(src) ? (
-            <video
-              src={src}
-              className="max-w-full max-h-full object-contain"
-              muted
-              loop
-              autoPlay
-              playsInline
-              preload="auto"
-              style={{ 
-                pointerEvents: 'none',
-                filter: 'drop-shadow(0 10px 25px rgba(0, 0, 0, 0.3))'
-              }}
-            />
-          ) : (
-            <img
-              src={src}
-              className="max-w-full max-h-full object-contain"
-              alt="Main content"
-              style={{ 
-                pointerEvents: 'none',
-                filter: 'drop-shadow(0 10px 25px rgba(0, 0, 0, 0.3))'
-              }}
-            />
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Standard single layout
-  return (
-    <div className={`relative ${className}`}>
-      {/* Blurred background layer */}
-      <div className="absolute inset-0">
-        {isVideo(src) ? (
-          <video
-            src={src}
-            className="w-full h-full object-cover blur-sm scale-110"
-            muted
-            loop
-            autoPlay
-            playsInline
-            preload="auto"
-            style={{ pointerEvents: 'none' }}
-          />
-        ) : (
-          <img
-            src={src}
-            className="w-full h-full object-cover blur-sm scale-110"
-            alt="Blurred background"
-            style={{ pointerEvents: 'none' }}
-          />
-        )}
-      </div>
-      {/* Main content layer */}
-      <div className="relative w-full h-full">
-        {isVideo(src) ? (
-          <video
-            src={src}
-            className="w-full h-full object-cover drop-shadow-lg"
-            muted
-            loop
-            autoPlay
-            playsInline
-            preload="auto"
-            style={{ pointerEvents: 'none' }}
-          />
-        ) : (
-          <img
-            src={src}
-            className="w-full h-full object-cover drop-shadow-lg"
-            alt="Main content"
-            style={{ pointerEvents: 'none' }}
-          />
-        )}
-      </div>
-    </div>
-  );
-};
-
-// Internal ScenePreview component
-const ScenePreview: React.FC<{
-  layout: LayoutType;
-  asset?: string;
-  avatarSrc: string;
-  isActive: boolean;
-  enableDualLayout?: boolean;
-  secondaryAsset?: string;
-}> = ({ layout, asset, avatarSrc, isActive, enableDualLayout = false, secondaryAsset }) => {
-  const isVideo = (src: string) => {
-    if (!src) return false;
-    return src.toLowerCase().endsWith('.mp4') || src.toLowerCase().endsWith('.webm');
-  };
-
-  const getLayoutStyles = () => {
-    const baseContainer = "relative w-full h-full overflow-hidden rounded-lg bg-gray-900";
-    const avatarStyle = "absolute bottom-0 w-auto object-contain object-bottom";
-    
-    // Layout debug removed for production
-    
-    switch (layout) {
-      case 'fullscreen-avatar':
-        return {
-          container: baseContainer,
-          avatar: `${avatarStyle} h-full w-full`,
-          asset: "",
-          assetContainer: ""
-        };
-      
-      case 'fullscreen-asset':
-        return {
-          container: baseContainer,
-          avatar: "",
-          asset: "w-full h-full",
-          assetContainer: "w-full h-full"
-        };
-      
-      case 'cutout-left-over-asset':
-        return {
-          container: baseContainer,
-          avatar: `${avatarStyle} h-3/4 left-0`,
-          asset: "w-full h-full",
-          assetContainer: "absolute inset-0"
-        };
-      
-      case 'cutout-right-over-asset':
-        return {
-          container: baseContainer,
-          avatar: `${avatarStyle} h-3/4 right-0`,
-          asset: "w-full h-full",
-          assetContainer: "absolute inset-0"
-        };
-      
-      case 'cutout-center-over-asset':
-        return {
-          container: baseContainer,
-          avatar: `${avatarStyle} h-3/4 left-1/2 transform -translate-x-1/2`,
-          asset: "w-full h-full",
-          assetContainer: "absolute inset-0"
-        };
-      
-      case 'avatar-with-corner-asset':
-        return {
-          container: baseContainer,
-          avatar: `${avatarStyle} h-full w-full`,
-          asset: "w-full h-full object-cover",
-          assetContainer: "absolute bottom-3 left-3 w-1/2 aspect-square z-10 rounded-2xl overflow-hidden shadow-xl border-2 border-white/90"
-        };
-      
-      case 'split-screen-top-asset':
-        return {
-          container: baseContainer,
-          avatar: `${avatarStyle} h-auto w-full min-h-full z-5`,
-          asset: "w-full h-full",
-          assetContainer: "absolute top-0 left-0 w-full h-1/2 z-1 overflow-hidden"
-        };
-      
-      case 'buildup-collage':
-        return {
-          container: baseContainer,
-          avatar: `${avatarStyle} h-2/3 right-0`,
-          asset: "w-full h-full rounded-lg",
-          assetContainer: "absolute top-2 left-2 w-1/2 h-1/2"
-        };
-      
-      case 'small-cutout-bottom-left':
-        return {
-          container: baseContainer,
-          avatar: `absolute bottom-2 left-2 w-auto object-cover object-bottom h-1/3 z-10`,
-          asset: "w-full h-full",
-          assetContainer: "absolute inset-0 z-0"
-        };
-      
-      case 'small-cutout-bottom-right':
-        return {
-          container: baseContainer,
-          avatar: `absolute bottom-2 right-2 w-auto object-cover object-bottom h-1/3 z-10`,
-          asset: "w-full h-full",
-          assetContainer: "absolute inset-0 z-0"
-        };
-      
-      case 'small-cutout-center':
-        return {
-          container: baseContainer,
-          avatar: `absolute bottom-2 left-1/2 transform -translate-x-1/2 w-auto object-cover object-bottom h-1/3 z-10`,
-          asset: "w-full h-full",
-          assetContainer: "absolute inset-0 z-0"
-        };
-      
-      case 'small-cutout-bottom-right-no-padding':
-        return {
-          container: baseContainer,
-          avatar: `absolute bottom-0 right-0 w-auto object-cover object-bottom h-1/3 z-10`,
-          asset: "w-full h-full",
-          assetContainer: "absolute inset-0 z-0"
-        };
-      
-      case 'small-cutout-center-tilted-left':
-        return {
-          container: baseContainer,
-          avatar: `absolute bottom-1/4 left-1/2 transform -translate-x-1/2 rotate-12 w-auto object-cover object-center h-2/5 z-10`,
-          asset: "w-full h-full",
-          assetContainer: "absolute inset-0 z-0"
-        };
-      
-      case 'small-cutout-center-tilted-right':
-        return {
-          container: baseContainer,
-          avatar: `absolute bottom-1/4 left-1/2 transform -translate-x-1/2 -rotate-12 w-auto object-cover object-center h-2/5 z-10`,
-          asset: "w-full h-full",
-          assetContainer: "absolute inset-0 z-0"
-        };
-      
-      case 'small-cutout-top-left':
-        return {
-          container: baseContainer,
-          avatar: `absolute top-2 left-2 w-auto object-cover object-top h-1/3 z-10`,
-          asset: "w-full h-full",
-          assetContainer: "absolute inset-0 z-0"
-        };
-      
-      case 'small-cutout-top-right':
-        return {
-          container: baseContainer,
-          avatar: `absolute top-2 right-2 w-auto object-cover object-top h-1/3 z-10`,
-          asset: "w-full h-full",
-          assetContainer: "absolute inset-0 z-0"
-        };
-      
-      default:
-        return {
-          container: baseContainer,
-          avatar: `${avatarStyle} h-full w-full`,
-          asset: "",
-          assetContainer: ""
-        };
-    }
-  };
-
-  const styles = getLayoutStyles();
-
-  return (
-    <div className={`${styles.container} ${isActive ? 'ring-2 ring-orange-500' : ''}`}>
-      {/* Avatar Layer */}
-      {styles.avatar && (
-        <video
-          src={avatarSrc}
-          className={styles.avatar}
-          muted
-          loop
-          autoPlay
-          playsInline
-          preload="auto"
-          style={{ 
-            pointerEvents: 'none',
-            ...(layout === 'split-screen-top-asset' ? { bottom: '-200px' } : {})
-          }}
-        />
-      )}
-      
-      {/* Asset Layer */}
-      {asset && styles.assetContainer && (
-        <div className={styles.assetContainer}>
-          {layout === 'avatar-with-corner-asset' ? (
-            // Corner asset: Direct background without blurred layer
-            <div 
-              className={styles.asset}
-              style={{
-                backgroundImage: isVideo(asset) ? 'none' : `url(${asset})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat'
-              }}
-            >
-              {isVideo(asset) && (
-                <video
-                  src={asset}
-                  className="w-full h-full object-cover"
-                  muted
-                  loop
-                  autoPlay
-                  playsInline
-                  preload="auto"
-                  style={{ pointerEvents: 'none' }}
-                />
-              )}
-            </div>
-          ) : (
-            // Regular asset: Use dual layer background (avatar z-index handles split-screen clean cut)
-            <DualLayerBackgroundDiv 
-              src={asset} 
-              className={styles.asset}
-              enableDualLayout={enableDualLayout}
-              secondarySrc={secondaryAsset}
-            />
-          )}
-        </div>
-      )}
-      
-    </div>
-  );
-};
 
 export const TemplatePreviewWithSubtitles: React.FC<TemplatePreviewWithSubtitlesProps> = ({
   template,
@@ -427,7 +58,6 @@ export const TemplatePreviewWithSubtitles: React.FC<TemplatePreviewWithSubtitles
   oneWordAtATime = false,
   fontSize,
   currentPreviewFormat = '9:16',
-  // Advanced font customization
   fontWeight,
   outlineWidth,
   outlineColor,
@@ -439,359 +69,306 @@ export const TemplatePreviewWithSubtitles: React.FC<TemplatePreviewWithSubtitles
   textTransform,
   textColor,
   productVideoUrl,
+  backgroundMusicUrl,
 }) => {
-  const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
-  const [currentChunkIndex, setCurrentChunkIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [isHovered, setIsHovered] = useState(false);
+  const { adData, setAdData } = useAdCreation();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const musicRef = useRef<HTMLAudioElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [currentTime, setCurrentTime] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  
-  // NEW: Ref to measure the preview container
-  const previewRef = useRef<HTMLDivElement>(null);
-  // NEW: State to store the measured width. Initialize with a fallback.
-  const [actualPreviewWidth, setActualPreviewWidth] = useState(320);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [timelineScenes, setTimelineScenes] = useState<WeightedScene[]>(adData.modifiedTimeline || template.timeline);
 
-  // NEW: Effect to measure the preview container width
   useEffect(() => {
-    const observer = new ResizeObserver(entries => {
-      if (entries[0]) {
-        const width = entries[0].contentRect.width;
-        setActualPreviewWidth(width);
-      }
-    });
-
-    if (previewRef.current) {
-      observer.observe(previewRef.current);
+    // Always use the new template's timeline when template changes, 
+    // or use modifiedTimeline if it exists for this template
+    if (adData.modifiedTimeline && adData.templateId === template.id) {
+      setTimelineScenes(adData.modifiedTimeline);
+    } else {
+      setTimelineScenes(template.timeline);
     }
+  }, [template.timeline, template.id, adData.modifiedTimeline, adData.templateId]);
 
-    return () => {
-      if (previewRef.current) {
-        observer.unobserve(previewRef.current);
-      }
-    };
-  }, []); // Empty dependency array means this runs once on mount
+  const handleSceneUpdate = useCallback((scenes: WeightedScene[]) => {
+    setTimelineScenes(scenes);
+    setAdData({ modifiedTimeline: scenes });
+  }, [setAdData]);
 
-  // Handle loading state
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1000); // Give time for assets to load
+  const handleSeek = useCallback((time: number) => {
+    setCurrentTime(time);
+    if (videoRef.current) videoRef.current.currentTime = time;
+    if (audioRef.current) audioRef.current.currentTime = time;
+    if (musicRef.current) musicRef.current.currentTime = time;
+  }, []);
+
+  const handlePlayPause = useCallback(() => {
+    if (!videoRef.current) return;
     
+    // Check if video has ended, restart from beginning
+    if (videoRef.current.ended) {
+      videoRef.current.currentTime = 0;
+      if (audioRef.current) audioRef.current.currentTime = 0;
+      if (musicRef.current) musicRef.current.currentTime = 0;
+      setCurrentTime(0);
+    }
+    
+    if (isPlaying) {
+      videoRef.current.pause();
+      if (audioRef.current) audioRef.current.pause();
+      if (musicRef.current) musicRef.current.pause();
+    } else {
+      videoRef.current.play();
+      if (audioRef.current) audioRef.current.play();
+      if (musicRef.current) musicRef.current.play();
+    }
+    setIsPlaying(!isPlaying);
+  }, [isPlaying]);
+
+  const handleTimeUpdate = useCallback(() => {
+    if (videoRef.current) {
+      setCurrentTime(videoRef.current.currentTime);
+    }
+  }, []);
+
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 1000);
     return () => clearTimeout(timer);
   }, [template, assets]);
-  
-  // Get avatar source - use productVideoUrl if available, otherwise use standard avatar
-  const avatar = avatars.find(a => a.id === avatarId);
-  const avatarSrc = productVideoUrl || (avatar ? avatar.src : avatars[0].src);
-  
-  // Create dynamic subtitle style that matches Remotion component with overrides
-  const styleOverrides = {
-    fontSize: fontSize || subtitleStyle.fontSize,
-    fontWeight: fontWeight,
-    outlineWidth: outlineWidth,
-    outlineColor: outlineColor,
-    shadowOffsetX: shadowOffsetX,
-    shadowOffsetY: shadowOffsetY,
-    shadowBlur: shadowBlur,
-    shadowColor: shadowColor,
-    letterSpacing: letterSpacing,
-    textTransform: textTransform,
-    textColor: textColor,
-  };
-  
-  // Filter out undefined values
-  const cleanedOverrides = Object.fromEntries(
-    Object.entries(styleOverrides).filter(([_, value]) => value !== undefined)
-  );
-  
-  const dynamicSubtitleStyle = {
-    ...subtitleStyle,
-    ...cleanedOverrides,
-  };
-  
-  // CHANGED: Calculate scale dynamically based on measured width
-  const renderWidth = 1080; // The target render width in Remotion
-  const previewScale = actualPreviewWidth / renderWidth;
-  
-  const scaledFontSize = dynamicSubtitleStyle.fontSize * previewScale;
-  
-  const scriptChunks = script ? generateScriptChunks(
-    script, 
-    oneWordAtATime, 
-    scaledFontSize,
-    actualPreviewWidth, // Use the actual measured width
-    letterSpacing || 0,
-    4
-  ) : [];
-  
-  // Generate custom text shadow for outline effect if needed (scaled for preview)
-  let customTextShadow = dynamicSubtitleStyle.textShadow;
-  if (outlineWidth && outlineWidth > 0) {
-    const width = outlineWidth * previewScale;
-    const color = outlineColor || '#000000';
-    const outlineShadows = [];
-    
-    for (let x = -width; x <= width; x++) {
-      for (let y = -width; y <= width; y++) {
-        if (x !== 0 || y !== 0) {
-          outlineShadows.push(`${x}px ${y}px 0 ${color}`);
-        }
-      }
-    }
-    
-    if (shadowOffsetX !== undefined || shadowOffsetY !== undefined) {
-      const offsetX = (shadowOffsetX || 0) * previewScale;
-      const offsetY = (shadowOffsetY || 0) * previewScale;
-      const blur = (shadowBlur || 0) * previewScale;
-      const sColor = shadowColor || '#000000';
-      outlineShadows.push(`${offsetX}px ${offsetY}px ${blur}px ${sColor}`);
-    } else if (customTextShadow && customTextShadow !== 'none') {
-      outlineShadows.push(customTextShadow);
-    }
-    
-    customTextShadow = outlineShadows.join(', ');
-  } else if (shadowOffsetX !== undefined || shadowOffsetY !== undefined) {
-    const offsetX = (shadowOffsetX || 0) * previewScale;
-    const offsetY = (shadowOffsetY || 0) * previewScale;
-    const blur = (shadowBlur || 0) * previewScale;
-    const sColor = shadowColor || '#000000';
-    customTextShadow = `${offsetX}px ${offsetY}px ${blur}px ${sColor}`;
-  }
-  
-  // Auto-advance through scenes synchronized with audio
+
   useEffect(() => {
-    if (!isPlaying || isHovered) return;
-    
-    const totalWeight = template.timeline.reduce((sum, scene) => sum + scene.durationWeight, 0);
-    const currentScene = template.timeline[currentSceneIndex];
-    
-    let sceneDuration: number;
-    
-    if (wordTimings && wordTimings.length > 0 && audioDuration) {
-      const totalPreviewDuration = audioDuration * 1000;
-      sceneDuration = (currentScene.durationWeight / totalWeight) * totalPreviewDuration;
-      sceneDuration = Math.max(sceneDuration, 1000);
-    } else {
-      const totalPreviewDuration = audioDuration ? audioDuration * 1000 : 30000;
-      sceneDuration = (currentScene.durationWeight / totalWeight) * totalPreviewDuration;
-      sceneDuration = Math.max(sceneDuration, 2000);
+    if (typeof window !== 'undefined' && 'FontFace' in window) {
+      const fontFace = new FontFace('The Bold Font', 'url(/fonts/THEBOLDFONT-FREEVERSION.woff)');
+      fontFace.load().then(() => {
+        document.fonts.add(fontFace);
+      }).catch((err) => console.error("Custom font failed to load:", err));
     }
+  }, []);
+
+  const avatarSrc = useMemo(() => {
+    const avatar = avatars.find(a => a.id === avatarId);
+    let url = productVideoUrl || avatar?.src || avatars[0].src;
+    return url.replace('/api/serve-video/generated_videos/', '/avatars/');
+  }, [productVideoUrl, avatarId]);
+
+  const totalDurationInSeconds = audioDuration || 30;
+
+  const handleVideoEnded = useCallback(() => {
+    // Pause all media when video ends
+    if (videoRef.current) videoRef.current.pause();
+    if (audioRef.current) audioRef.current.pause();
+    if (musicRef.current) musicRef.current.pause();
     
-    const timer = setTimeout(() => {
-      setCurrentSceneIndex((prev) => (prev + 1) % template.timeline.length);
-    }, sceneDuration);
+    // Update play state
+    setIsPlaying(false);
     
-    return () => clearTimeout(timer);
-  }, [currentSceneIndex, isPlaying, isHovered, template.timeline, audioDuration, wordTimings]);
-  
-  // Auto-advance through subtitle chunks using word timings
-  useEffect(() => {
-    if (!isPlaying || isHovered || !enableSubtitles || scriptChunks.length === 0) return;
+    // Reset current time to end for proper timeline display
+    setCurrentTime(totalDurationInSeconds);
+  }, [totalDurationInSeconds]);
+
+  const { currentSubtitleText, subtitleFontSize } = useMemo(() => {
+    if (!wordTimings || wordTimings.length === 0 || !containerRef.current) {
+      return { currentSubtitleText: '', subtitleFontSize: 0 };
+    }
+
+    const mergedStyle = { ...subtitleStyle, fontSize, fontWeight, letterSpacing, textTransform, textColor };
+    const userFontSize = fontSize; // Get the user's selected font size
+    const baseFontSize = userFontSize || mergedStyle.fontSize || 50;
+    const containerWidth = containerRef.current.offsetWidth * 2; // Preview is ~0.5x scale, so we simulate the 1080px render canvas
+
+    const wordsPerLine = oneWordAtATime ? 1 : calculateOptimalWordsPerLine(
+        baseFontSize,
+        containerWidth,
+        96, 
+        mergedStyle.letterSpacing || 0
+    );
+
+    // Helper functions to match Remotion's logic
+    const isLongWord = (word: string) => word.replace(/[.,!?;:]/g, '').length > 15;
     
-    let chunkDuration: number;
-    
-    if (wordTimings && wordTimings.length > 0) {
-      if (oneWordAtATime) {
-        if (currentChunkIndex < wordTimings.length) {
-          const currentWord = wordTimings[currentChunkIndex];
-          chunkDuration = (currentWord.endTime - currentWord.startTime) * 1000;
-        } else {
-          chunkDuration = 500;
-        }
-      } else {
-        const wordsPerChunk = Math.ceil(wordTimings.length / scriptChunks.length);
-        const currentChunkStartIndex = currentChunkIndex * wordsPerChunk;
-        const nextChunkStartIndex = Math.min((currentChunkIndex + 1) * wordsPerChunk, wordTimings.length);
+    const lines: Array<{ text: string; startTime: number; endTime: number }> = [];
+    let currentLineWords: typeof wordTimings = [];
+    let i = 0;
+
+    while (i < wordTimings.length) {
+        const word = wordTimings[i];
         
-        if (currentChunkStartIndex < wordTimings.length && nextChunkStartIndex <= wordTimings.length) {
-          const currentChunkStartTime = wordTimings[currentChunkStartIndex].startTime;
-          const nextChunkStartTime = nextChunkStartIndex < wordTimings.length 
-            ? wordTimings[nextChunkStartIndex].startTime 
-            : wordTimings[wordTimings.length - 1].endTime;
-          
-          chunkDuration = (nextChunkStartTime - currentChunkStartTime) * 1000;
-        } else {
-          const totalPreviewDuration = audioDuration ? audioDuration * 1000 : 30000;
-          chunkDuration = totalPreviewDuration / scriptChunks.length;
+        // If current word is long and we already have words, finalize the current line
+        if (isLongWord(word.word) && currentLineWords.length > 0) {
+            lines.push({ 
+                text: currentLineWords.map(w => w.word).join(' '), 
+                startTime: currentLineWords[0].startTime, 
+                endTime: currentLineWords[currentLineWords.length - 1].endTime 
+            });
+            currentLineWords = [];
         }
-      }
+        
+        // If this is a long word, put it on its own line
+        if (isLongWord(word.word)) {
+            lines.push({ text: word.word, startTime: word.startTime, endTime: word.endTime });
+            i++;
+            continue;
+        }
+        
+        // Add word to current line - be more lenient with word limits (like Remotion)
+        if (currentLineWords.length < wordsPerLine + 2) { // Allow 2 extra words beyond optimal
+            currentLineWords.push(word);
+            i++;
+            
+            // Only break on sentence endings if we're at a reasonable length
+            if (word.word.match(/[.!?]$/) && i < wordTimings.length && currentLineWords.length >= wordsPerLine) {
+                const remaining = wordTimings.length - i;
+                // Be more lenient with remaining words - allow more to stay together
+                if (remaining <= 4 && currentLineWords.length + remaining <= wordsPerLine + 4) {
+                    while (i < wordTimings.length && !isLongWord(wordTimings[i].word)) {
+                        currentLineWords.push(wordTimings[i]);
+                        i++;
+                    }
+                }
+                // Only finalize if we have a good break point
+                if (currentLineWords.length >= wordsPerLine && currentLineWords.length > 0) {
+                    lines.push({ 
+                        text: currentLineWords.map(w => w.word).join(' '), 
+                        startTime: currentLineWords[0].startTime, 
+                        endTime: currentLineWords[currentLineWords.length - 1].endTime 
+                    });
+                    currentLineWords = [];
+                }
+            }
+        } else {
+            // We've reached the extended word limit, finalize current line
+            lines.push({ 
+                text: currentLineWords.map(w => w.word).join(' '), 
+                startTime: currentLineWords[0].startTime, 
+                endTime: currentLineWords[currentLineWords.length - 1].endTime 
+            });
+            currentLineWords = [word];
+            i++;
+        }
+    }
+    
+    // Add any remaining words as the final line
+    if (currentLineWords.length > 0) {
+        lines.push({ 
+            text: currentLineWords.map(w => w.word).join(' '), 
+            startTime: currentLineWords[0].startTime, 
+            endTime: currentLineWords[currentLineWords.length - 1].endTime 
+        });
+    }
+    
+    let textToShow = '';
+    if (oneWordAtATime) {
+      const currentWord = wordTimings.find(t => currentTime >= t.startTime && currentTime < t.endTime);
+      textToShow = currentWord ? currentWord.word : '';
     } else {
-      const totalPreviewDuration = audioDuration ? audioDuration * 1000 : 30000;
-      chunkDuration = totalPreviewDuration / scriptChunks.length;
+      const currentLine = lines.find(l => currentTime >= l.startTime && currentTime <= l.endTime);
+      textToShow = currentLine ? currentLine.text : '';
     }
-    
-    const timer = setTimeout(() => {
-      setCurrentChunkIndex((prev) => (prev + 1) % scriptChunks.length);
-    }, chunkDuration);
-    
-    return () => clearTimeout(timer);
-  }, [currentChunkIndex, isPlaying, isHovered, enableSubtitles, scriptChunks.length, audioDuration, wordTimings, oneWordAtATime]);
 
-  const currentScene = template.timeline[currentSceneIndex];
-  const sceneAsset = currentScene.assetIndices && currentScene.assetIndices[0] !== undefined 
-    ? assets[currentScene.assetIndices[0]] 
-    : undefined;
-  
-  // Determine if dual layout should be enabled based on multiple formats and available assets
-  const enableDualLayout = assets.length >= 2;
-  const secondaryAsset = enableDualLayout && currentScene.assetIndices && currentScene.assetIndices[1] !== undefined
-    ? assets[currentScene.assetIndices[1]]
-    : (enableDualLayout ? sceneAsset : undefined); // Use same asset as primary for blur background
+    if (!textToShow) return { currentSubtitleText: '', subtitleFontSize: 0 };
 
-  const getSubtitlePositionStyle = () => {
-    switch (subtitlePosition) {
-      case 'top':
-        return { top: '10%', left: '50%', transform: 'translateX(-50%)' };
-      case 'center':
-        return { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
-      case 'bottom':
-      default:
-        return { bottom: '15%', left: '50%', transform: 'translateX(-50%)' };
+    // Use user's font size with proper scaling for live preview, otherwise use smart sizing
+    let finalFontSize;
+    if (userFontSize) {
+      // Scale font size to match the visual proportion of live preview vs final render
+      // Live preview container is ~35% the effective size of final render for better visual match
+      finalFontSize = userFontSize * 0.35;
+    } else {
+      // Fall back to smart font sizing when no user size is set
+      const { fontSize: remotionFontSize } = fitText({
+        text: textToShow,
+        withinWidth: containerWidth * 0.9,
+        fontFamily: mergedStyle.font,
+        fontWeight: `${mergedStyle.fontWeight || 'normal'}`,
+        letterSpacing: `${mergedStyle.letterSpacing || 0}px`,
+      });
+      finalFontSize = remotionFontSize;
     }
-  };
 
-  const getSubtitleAnimation = () => {
-    switch (subtitleAnimation) {
-      case 'none':
-        return '';
-      case 'slide':
-        return 'animate-slide-up';
-      case 'bounce':
-        return 'animate-bounce-in';
-      case 'fade':
-      default:
-        return 'animate-fade-in';
+    return {
+      currentSubtitleText: textToShow,
+      subtitleFontSize: finalFontSize,
+    };
+  }, [currentTime, wordTimings, oneWordAtATime, subtitleStyle, fontSize, fontWeight, letterSpacing, textTransform, textColor, adData]);
+
+  const currentScene = useMemo(() => {
+    if (!timelineScenes || timelineScenes.length === 0) return null;
+    const totalWeight = timelineScenes.reduce((sum, scene) => sum + scene.durationWeight, 0);
+    let accumulatedTime = 0;
+    for (const scene of timelineScenes) {
+      const sceneDuration = (scene.durationWeight / totalWeight) * totalDurationInSeconds;
+      if (currentTime >= accumulatedTime && currentTime < accumulatedTime + sceneDuration) {
+        return { ...scene, asset: (scene.assetIndices?.[0] !== undefined) ? assets[scene.assetIndices[0]] : null };
+      }
+      accumulatedTime += sceneDuration;
     }
+    const lastScene = timelineScenes[timelineScenes.length - 1];
+    return { ...lastScene, asset: (lastScene.assetIndices?.[0] !== undefined) ? assets[lastScene.assetIndices[0]] : null };
+  }, [currentTime, timelineScenes, totalDurationInSeconds, assets]);
+
+  const getVideoPositioning = (layout: string) => { switch (layout) { case 'small-cutout-bottom-left': return 'absolute bottom-4 left-4 w-1/3 aspect-[9/16] object-cover'; case 'small-cutout-bottom-right': return 'absolute bottom-4 right-4 w-1/3 aspect-[9/16] object-cover'; case 'small-cutout-center': return 'absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1/3 aspect-[9/16] object-cover'; case 'small-cutout-top-left': return 'absolute top-4 left-4 w-1/3 aspect-[9/16] object-cover'; case 'small-cutout-top-right': return 'absolute top-4 right-4 w-1/3 aspect-[9/16] object-cover'; case 'small-cutout-bottom-right-no-padding': return 'absolute bottom-0 right-0 w-1/3 aspect-[9/16] object-cover'; case 'small-cutout-center-tilted-left': return 'absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 -rotate-12 w-1/2 aspect-[9/16] object-cover'; case 'small-cutout-center-tilted-right': return 'absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rotate-12 w-1/2 aspect-[9/16] object-cover'; case 'avatar-with-corner-asset': return 'absolute bottom-12 left-12 w-1/2 aspect-[9/16] object-cover'; case 'split-screen-top-asset': return 'absolute bottom-0 left-0 w-full h-full object-cover'; case 'fullscreen-asset': return 'w-full h-full object-cover blur-md opacity-60'; case 'fullscreen-avatar': default: return 'w-full h-full object-cover'; } };
+  const getVideoStyleOverrides = (layout: string): React.CSSProperties => { const baseStyles: React.CSSProperties = {}; if (layout.includes('small-cutout') && !layout.includes('avatar-with-corner-asset')) { baseStyles.position = 'absolute'; baseStyles.zIndex = 10; } else if (layout === 'split-screen-top-asset') { baseStyles.zIndex = 5; baseStyles.objectPosition = 'center top'; baseStyles.bottom = '-220px'; } return baseStyles; };
+  const getAnimationClass = () => { 
+    switch (subtitleAnimation) { 
+      case 'slide': return 'animate-slideInUp'; 
+      case 'bounce': return 'animate-bounceIn'; 
+      case 'typewriter': return 'animate-fadeIn'; // Typewriter uses fade for now
+      case 'fade': return 'animate-fadeIn';
+      case 'none': return ''; // No animation
+      default: return 'animate-fadeIn'; 
+    } 
   };
 
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* Main Preview with Subtitles */}
-      {/* CHANGED: Removed fixed width `w-80` and inline style, added `w-full` and the ref */}
-      <div 
-        ref={previewRef}
-        className={`${currentPreviewFormat === '4:5' ? 'aspect-[4/5]' : 'aspect-[9/16]'} w-full relative bg-gray-900 rounded-lg overflow-hidden mx-auto`}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-      >
-        {/* Loading indicator */}
-        {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-900 rounded-lg z-40">
-            <div className="text-white text-sm">
-              <div className="inline-block mr-2"><BarLoader size="sm" /></div>
-              Loading preview...
+      {/* Preload all videos to avoid black loading states */}
+      <VideoPreloader avatarSrc={avatarSrc} assets={assets} />
+      
+      <div ref={containerRef} className={`${currentPreviewFormat === '4:5' ? 'aspect-[4/5]' : 'aspect-[9/16]'} w-full relative bg-gray-900 rounded-lg overflow-hidden mx-auto`}>
+        {isLoading && <div className="absolute inset-0 flex items-center justify-center bg-gray-900 z-40"><BarLoader /></div>}
+        <div className="relative w-full h-full bg-black">
+          <video ref={videoRef} className={getVideoPositioning(currentScene?.layout || 'fullscreen-avatar')} style={getVideoStyleOverrides(currentScene?.layout || 'fullscreen-avatar')} muted playsInline preload="metadata" onTimeUpdate={handleTimeUpdate} onEnded={handleVideoEnded} onLoadedData={() => { if (videoRef.current) videoRef.current.currentTime = currentTime; }} src={avatarSrc} />
+          {audioUrl && <audio ref={audioRef} preload="auto" src={audioUrl} />}
+          {backgroundMusicUrl && <audio ref={musicRef} preload="auto" src={backgroundMusicUrl} loop onLoadedData={() => { if (musicRef.current) musicRef.current.volume = 0.12; }} />}
+          {currentScene && <SceneOverlay sceneLayout={currentScene.layout} asset={currentScene.asset} currentPreviewFormat={currentPreviewFormat} currentTime={currentTime} isPlaying={isPlaying} />}
+          {enableSubtitles && currentSubtitleText && (
+            <div key={currentSubtitleText} className={`absolute z-20 ${getAnimationClass()}`} style={{
+              bottom: subtitlePosition === 'bottom' ? '25%' : 'auto', 
+              top: subtitlePosition === 'top' ? '8%' : (subtitlePosition === 'center' ? '50%' : 'auto'),
+              left: '50%', 
+              transform: subtitlePosition === 'center' ? 'translate(-50%, -50%)' : 'translateX(-50%)', 
+              width: '90%',
+            }}>
+              <div
+                className="font-bold"
+                style={{
+                  fontFamily: subtitleStyle.font,
+                  fontSize: `${subtitleFontSize}px`,
+                  color: textColor || subtitleStyle.textColor,
+                  fontWeight: fontWeight || subtitleStyle.fontWeight,
+                  textShadow: shadowOffsetX !== undefined && shadowOffsetY !== undefined && shadowBlur !== undefined && shadowColor ? `${shadowOffsetX * 0.35}px ${shadowOffsetY * 0.35}px ${shadowBlur * 0.35}px ${shadowColor}` : subtitleStyle.textShadow,
+                  WebkitTextStroke: outlineWidth !== undefined ? `${outlineWidth * 0.35}px ${outlineColor}` : undefined,
+                  letterSpacing: letterSpacing ? `${letterSpacing * 0.35}px` : undefined,
+                  textTransform: textTransform || 'none',
+                  whiteSpace: 'nowrap',
+                  overflow: 'visible',
+                  textAlign: 'center',
+                }}
+              >
+                {useCapsLock ? currentSubtitleText.toUpperCase() : currentSubtitleText}
+              </div>
             </div>
-          </div>
-        )}
-        
-        {/* Template Preview */}
-        <ScenePreview
-          layout={currentScene.layout}
-          asset={sceneAsset}
-          avatarSrc={avatarSrc}
-          isActive={isPlaying && !isHovered}
-          enableDualLayout={enableDualLayout}
-          secondaryAsset={secondaryAsset}
-        />
-        
-        {/* Pause/Play Button */}
-        <div className="absolute top-4 right-4 z-30">
-          <button
-            onClick={() => setIsPlaying(!isPlaying)}
-            className="bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition-all duration-200 backdrop-blur-sm"
-            title={isPlaying ? 'Pause preview' : 'Play preview'}
-          >
-            {isPlaying ? (
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-              </svg>
-            ) : (
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            )}
+          )}
+        </div>
+        <div className="absolute bottom-4 right-4 z-30">
+          <button onClick={handlePlayPause} className="bg-orange-600 hover:bg-orange-700 text-white rounded-full p-3 shadow-lg">
+            {isPlaying ? <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg> : <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>}
           </button>
         </div>
-        
-        {/* Subtitle Overlay */}
-        {enableSubtitles && script && scriptChunks.length > 0 && (
-          <div
-            className="absolute z-10 pointer-events-none"
-            style={getSubtitlePositionStyle()}
-          >
-            <div
-              className={`px-4 py-2 rounded-lg text-center ${getSubtitleAnimation()}`}
-              style={{
-                background: dynamicSubtitleStyle.backgroundColor,
-                color: dynamicSubtitleStyle.textColor,
-                fontFamily: dynamicSubtitleStyle.font,
-                fontSize: `${scaledFontSize}px`,
-                fontWeight: dynamicSubtitleStyle.fontWeight,
-                borderRadius: `${dynamicSubtitleStyle.borderRadius * previewScale}px`,
-                textShadow: customTextShadow,
-                border: dynamicSubtitleStyle.border,
-                lineHeight: dynamicSubtitleStyle.lineHeight,
-                letterSpacing: letterSpacing ? `${letterSpacing * previewScale}px` : undefined,
-                textTransform: textTransform || 'none',
-                whiteSpace: 'nowrap' as const,
-              }}
-            >
-              {(useCapsLock || textTransform === 'uppercase') ? 
-                scriptChunks[currentChunkIndex]?.toUpperCase() : 
-                (textTransform === 'lowercase' ? 
-                  scriptChunks[currentChunkIndex]?.toLowerCase() : 
-                  (textTransform === 'capitalize' ? 
-                    scriptChunks[currentChunkIndex]?.replace(/\b\w/g, l => l.toUpperCase()) :
-                    scriptChunks[currentChunkIndex]
-                  )
-                )
-              }
-            </div>
-          </div>
-        )}
-
-        
-        {/* Audio player (hidden but functional) */}
-        {audioUrl && (
-          <audio
-            ref={(audio) => {
-              if (audio) {
-                if (isPlaying && audio.paused) {
-                  audio.play().catch(() => {});
-                } else if (!isPlaying && !audio.paused) {
-                  audio.pause();
-                }
-              }
-            }}
-            src={audioUrl}
-            loop={false}
-            muted={false}
-            style={{ display: 'none' }}
-            onPlay={() => setIsPlaying(true)}
-            onPause={() => setIsPlaying(false)}
-            onEnded={() => setIsPlaying(false)}
-          />
-        )}
       </div>
-
-      {/* Scene Timeline */}
-      <div className="flex gap-1">
-        {template.timeline.map((scene, index) => (
-          <div
-            key={index}
-            className={`h-2 rounded-full cursor-pointer transition-all duration-200 ${
-              index === currentSceneIndex 
-                ? 'bg-orange-500' 
-                : 'bg-gray-700 hover:bg-gray-600'
-            }`}
-            style={{ 
-              flex: scene.durationWeight,
-              minWidth: '8px'
-            }}
-            onClick={() => setCurrentSceneIndex(index)}
-          />
-        ))}
-      </div>
+      <DraggableTimeline scenes={timelineScenes} duration={totalDurationInSeconds} currentTime={currentTime} onSceneUpdate={handleSceneUpdate} onSeek={handleSeek} />
     </div>
   );
 };

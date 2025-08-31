@@ -95,6 +95,7 @@ export default function ImageFormat() {
   const { data: session, status } = useSession()
   const [selectedFormat, setSelectedFormat] = useState<string>('16:9')
   const [selectedTemplate, setSelectedTemplate] = useState<ImageTemplate | null>(null)
+  const [imageFilter, setImageFilter] = useState<'all' | 'product-focus' | 'avatar-holding'>('all')
   const [sceneDescription, setSceneDescription] = useState('')
   const [aiEnhanced, setAiEnhanced] = useState(false)
   const [enhancedDescription, setEnhancedDescription] = useState('')
@@ -149,12 +150,83 @@ export default function ImageFormat() {
     }
   }, [displayedTemplates.length, currentPage])
 
-  const loadInitialTemplates = () => {
-    const initialBatch = imageTemplates.slice(0, TEMPLATES_PER_PAGE)
+  // Filter templates based on selected filter
+  const getFilteredTemplates = useCallback(() => {
+    if (imageFilter === 'all') return imageTemplates
+    
+    return imageTemplates.filter(template => {
+      const filename = template.filename.toLowerCase()
+      const description = template.description.toLowerCase()
+      
+      if (imageFilter === 'avatar-holding') {
+        // Exclude specific product-only images
+        const excludedImages = [
+          'acandeloro_A_photo_of_a_luxurious_amber-colored_hand_cream_bott_97f6bf57-bb39-4631-9eb4-b9d0373a3bf9.png',
+          'chars_62968_a_tube_of_hand_cream_placed_on_a_rustic_wooden_tabl_fa105895-7f15-488d-a5fc-2e265da84c2b.png',
+          'matthewsnyman_3_floating_tall_drinks_in_cans_above_a_forest_gla_c87d5191-448c-48d7-af17-9a16a3e4e98f.png'
+        ]
+        
+        // Include specific avatar holding images
+        const includedImages = [
+          'mariremer_58706_A_mockup_of_an_all-white_care_bottle_with_no_la_265817dd-ed31-4465-90c9-10f7a0d7d0b9.png',
+          'ctdcmn1710_a_sleek_black_pump_bottle_of_mens_cleansing_mousse_l_586c2994-bb1f-4434-a563-a1ad120f6e19.png',
+          'joshvial9689_athletic_lower_body_only_legs_crossed_behind_formi_7da94935-847b-45e9-9849-84fb8af008f9.png',
+          'aiobe_1111_nathan_close_up_on_poster_mockup_of_a_hipster_guy_ho_b86a6a1c-834e-46f3-8bdd-b394c1e95c5a.png',
+          'midlabel_Product_photography_white_body_lotion_in_the_middle_of_ec9622d8-3d94-4401-aead-39480f655a33.png'
+        ]
+        
+        if (excludedImages.includes(template.filename)) {
+          return false
+        }
+        
+        if (includedImages.includes(template.filename)) {
+          return true
+        }
+        
+        return (
+          filename.includes('holding') || 
+          filename.includes('hand') ||
+          filename.includes('woman') ||
+          filename.includes('man') ||
+          filename.includes('person') ||
+          filename.includes('model') ||
+          filename.includes('upper body') ||
+          filename.includes('portrait') ||
+          description.includes('person showcasing') ||
+          description.includes('hand holding') ||
+          description.includes('woman') ||
+          description.includes('man') ||
+          description.includes('model')
+        )
+      } else if (imageFilter === 'product-focus') {
+        return !(
+          filename.includes('holding') || 
+          filename.includes('hand') ||
+          filename.includes('woman') ||
+          filename.includes('man') ||
+          filename.includes('person') ||
+          filename.includes('model') ||
+          filename.includes('upper body') ||
+          filename.includes('portrait') ||
+          description.includes('person showcasing') ||
+          description.includes('hand holding') ||
+          description.includes('woman') ||
+          description.includes('man') ||
+          description.includes('model')
+        )
+      }
+      
+      return true
+    })
+  }, [imageFilter])
+
+  const loadInitialTemplates = useCallback(() => {
+    const filteredTemplates = getFilteredTemplates()
+    const initialBatch = filteredTemplates.slice(0, TEMPLATES_PER_PAGE)
     setDisplayedTemplates(initialBatch)
     setCurrentPage(1)
-    setHasMoreTemplates(imageTemplates.length > TEMPLATES_PER_PAGE)
-  }
+    setHasMoreTemplates(filteredTemplates.length > TEMPLATES_PER_PAGE)
+  }, [getFilteredTemplates])
 
   const loadMoreTemplates = useCallback(() => {
     if (isLoadingMore || !hasMoreTemplates) return
@@ -162,21 +234,27 @@ export default function ImageFormat() {
     setIsLoadingMore(true)
 
     setTimeout(() => {
+      const filteredTemplates = getFilteredTemplates()
       const startIndex = currentPage * TEMPLATES_PER_PAGE
       const endIndex = startIndex + TEMPLATES_PER_PAGE
-      const newTemplates = imageTemplates.slice(startIndex, endIndex)
+      const newTemplates = filteredTemplates.slice(startIndex, endIndex)
 
       if (newTemplates.length === 0) {
         setHasMoreTemplates(false)
       } else {
         setDisplayedTemplates(prev => [...prev, ...newTemplates])
         setCurrentPage(prev => prev + 1)
-        setHasMoreTemplates(endIndex < imageTemplates.length)
+        setHasMoreTemplates(endIndex < filteredTemplates.length)
       }
 
       setIsLoadingMore(false)
     }, 300)
-  }, [currentPage, isLoadingMore, hasMoreTemplates])
+  }, [currentPage, isLoadingMore, hasMoreTemplates, getFilteredTemplates])
+
+  // Reset templates when filter changes
+  useEffect(() => {
+    loadInitialTemplates()
+  }, [imageFilter, loadInitialTemplates])
 
 
   useEffect(() => {
@@ -213,7 +291,8 @@ export default function ImageFormat() {
 
           const response = await axios.post('/api/ai/enhance-scene-description', {
             description,
-            templateImage: selectedTemplate ? `/image-inspo/${selectedTemplate.filename}` : undefined
+            templateImage: selectedTemplate ? `/image-inspo/${selectedTemplate.filename}` : undefined,
+            imageFilter: imageFilter
           })
 
           const enhanced = response.data.enhancedDescription
@@ -412,6 +491,40 @@ export default function ImageFormat() {
           <p className="text-gray-400">Choose a template, select format, and describe your scene</p>
         </div>
 
+        {/* Image Type Filter */}
+        <div className="bg-gray-900 border border-gray-800 rounded-[20px] p-6 mb-8">
+          <h2 className="text-xl font-semibold text-white mb-4">Filter Templates</h2>
+          <div>
+            <label className="block text-gray-300 font-normal mb-3">Image Type</label>
+            <div className="flex gap-2 flex-wrap">
+              <button
+                className={`px-4 py-2 rounded-xl text-sm font-normal border transition-colors ${
+                  imageFilter === 'product-focus'
+                    ? 'border-orange-500 text-orange-500'
+                    : 'hover:border-orange-500'
+                }`}
+                style={{ backgroundColor: '#111827' }}
+                onClick={() => setImageFilter(imageFilter === 'product-focus' ? 'all' : 'product-focus')}
+                type="button"
+              >
+                Product Focus
+              </button>
+              <button
+                className={`px-4 py-2 rounded-xl text-sm font-normal border transition-colors ${
+                  imageFilter === 'avatar-holding'
+                    ? 'border-orange-500 text-orange-500'
+                    : 'hover:border-orange-500'
+                }`}
+                style={{ backgroundColor: '#111827' }}
+                onClick={() => setImageFilter(imageFilter === 'avatar-holding' ? 'all' : 'avatar-holding')}
+                type="button"
+              >
+                Avatar Holding
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div className="mb-8">
           <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 gap-4 space-y-4">
             {templatesToShow.map((template) => (
@@ -471,7 +584,11 @@ export default function ImageFormat() {
               </button>
             ) : templatesToShow.length > 0 ? (
               <div className="text-gray-500 text-sm">
-                All templates loaded ({templatesToShow.length} total)
+                All {imageFilter === 'all' ? 'templates' : imageFilter === 'product-focus' ? 'product focus templates' : 'avatar holding templates'} loaded ({templatesToShow.length} total)
+              </div>
+            ) : imageFilter !== 'all' ? (
+              <div className="text-gray-500 text-sm">
+                No {imageFilter === 'product-focus' ? 'product focus' : 'avatar holding'} templates found
               </div>
             ) : null}
           </div>

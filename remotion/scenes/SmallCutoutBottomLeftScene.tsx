@@ -1,8 +1,9 @@
 // remotion/scenes/SmallCutoutBottomLeftScene.tsx
-import { AbsoluteFill, OffthreadVideo, useCurrentFrame, useVideoConfig, getInputProps } from 'remotion';
+import { AbsoluteFill, OffthreadVideo, useCurrentFrame, useVideoConfig } from 'remotion';
 import React from 'react';
 import { DualLayerBackground } from '../components/DualLayerBackground';
 import { COMPOSITION_FPS } from '../constants';
+import { safeGetInputProps } from '../utils/safeInputProps';
 
 
 export const SmallCutoutBottomLeftScene: React.FC<{
@@ -12,23 +13,13 @@ export const SmallCutoutBottomLeftScene: React.FC<{
 }> = ({ backgroundSrc, greenscreenSrc, avatarStartFrom = 0 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const inputProps = getInputProps();
+  const inputProps = safeGetInputProps();
   
+  // Simple avatar timing logic
+  const avatarFps = (inputProps as any)?.avatarFps || fps;
+  const videoStartFrame = Math.round(avatarStartFrom * avatarFps);
   
-  // Check if we're in preview mode
-  const isPreviewMode = (inputProps as any)?.adData?.previewMode === true;
-  
-  let videoStartFrame: number;
-  
-  if (isPreviewMode) {
-    // PREVIEW MODE: Use simpler logic without custom looping
-    // Just start from the beginning of the scene for preview
-    videoStartFrame = 0;
-  } else {
-    // FINAL RENDER: Use original timing logic for proper lip-sync
-    // Use the timeline position passed from Main.tsx for proper sync with processed avatar
-    videoStartFrame = Math.round(avatarStartFrom * COMPOSITION_FPS);
-  }
+  console.log('[SmallCutoutBottomLeftScene] StartFrom:', avatarStartFrom, 'AvatarFPS:', avatarFps, 'VideoStartFrame:', videoStartFrame);
 
   if (!backgroundSrc) {
     console.warn('[SmallCutoutBottomLeftScene] No backgroundSrc provided');
@@ -73,6 +64,7 @@ export const SmallCutoutBottomLeftScene: React.FC<{
             width: '100%',
             objectFit: 'cover',
             objectPosition: 'bottom',
+            transform: 'none'
           }}
           onError={(error) => {
             console.error('[SmallCutoutBottomLeftScene] OffthreadVideo error:', error);

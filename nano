@@ -1,0 +1,37 @@
+// /var/www/ageco.ai/server.js
+const { createServer } = require('http');
+const { parse } = require('url');
+const next = require('next');
+const express = require('express');
+const path = require('path');
+
+const dev = process.env.NODE_ENV !== 'production';
+const app = next({ dev });
+const handle = app.getRequestHandler();
+
+const port = process.env.PORT || 3000;
+
+app.prepare().then(() => {
+  const server = express();
+
+  // THIS IS THE CRITICAL FIX
+  // This tells Express to serve any files in the /public directory
+  // BEFORE letting Next.js try to handle the route.
+  // A request for /b-roll/video.mp4 will now be served directly from /public/b-roll/video.mp4
+  server.use(express.static(path.join(__dirname, 'public'), {
+    // Set cache headers for static assets
+    immutable: true,
+    maxAge: '1y'
+  }));
+  
+  // For all other requests, let Next.js handle them
+  server.all('*', (req, res) => {
+    const parsedUrl = parse(req.url, true);
+    return handle(req, res, parsedUrl);
+  });
+
+  server.listen(port, (err) => {
+    if (err) throw err;
+    console.log(`> Ready on http://localhost:${port}`);
+  });
+});
